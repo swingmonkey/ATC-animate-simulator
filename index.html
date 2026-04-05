@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>空管雷达动画模拟器</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <div id="main-content">
+            <div id="radar-container">
+                <canvas id="radar-canvas"></canvas>
+                <div id="distance-labels"></div>
+                <div id="progress-overlay">
+                    <div class="panel-section" id="progress-section-overlay">
+                        <h3 class="section-title">📋 进程单</h3>
+                        <div id="progress-list-overlay" class="progress-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="right-panel">
+                <div id="tool-palette">
+                    <div class="palette-section">
+                        <div class="palette-title">📍 航路点</div>
+                        <div id="draggable-points">
+                            <div class="draggable-item point-item" draggable="true" data-type="point" data-point-type="normal">
+                                <span class="dot normal"></span>
+                                <span>普通点</span>
+                            </div>
+                            <div class="draggable-item point-item" draggable="true" data-type="point" data-point-type="intersection">
+                                <span class="dot intersection"></span>
+                                <span>交叉点</span>
+                            </div>
+                            <div class="draggable-item point-item" draggable="true" data-type="point" data-point-type="vor">
+                                <span class="dot vor"></span>
+                                <span>VOR点</span>
+                            </div>
+                            <div class="draggable-item point-item" draggable="true" data-type="point" data-point-type="navaid">
+                                <span class="dot navaid"></span>
+                                <span>导航点</span>
+                            </div>
+                            <div class="draggable-item point-item" draggable="true" data-type="point" data-point-type="reporting">
+                                <span class="dot reporting"></span>
+                                <span>报告点</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="palette-section">
+                        <div class="palette-title">✈ 飞机</div>
+                        <div id="draggable-aircraft">
+                            <div class="draggable-item aircraft-item" draggable="true" data-type="aircraft">
+                                <svg viewBox="0 0 24 24" width="16" height="16"><polygon points="12,2 22,22 12,17 2,22" fill="#1a1a2e" stroke="#64748b" stroke-width="1"/></svg>
+                                <span>添加飞机</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section" id="route-points-section">
+                    <h3 class="section-title">📍 航路点</h3>
+                    <div class="panel-items" id="route-points-list"></div>
+                    <button id="add-point-btn" class="add-btn">+ 添加航路点</button>
+                    <button id="edit-point-btn" class="edit-btn" style="margin-top:4px;">✏ 编辑航路点</button>
+                </div>
+
+                <div class="panel-section" id="route-section">
+                    <h3 class="section-title">🔗 航线</h3>
+                    <div class="panel-items" id="route-list"></div>
+                    <button id="add-route-btn" class="route-btn">🔗 按序连接航路点</button>
+                </div>
+
+                <div class="panel-section" id="aircraft-section">
+                    <h3 class="section-title">✈ 飞机</h3>
+                    <div class="panel-items" id="aircraft-list"></div>
+                    <button id="add-aircraft-btn" class="add-btn">+ 添加飞机</button>
+                </div>
+
+                <div class="panel-section" id="progress-section">
+                    <h3 class="section-title">📋 进程单</h3>
+                    <div id="progress-list" class="progress-list"></div>
+                </div>
+
+                <div class="panel-section" id="comm-section">
+                    <h3 class="section-title">📻 陆空通话</h3>
+                    <div id="comm-messages" class="comm-messages"></div>
+                    <div style="display:flex;gap:4px;margin-top:6px;">
+                        <select id="comm-target" style="flex:0 0 90px;padding:4px 6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                            <option value="atc">管制员</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;gap:4px;margin-top:4px;">
+                        <input type="text" id="comm-input" placeholder="输入指令..." style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;color:#1e293b;">
+                        <button id="comm-send-btn" class="btn-primary" style="padding:5px 10px;font-size:11px;flex:0 0 50px;">发送</button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <button id="settings-btn" class="settings-btn">⚙ 默认参数设置</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="toolbar">
+            <div id="toolbar-left">
+                <div id="mode-indicator" class="mode-indicator">
+                    模式：选择
+                </div>
+                <div id="connection-hint" class="connection-hint hidden"></div>
+                <div id="play-indicator" class="play-indicator hidden">
+                    <span class="pulse"></span> 播放中 - 仅查看
+                </div>
+            </div>
+            <div id="toolbar-center">
+                <div id="time-control">
+                    <button id="play-pause-btn" class="tool-btn">▶ 播放</button>
+                    <span id="time-display">00:00:00</span>
+                    <input type="range" id="time-slider" min="0" max="2400" value="0" style="width:160px;">
+                    <select id="speed-select">
+                        <option value="1">1x</option>
+                        <option value="2">2x</option>
+                        <option value="5">5x</option>
+                        <option value="10">10x</option>
+                        <option value="60">60x</option>
+                    </select>
+                </div>
+            </div>
+            <div id="toolbar-right">
+                <button id="help-btn" class="tool-btn" title="帮助">❓ 帮助</button>
+                <button id="tool-delete" class="tool-btn danger" title="删除">🗑 删除</button>
+            </div>
+        </div>
+
+        <div id="help-dialog" class="dialog hidden">
+            <div class="dialog-header">
+                <h3>📖 工具使用说明</h3>
+                <button class="close-btn dialog-close">&times;</button>
+            </div>
+            <div class="dialog-body">
+                <h4 style="color:#2563eb;margin-bottom:8px;">基本操作</h4>
+                <ul style="margin-left:20px;margin-bottom:12px;">
+                    <li><strong>滚轮缩放</strong>：使用鼠标滚轮放大或缩小地图</li>
+                    <li><strong>移动地图</strong>：使用ASWD键或方向键移动地图</li>
+                    <li><strong>添加航路点</strong>：从左侧工具栏拖拽航路点到地图，或点击"+ 添加航路点"按钮</li>
+                    <li><strong>添加飞机</strong>：从左侧工具栏拖拽飞机到地图，或点击"+ 添加飞机"按钮</li>
+                </ul>
+                
+                <h4 style="color:#2563eb;margin-bottom:8px;">航线操作</h4>
+                <ul style="margin-left:20px;margin-bottom:12px;">
+                    <li><strong>创建航线</strong>：点击"🔗 按序连接航路点"按钮，然后依次点击地图上的航路点</li>
+                    <li><strong>编辑航线</strong>：双击航线或在右侧面板中选择航线</li>
+                </ul>
+                
+                <h4 style="color:#2563eb;margin-bottom:8px;">飞机操作</h4>
+                <ul style="margin-left:20px;margin-bottom:12px;">
+                    <li><strong>编辑飞机</strong>：双击飞机或在右侧面板中选择飞机</li>
+                    <li><strong>关联航线</strong>：将飞机拖拽到航线上，或在飞机编辑对话框中选择航线</li>
+                    <li><strong>设置导航模式</strong>：在飞机编辑对话框中选择导航模式（航线导航、自由导航、航向飞行）</li>
+                </ul>
+                
+                <h4 style="color:#2563eb;margin-bottom:8px;">时间控制</h4>
+                <ul style="margin-left:20px;margin-bottom:12px;">
+                    <li><strong>播放/暂停</strong>：点击▶/⏸ 按钮或按空格键</li>
+                    <li><strong>调整速度</strong>：使用速度下拉菜单选择播放速度</li>
+                    <li><strong>拖动进度条</strong>：直接拖动时间滑块到指定时间点</li>
+                </ul>
+                
+                <h4 style="color:#2563eb;margin-bottom:8px;">陆空通话</h4>
+                <ul style="margin-left:20px;">
+                    <li><strong>发送指令</strong>：在陆空通话区域输入指令并点击发送</li>
+                    <li><strong>选择目标</strong>：从下拉菜单选择发送对象（管制员广播或特定飞机）</li>
+                </ul>
+            </div>
+        </div>
+
+
+
+        <div id="point-edit-dialog" class="dialog hidden">
+            <div class="dialog-header">
+                <h3>✏ 编辑航路点</h3>
+                <button class="close-btn dialog-close">&times;</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label>航路点名称:</label>
+                    <input type="text" id="point-name" placeholder="如：SASAN">
+                </div>
+                <div class="form-group">
+                    <label>类型:</label>
+                    <select id="point-type" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;">
+                        <option value="normal">普通航路点</option>
+                        <option value="intersection">交叉点</option>
+                        <option value="vor">VOR导航点</option>
+                        <option value="navaid">导航辅助点</option>
+                        <option value="reporting">报告点</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>位置: X=<span id="point-x-display">0</span>, Y=<span id="point-y-display">0</span></label>
+                    <p style="font-size:10px;color:#94a3b8;margin-top:2px;">（拖动航路点可调整位置）</p>
+                </div>
+                <div class="dialog-actions">
+                    <button id="delete-point-btn" class="btn-danger" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:8px 16px;border-radius:6px;cursor:pointer;margin-right:auto;">删除</button>
+                    <button id="save-point" class="btn-primary">保存</button>
+                    <button class="btn-secondary dialog-close">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="route-edit-dialog" class="dialog hidden">
+            <div class="dialog-header">
+                <h3>✏ 编辑航线</h3>
+                <button class="close-btn dialog-close">&times;</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label>航线名称:</label>
+                    <input type="text" id="route-name" placeholder="如：A1-A2-A3">
+                </div>
+                <div class="form-group">
+                    <label>航路点顺序:</label>
+                    <input type="text" id="route-points-display" placeholder="点击屏幕上的航路点按顺序连接" style="font-size:11px;" readonly>
+                </div>
+                <div class="form-group">
+                    <label>颜色:</label>
+                    <input type="color" id="route-color" value="#2563eb">
+                </div>
+                <div class="dialog-actions">
+                    <button id="delete-route-btn" class="btn-danger" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:8px 16px;border-radius:6px;cursor:pointer;margin-right:auto;">删除</button>
+                    <button id="save-route" class="btn-primary">保存</button>
+                    <button class="btn-secondary dialog-close">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="aircraft-edit-dialog" class="dialog hidden">
+            <div class="dialog-header">
+                <h3>✈ 编辑飞机</h3>
+                <button class="close-btn dialog-close">&times;</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>航班号:</label>
+                        <input type="text" id="ac-flight-no" placeholder="CA1234">
+                    </div>
+                    <div class="form-group">
+                        <label>应答机:</label>
+                        <input type="text" id="ac-squawk" placeholder="1234" maxlength="4">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>起飞地:</label>
+                        <select id="ac-departure">
+                            <option value="">选择机场</option>
+                            <option value="ZBAA">ZBAA - 北京首都</option>
+                            <option value="ZSPD">ZSPD - 上海浦东</option>
+                            <option value="ZSSS">ZSSS - 上海虹桥</option>
+                            <option value="ZGSZ">ZGSZ - 深圳宝安</option>
+                            <option value="ZGGG">ZGGG - 广州白云</option>
+                            <option value="ZYTB">ZYTB - 成都双流</option>
+                            <option value="ZUUU">ZUUU - 成都天府</option>
+                            <option value="ZSNB">ZSNB - 杭州萧山</option>
+                            <option value="ZSNJ">ZSNJ - 南京禄口</option>
+                            <option value="ZLXY">ZLXY - 西安咸阳</option>
+                            <option value="ZBJS">ZBJS - 郑州新郑</option>
+                            <option value="ZSHC">ZSHC - 青岛胶州</option>
+                            <option value="ZBTJ">ZBTJ - 天津滨海</option>
+                            <option value="ZBSG">ZBSG - 桂林两江</option>
+                            <option value="ZJSA">ZJSA - 三亚凤凰</option>
+                            <option value="ZUUU">ZUUU - 昆明长水</option>
+                            <option value="ZSNB">ZSNB - 宁波栎社</option>
+                            <option value="ZSCN">ZSCN - 南昌昌北</option>
+                            <option value="ZSLG">ZSLG - 温州龙湾</option>
+                            <option value="ZSOF">ZSOF - 合肥新桥</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>目的地:</label>
+                        <select id="ac-destination">
+                            <option value="">选择机场</option>
+                            <option value="ZBAA">ZBAA - 北京首都</option>
+                            <option value="ZSPD">ZSPD - 上海浦东</option>
+                            <option value="ZSSS">ZSSS - 上海虹桥</option>
+                            <option value="ZGSZ">ZGSZ - 深圳宝安</option>
+                            <option value="ZGGG">ZGGG - 广州白云</option>
+                            <option value="ZYTB">ZYTB - 成都双流</option>
+                            <option value="ZUUU">ZUUU - 成都天府</option>
+                            <option value="ZSNB">ZSNB - 杭州萧山</option>
+                            <option value="ZSNJ">ZSNJ - 南京禄口</option>
+                            <option value="ZLXY">ZLXY - 西安咸阳</option>
+                            <option value="ZBJS">ZBJS - 郑州新郑</option>
+                            <option value="ZSHC">ZSHC - 青岛胶州</option>
+                            <option value="ZBTJ">ZBTJ - 天津滨海</option>
+                            <option value="ZBSG">ZBSG - 桂林两江</option>
+                            <option value="ZJSA">ZJSA - 三亚凤凰</option>
+                            <option value="ZUUU">ZUUU - 昆明长水</option>
+                            <option value="ZSNB">ZSNB - 宁波栎社</option>
+                            <option value="ZSCN">ZSCN - 南昌昌北</option>
+                            <option value="ZSLG">ZSLG - 温州龙湾</option>
+                            <option value="ZSOF">ZSOF - 合肥新桥</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>机型:</label>
+                        <select id="ac-type">
+                            <option value="B738">B738 - 波音737-800</option>
+                            <option value="B737">B737 - 波音737</option>
+                            <option value="B777">B777 - 波音777</option>
+                            <option value="B787">B787 - 波音787</option>
+                            <option value="A320">A320 - 空客A320</option>
+                            <option value="A321">A321 - 空客A321</option>
+                            <option value="A330">A330 - 空客A330</option>
+                            <option value="A350">A350 - 空客A350</option>
+                            <option value="A380">A380 - 空客A380</option>
+                            <option value="E190">E190 - 巴航E190</option>
+                            <option value="E195">E195 - 巴航E195</option>
+                            <option value="CRJ900">CRJ900 - 庞巴迪CRJ900</option>
+                            <option value="ARJ21">ARJ21 - 国产支线</option>
+                            <option value="C919">C919 - 国产大飞机</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>高度层 (m):</label>
+                        <select id="ac-altitude">
+                            <option value="900">900m - 3000ft</option>
+                            <option value="1500">1500m - 5000ft</option>
+                            <option value="2100">2100m - 7000ft</option>
+                            <option value="2700">2700m - 9000ft</option>
+                            <option value="3300">3300m - 11000ft</option>
+                            <option value="3900">3900m - 13000ft</option>
+                            <option value="4500">4500m - 15000ft</option>
+                            <option value="5100">5100m - 17000ft</option>
+                            <option value="5700">5700m - 19000ft</option>
+                            <option value="6300">6300m - 21000ft</option>
+                            <option value="6900">6900m - 23000ft</option>
+                            <option value="7500">7500m - 25000ft</option>
+                            <option value="8100">8100m - 27000ft</option>
+                            <option value="8900">8900m - 29100ft</option>
+                            <option value="9200">9200m - 30100ft</option>
+                            <option value="9600">9600m - 31500ft</option>
+                            <option value="10100">10100m - 33100ft</option>
+                            <option value="10600" selected>10600m - 34800ft</option>
+                            <option value="11000">11000m - 36100ft</option>
+                            <option value="11600">11600m - 38100ft</option>
+                            <option value="12000">12000m - 39400ft</option>
+                            <option value="12500">12500m - 41100ft</option>
+                            <option value="13100">13100m - 43000ft</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>速度 (kt):</label>
+                        <input type="number" id="ac-speed" placeholder="480">
+                    </div>
+                    <div class="form-group">
+                        <label>航向 (°):</label>
+                        <input type="number" id="ac-heading" placeholder="90">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>出现时间:</label>
+                        <div id="ac-start-time-display" style="padding:8px 12px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:6px;font-size:13px;font-weight:bold;">00:00:00</div>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:10px;color:#94a3b8;">(飞机在此时间后才会显示)</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>导航模式:</label>
+                    <select id="ac-nav-mode" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;">
+                        <option value="route">航线导航（沿航路点飞行）</option>
+                        <option value="free">自由导航（直飞目标点）</option>
+                        <option value="heading">航向飞行（按固定航向飞行）</option>
+                    </select>
+                </div>
+                <div class="form-group" id="free-nav-group" style="display:none;">
+                    <label>目标点设置:</label>
+                    <div style="display:flex;gap:6px;margin-bottom:6px;">
+                        <button id="select-target-btn" type="button" style="flex:1;padding:6px 10px;background:#e0f2fe;border:1px solid #7dd3fc;color:#0369a1;border-radius:5px;cursor:pointer;font-size:11px;">🎯 点击地图选目标</button>
+                        <button id="input-target-coords-btn" type="button" style="flex:1;padding:6px 10px;background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:5px;cursor:pointer;font-size:11px;">📝 输入坐标</button>
+                    </div>
+                    <div id="target-coords-input" style="display:none;margin-top:6px;">
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <label style="font-size:11px;white-space:nowrap;">X:</label>
+                            <input type="number" id="target-x" placeholder="0" style="flex:1;padding:4px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;width:70px;">
+                            <label style="font-size:11px;white-space:nowrap;">Y:</label>
+                            <input type="number" id="target-y" placeholder="0" style="flex:1;padding:4px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;width:70px;">
+                            <button id="confirm-target-btn" type="button" style="padding:4px 8px;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">确认</button>
+                        </div>
+                    </div>
+                    <div id="target-info" style="margin-top:6px;font-size:11px;color:#64748b;"></div>
+                </div>
+                <div class="form-group">
+                    <label>关联航线:</label>
+                    <select id="ac-route">
+                        <option value="">无（自由飞行）</option>
+                    </select>
+                </div>
+                <div class="form-group" id="waypoint-select-group" style="display:none;">
+                    <label>航线飞行:</label>
+                    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                        <label style="font-size:11px;color:#64748b;white-space:nowrap;">下一航路点:</label>
+                        <select id="ac-next-waypoint" style="flex:1;padding:6px 10px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:5px;font-size:12px;">
+                            <option value="">-- 选择 --</option>
+                        </select>
+                    </div>
+                    <div style="margin-top:8px;padding:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:5px;">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#0369a1;">
+                            <input type="checkbox" id="ac-ask-next-waypoint" style="width:14px;height:14px;">
+                            <span>到达目标点后询问下一航路点</span>
+                        </label>
+                    </div>
+                    <div id="waypoint-info" style="margin-top:4px;"></div>
+                    <div id="route-path-preview" style="margin-top:6px;font-size:11px;color:#64748b;"></div>
+                </div>
+                <div class="dialog-actions">
+                    <button id="delete-aircraft-btn" class="btn-danger" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:8px 16px;border-radius:6px;cursor:pointer;margin-right:auto;">删除</button>
+                    <button id="save-aircraft" class="btn-primary">保存</button>
+                    <button class="btn-secondary dialog-close">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="next-waypoint-dialog" class="dialog hidden">
+            <div class="dialog-header">
+                <h3>🧭 选择下一航路点</h3>
+                <button class="close-btn dialog-close">&times;</button>
+            </div>
+            <div class="dialog-body">
+                <div class="form-group">
+                    <label>当前到达:</label>
+                    <div id="current-waypoint-name" style="font-size:16px;font-weight:bold;color:#2563eb;margin-top:4px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>选择下一航路点:</label>
+                    <select id="next-waypoint-select" style="width:100%;padding:10px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;margin-top:6px;">
+                        <option value="">-- 请选择 --</option>
+                    </select>
+                </div>
+                <div id="next-waypoint-preview" style="margin-top:10px;font-size:12px;color:#64748b;"></div>
+                <div class="dialog-actions" style="margin-top:16px;">
+                    <button id="confirm-next-waypoint" class="btn-primary">确认</button>
+                    <button class="btn-secondary dialog-close">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="settings-dialog" class="dialog hidden">
+            <div class="dialog-header">
+                <h3>⚙ 默认参数设置</h3>
+                <button class="close-btn dialog-close">&times;</button>
+            </div>
+            <div class="dialog-body">
+                <h4 style="margin-bottom:8px;color:#2563eb;">飞机默认值</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>默认高度 (m):</label>
+                        <select id="def-altitude">
+                            <option value="900">900m</option>
+                            <option value="1500">1500m</option>
+                            <option value="2100">2100m</option>
+                            <option value="2700">2700m</option>
+                            <option value="3300">3300m</option>
+                            <option value="3900">3900m</option>
+                            <option value="4500">4500m</option>
+                            <option value="5100">5100m</option>
+                            <option value="5700">5700m</option>
+                            <option value="6300">6300m</option>
+                            <option value="6900">6900m</option>
+                            <option value="7500">7500m</option>
+                            <option value="8100">8100m</option>
+                            <option value="8900">8900m</option>
+                            <option value="9200">9200m</option>
+                            <option value="9600">9600m</option>
+                            <option value="10100">10100m</option>
+                            <option value="10600" selected>10600m</option>
+                            <option value="11000">11000m</option>
+                            <option value="11600">11600m</option>
+                            <option value="12000">12000m</option>
+                            <option value="12500">12500m</option>
+                            <option value="13100">13100m</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>默认速度 (kt):</label>
+                        <input type="number" id="def-speed" value="480">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>默认机型:</label>
+                        <select id="def-ac-type">
+                            <option value="B738">B738 - 波音737-800</option>
+                            <option value="B737">B737 - 波音737</option>
+                            <option value="B777">B777 - 波音777</option>
+                            <option value="B787">B787 - 波音787</option>
+                            <option value="A320">A320 - 空客A320</option>
+                            <option value="A321">A321 - 空客A321</option>
+                            <option value="A330">A330 - 空客A330</option>
+                            <option value="A350">A350 - 空客A350</option>
+                            <option value="A380">A380 - 空客A380</option>
+                            <option value="E190">E190 - 巴航E190</option>
+                            <option value="E195">E195 - 巴航E195</option>
+                            <option value="CRJ900">CRJ900 - 庞巴迪CRJ900</option>
+                            <option value="ARJ21">ARJ21 - 国产支线</option>
+                            <option value="C919">C919 - 国产大飞机</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>默认应答机:</label>
+                        <input type="text" id="def-squawk" value="2000">
+                    </div>
+                </div>
+                <h4 style="margin:12px 0 8px;color:#2563eb;">显示设置</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>网格间距 (km):</label>
+                        <input type="number" id="def-grid-spacing" value="50" min="10" max="200">
+                    </div>
+                    <div class="form-group">
+                        <label>最小间隔 (km):</label>
+                        <input type="number" id="min-separation-nm" value="15" min="3" max="100">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>时间轴长度 (分钟):</label>
+                    <input type="number" id="time-max-mins" value="40" min="5" max="300">
+                </div>
+                <div class="dialog-actions">
+                    <button id="save-settings" class="btn-primary">保存设置</button>
+                    <button class="btn-secondary dialog-close">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
