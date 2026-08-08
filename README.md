@@ -47,9 +47,9 @@
 
 ## 技术实现
 
-- **前端框架**：纯HTML5 + CSS3 + JavaScript
+- **前端框架**：纯 HTML5 + CSS3 + JavaScript（ES 模块）
 - **画布绘制**：Canvas API
-- **数据存储**：浏览器内存
+- **数据存储**：浏览器 localStorage（场景持久化）+ 内存
 - **响应式设计**：适配不同屏幕尺寸
 
 ## 快速开始
@@ -122,12 +122,21 @@
 
 ```
 ATC-animate-simulator/
-├── index.html          # 主页面
+├── index.html          # 主页面（模块入口 js/main.js）
 ├── styles.css          # 样式文件
-├── app.js              # 主要逻辑
+├── js/
+│   ├── main.js         # 入口：初始化、动画循环、恢复持久化场景
+│   ├── core.js         # 共享状态、坐标工具、localStorage 持久化
+│   ├── simulation.js   # 飞机运动模拟、几何与冲突检测
+│   ├── render.js       # 雷达画布渲染
+│   ├── ui.js           # 对话框、面板、进程单与通讯 UI
+│   └── interactions.js # 键盘/鼠标/拖放事件绑定
 ├── README.md           # 项目说明
 └── 其他资源文件
 ```
+
+> 场景数据（航路点/航线/飞机/默认参数）自动保存到浏览器 localStorage，刷新页面不丢失；
+> 需要清空时在浏览器控制台执行 `localStorage.removeItem('atc_simulator_state_v1')`。
 
 ## 浏览器兼容性
 
