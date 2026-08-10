@@ -96,6 +96,24 @@
                     </div>
                 </div>
 
+                <div class="panel-section" id="scenario-section">
+                    <h3 class="section-title">🌩 场景与天气</h3>
+                    <div style="display:flex;gap:4px;margin-bottom:6px;">
+                        <select id="scenario-focus" style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                            <option value="ZUUU">成都天府 (ZUUU)</option>
+                            <option value="ZBAA">北京首都 (ZBAA)</option>
+                            <option value="ZGGG">广州白云 (ZGGG)</option>
+                            <option value="ZSPD">上海浦东 (ZSPD)</option>
+                            <option value="ZLXY">西安咸阳 (ZLXY)</option>
+                        </select>
+                    </div>
+                    <button id="generate-scenario-btn" class="add-btn" style="width:100%;">🎲 生成随机场景</button>
+                    <div style="display:flex;gap:4px;margin-top:6px;">
+                        <button id="weather-toggle-btn" class="route-btn" style="flex:1;">🌤 开启天气</button>
+                        <button id="weather-regen-btn" class="edit-btn" style="flex:1;">🔄 重生成</button>
+                    </div>
+                </div>
+
                 <div class="panel-section">
                     <button id="settings-btn" class="settings-btn">⚙ 默认参数设置</button>
                 </div>
@@ -170,6 +188,20 @@
                 <ul style="margin-left:20px;">
                     <li><strong>发送指令</strong>：在陆空通话区域输入指令并点击发送</li>
                     <li><strong>选择目标</strong>：从下拉菜单选择发送对象（管制员广播或特定飞机）</li>
+                </ul>
+                
+                <h4 style="color:#2563eb;margin-bottom:8px;">场景与天气</h4>
+                <ul style="margin-left:20px;margin-bottom:12px;">
+                    <li><strong>生成随机场景</strong>：选焦点机场后一键生成进港/离港航班与航线（自动下降/爬升）</li>
+                    <li><strong>天气图层</strong>：开启后叠加 Perlin 噪声风暴场，可在播放中观察飞机穿越危险天气</li>
+                </ul>
+                
+                <h4 style="color:#2563eb;margin-bottom:8px;">管制指令（文本）</h4>
+                <ul style="margin-left:20px;">
+                    <li><strong>高度</strong>：如「CCA1234 上升 600」「CSN4567 高度 9000」</li>
+                    <li><strong>航向</strong>：如「左转 30」「航向 270」</li>
+                    <li><strong>速度</strong>：如「加速」「速度 300」</li>
+                    <li><strong>直飞</strong>：如「CCA1234 直飞 SASAN」（需存在同名航路点）</li>
                 </ul>
             </div>
         </div>

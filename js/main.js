@@ -1,52 +1,54 @@
 /**
- * main.js — 应用入口
- * 初始化画布、恢复持久化场景、启动动画循环。
+ * main.js — 应用入口（固定步长动画循环 + 启动引导）
  */
 
 import {
-    state,
-    lastTime,
-    resizeCanvas,
-    setLastTime,
-    loadState,
+    state, resizeCanvas, loadState
 } from './core.js';
 import {
-    updateAircraftPositionsForTime,
-    updateTrails,
-} from './simulation.js';
-import { drawRadar } from './render.js';
+    updateAircraftPositionsForTime, updateTrails
+} from './simulation/index.js';
+import { drawRadar } from './render/index.js';
 import {
-    updateEditModeUI,
-    updateTimeDisplay,
-    updateProgressList,
-    updateCommTargetSelect,
-    addComm,
-    updateModeIndicator,
-    updatePointPanelList,
-    updateRoutePanelList,
-    updateAircraftPanelList,
-} from './ui.js';
-import './interactions.js';
+    updateEditModeUI, updateTimeDisplay, updateProgressList,
+    updateCommTargetSelect, addComm, updateModeIndicator,
+    updatePointPanelList, updateRoutePanelList, updateAircraftPanelList
+} from './ui/index.js';
+import './interaction/index.js';
+
+const FIXED_DT = 1 / 60; // 逻辑步长（秒）
+let accumulator = 0;
+let _lastTime = performance.now();
 
 function animate(currentTime) {
-    const dt = (currentTime - lastTime) / 1000;
-    setLastTime(currentTime);
+    const frameDt = Math.min(0.1, (currentTime - _lastTime) / 1000);
+    _lastTime = currentTime;
+
     if (state.isPlaying) {
-        state.time += dt * state.timeSpeed;
-        if (state.time > state.defaults.timeMax) state.time = 0;
-        updateTimeDisplay();
-        updateAircraftPositionsForTime(state.time);
-        updateTrails(dt);
-        updateProgressList();
+        accumulator += frameDt * state.timeSpeed;
+        let stepped = false;
+        while (accumulator >= FIXED_DT) {
+            state.time += FIXED_DT;
+            accumulator -= FIXED_DT;
+            if (state.time > state.defaults.timeMax) { state.time = 0; accumulator = 0; }
+            updateAircraftPositionsForTime(state.time);
+            updateTrails(FIXED_DT);
+            stepped = true;
+        }
+        if (stepped) {
+            updateTimeDisplay();
+            updateProgressList();
+        }
     }
     drawRadar();
     requestAnimationFrame(animate);
 }
 
+/* ---------------- 启动引导 ---------------- */
+
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
-// 恢复上次保存的场景（航路点/航线/飞机/设置）
 if (loadState()) {
     updatePointPanelList();
     updateRoutePanelList();
@@ -57,8 +59,9 @@ if (loadState()) {
 updateModeIndicator();
 updateTimeDisplay();
 updateEditModeUI();
-addComm('atc', '空管雷达模拟器已启动');
+addComm('atc', '空管雷达模拟器已启动（五层架构版）');
 addComm('atc', '滚轮缩放地图 | ASWD或方向键移动 | 点击播放开始模拟');
 addComm('atc', '场景数据自动保存在浏览器本地（localStorage）');
+addComm('atc', '工具栏可生成场景 / 开启天气图层 / 输入管制指令');
 
 requestAnimationFrame(animate);

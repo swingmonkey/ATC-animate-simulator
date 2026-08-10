@@ -1,0 +1,148 @@
+/**
+ * generators/flightGenerator.js — 航班/航迹生成器（生成层）
+ * 移植参考项目 flight_generator：按机场枢纽数据自动生成进港/离港航班，
+ * 自动创建 STAR/SID 航线，并使用约束模型模拟下降/爬升。
+ */
+
+import { state } from '../core.js';
+import {
+    getAirport, distantAirport, airportName, AIRPORTS
+} from '../data/airports.js';
+import {
+    airlineForHub, makeCallsign, randomFlightNumber
+} from '../data/airlines.js';
+import {
+    getAircraft, defaultSpeed, defaultAltitude, randomType
+} from '../data/aircraft.js';
+import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/motion.js';
+
+let _id = Date.now();
+function genId() { return _id++; }
+
+/** 在 a、b 之间插值生成 n 个中间点（带轻微横向偏移，更像航路） */
+function interpolatePoints(a, b, n) {
+    const pts = [];
+    for (let i = 1; i <= n; i++) {
+        const t = i / (n + 1);
+        const x = a.x + (b.x - a.x) * t + (Math.random() - 0.5) * 40;
+        const y = a.y + (b.y - a.y) * t + (Math.random() - 0.5) * 40;
+        pts.push({ id: genId(), name: `W${genId() % 9000 + 1000}`, x: Math.round(x), y: Math.round(y), type: 'normal' });
+    }
+    return pts;
+}
+
+function makeRoute(fromPt, toPt, nWaypoints = 2) {
+    const mids = interpolatePoints(fromPt, toPt, nWaypoints);
+    const points = [fromPt, ...mids, toPt];
+    const route = {
+        id: genId(),
+        name: `航线${state.routes.length + 1}`,
+        points,
+        color: `hsl(${Math.floor(Math.random() * 360)}, 65%, 55%)`
+    };
+    state.routePoints.push(...points);
+    state.routes.push(route);
+    return route;
+}
+
+/** 生成一架进港航班（从外站飞向焦点机场，模拟下降） */
+export function createArrival(focusCode = 'ZUUU', startTime = 0) {
+    const focus = getAirport(focusCode) || { name: focusCode, x: 0, y: 0 };
+    const focusPt = { id: genId(), name: focusCode, x: focus.x, y: focus.y, type: 'navaid' };
+    const originCode = distantAirport(focusCode);
+    const origin = getAirport(originCode);
+    const originPt = { id: genId(), name: originCode, x: origin.x, y: origin.y, type: 'navaid' };
+
+    const acType = randomType();
+    const def = getAircraft(acType);
+    const airline = airlineForHub(originCode);
+    const route = makeRoute(originPt, focusPt, 2);
+
+    const ac = {
+        id: genId(),
+        x: originPt.x, y: originPt.y,
+        displayX: originPt.x, displayY: originPt.y,
+        flightNo: makeCallsign(airline, randomFlightNumber()),
+        squawk: String(Math.floor(Math.random() * 7000) + 2000),
+        departure: originCode,
+        destination: focusCode,
+        acType,
+        altitude: def.cruiseAlt,
+        speed: def.cruiseSpeed,
+        heading: 90,
+        routeId: route.id,
+        routeDistance: 0,
+        navMode: 'route',
+        nextWaypointIdx: 1,
+        startTime,
+        trail: [],
+        labelOffsetX: 18, labelOffsetY: -14
+    };
+    state.aircraft.push(ac);
+    // 进港过程：下降并减速
+    setAltitudeConstraint(ac, 3600, 0);
+    setSpeedConstraint(ac, 250, 0);
+    return ac;
+}
+
+/** 生成一架离港航班（从焦点机场飞向外站，模拟爬升） */
+export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
+    const focus = getAirport(focusCode) || { name: focusCode, x: 0, y: 0 };
+    const focusPt = { id: genId(), name: focusCode, x: focus.x, y: focus.y, type: 'navaid' };
+    const destCode = distantAirport(focusCode);
+    const dest = getAirport(destCode);
+    const destPt = { id: genId(), name: destCode, x: dest.x, y: dest.y, type: 'navaid' };
+
+    const acType = randomType();
+    const def = getAircraft(acType);
+    const airline = airlineForHub(focusCode);
+    const route = makeRoute(focusPt, destPt, 2);
+
+    const ac = {
+        id: genId(),
+        x: focusPt.x, y: focusPt.y,
+        displayX: focusPt.x, displayY: focusPt.y,
+        flightNo: makeCallsign(airline, randomFlightNumber()),
+        squawk: String(Math.floor(Math.random() * 7000) + 2000),
+        departure: focusCode,
+        destination: destCode,
+        acType,
+        altitude: 900,            // 起始低高度
+        speed: 220,
+        heading: 90,
+        routeId: route.id,
+        routeDistance: 0,
+        navMode: 'route',
+        nextWaypointIdx: 1,
+        startTime,
+        trail: [],
+        labelOffsetX: 18, labelOffsetY: -14
+    };
+    state.aircraft.push(ac);
+    // 离港过程：爬升并加速到巡航
+    setAltitudeConstraint(ac, def.cruiseAlt, 0);
+    setSpeedConstraint(ac, def.cruiseSpeed, 0);
+    return ac;
+}
+
+/**
+ * 生成一整套场景：若干进港 + 离港，可选焦点机场。
+ * 直接写入全局 state，返回统计信息。
+ */
+export function generateScenario(focusCode = 'ZUUU', arrivals = 4, departures = 3) {
+    const before = state.aircraft.length;
+    const tMax = state.defaults.timeMax;
+    for (let i = 0; i < arrivals; i++) {
+        createArrival(focusCode, Math.floor(Math.random() * tMax * 0.25));
+    }
+    for (let i = 0; i < departures; i++) {
+        createDeparture(focusCode, Math.floor(Math.random() * tMax * 0.25));
+    }
+    return {
+        focus: airportName(focusCode),
+        added: state.aircraft.length - before,
+        arrivals, departures
+    };
+}
+
+export { AIRPORTS };

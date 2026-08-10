@@ -1,6 +1,7 @@
 /**
- * core.js — 共享状态、画布与坐标工具
- * 所有模块共享的 state 单例、视图参数与基础几何函数。
+ * core.js — 内核（Kernel）
+ * 所有层共享的 state 单例、画布与坐标工具、localStorage 持久化。
+ * 不依赖任何业务层，是依赖图的叶子。
  */
 
 export const canvas = document.getElementById('radar-canvas');
@@ -50,6 +51,7 @@ export function resizeCanvas() {
     centerY = canvasHeight / 2;
 }
 
+/** 全局场景状态（单一数据源） */
 export const state = {
     routePoints: [],
     routes: [],
@@ -78,7 +80,10 @@ export const state = {
     targetSelectMode: null,
     tempTargetPoint: null,
     pendingNextWaypointSelection: null,
-    isPausedForWaypointSelection: false
+    isPausedForWaypointSelection: false,
+    // 天气层开关（新增）
+    weatherEnabled: false,
+    storm: null
 };
 
 state.defaults = {
@@ -116,7 +121,7 @@ export function getCanvasCoords(e) {
 
 /* ---------------- localStorage 持久化 ---------------- */
 
-const STORAGE_KEY = 'atc_simulator_state_v1';
+const STORAGE_KEY = 'atc_simulator_state_v2';
 
 export function saveState() {
     try {
@@ -137,8 +142,13 @@ export function saveState() {
 export function loadState() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return false;
-        const data = JSON.parse(raw);
+        if (!raw) {
+            // 兼容旧版本存储键
+            const legacy = localStorage.getItem('atc_simulator_state_v1');
+            if (legacy) localStorage.setItem(STORAGE_KEY, legacy);
+            else return false;
+        }
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
         if (data.routePoints) state.routePoints = data.routePoints;
         if (data.routes) state.routes = data.routes;
         if (data.aircraft) state.aircraft = data.aircraft;
