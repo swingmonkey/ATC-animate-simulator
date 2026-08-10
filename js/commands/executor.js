@@ -48,10 +48,10 @@ export function executeCommand(text) {
                     setAltitudeConstraint(ac, act.value);
                     break;
                 case 'climb':
-                    setAltitudeConstraint(ac, Math.min(15000, curAlt(ac) + act.value));
+                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.min(15000, curAlt(ac) + act.value));
                     break;
                 case 'descend':
-                    setAltitudeConstraint(ac, Math.max(3000, curAlt(ac) - act.value));
+                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.max(3000, curAlt(ac) - act.value));
                     break;
                 case 'hdg':
                     ac.navMode = 'heading';
@@ -76,6 +76,23 @@ export function executeCommand(text) {
                     break;
                 case 'slowDown':
                     setSpeedConstraint(ac, Math.max(200, curSpd(ac) - act.value));
+                    break;
+                case 'expedite':
+                    setSpeedConstraint(ac, Math.min(600, curSpd(ac) + 50));
+                    break;
+                case 'level':
+                    setAltitudeConstraint(ac, curAlt(ac));
+                    break;
+                case 'hold':
+                    ac.navMode = 'heading';
+                    ac.routeId = null;
+                    setHeadingConstraint(ac, curHdg(ac));
+                    break;
+                case 'goaround':
+                    setAltitudeConstraint(ac, Math.min(15000, curAlt(ac) + 1500));
+                    ac.navMode = 'heading';
+                    ac.routeId = null;
+                    setHeadingConstraint(ac, curHdg(ac));
                     break;
                 case 'direct': {
                     const wp = findWaypointByName(act.value);

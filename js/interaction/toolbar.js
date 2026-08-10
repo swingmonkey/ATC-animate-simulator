@@ -15,7 +15,7 @@ import {
     updateCommTargetSelect, openAircraftDialog, updateNavModeUI,
     updateTargetInfo, updateWaypointInfo, updateWaypointSelectOptions,
     updateRoutePathPreview, showNextWaypointDialog, updateNextWaypointPreview,
-    togglePlayPause, sendComm, addComm
+    updateTimeDisplay, togglePlayPause, sendComm, addComm
 } from '../ui/index.js';
 import { addPoint, addAircraft } from './factory.js';
 import { generateScenario } from '../generators/flightGenerator.js';

@@ -6,7 +6,7 @@
 import {
     ctx, canvasWidth, canvasHeight, centerX, centerY, viewOffsetX, viewOffsetY, viewScale
 } from '../core.js';
-import { drawMapBackground, drawGrid, drawWeather } from './background.js';
+import { drawMapBackground, drawGrid, drawWeather, drawWeatherLegend } from './background.js';
 import {
     drawRouteSegments, drawRoutePoints, drawConnections, drawConnectionPreview,
     drawDistanceLines, drawMeasuringPreview
@@ -39,6 +39,7 @@ export function drawRadar() {
     drawConnectionPreview();
 
     ctx.restore();
+    drawWeatherLegend();
 }
 
 export function drawModeIndicator() {}
