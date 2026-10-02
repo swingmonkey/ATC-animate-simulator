@@ -1,0 +1,13 @@
+# 编辑器 / 操作系统残留
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Office 临时锁文件（Word/Excel 打开文档时生成，文件名以 ~$ 开头）
+~$*
+
+# 依赖与构建产物
+node_modules/
+dist/
+build/
+*.log
