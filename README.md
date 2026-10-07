@@ -172,8 +172,8 @@ npm run build:win
 ### 校验与冒烟测试
 
 ```bash
-npm run check    # 静态校验 45 个模块、345 条具名导入的导入/导出一致性
-npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，44 项断言
+npm run check    # 静态校验 45 个模块、349 条具名导入的导入/导出一致性
+npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，45 项断言
 ```
 
 ## 使用指南
@@ -245,7 +245,7 @@ npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关�
 | 9 | 通话面板按席位着色（`[塔台]`/`[进近]`/`[区调]`） | `ui/commPanel.js` |
 | 10 | 生成场景后自动聚焦焦点机场；离港航班改为「待放行 → 放行后爬升」，让席位流程在时间轴上可见 | `interaction/toolbar.js`、`generators/flightGenerator.js` |
 | 11 | 应用图标（雷达屏主题，多尺寸 ICO）+ 窗口图标 + 网页 favicon | `tools/make-icon.py`、`build/icon.ico`、`desktop/main.js`、`index.html` |
-| 12 | 冒烟测试扩充到 44 项：席位边界/许可/移交/过滤/自动流程 | `desktop/main.js` |
+| 12 | 冒烟测试扩充到 45 项：席位边界/许可/移交/过滤/自动流程/图标随包 | `desktop/main.js` |
 
 > 跑道与频率为**示意数据**（真实机场的简化近似），仅用于模拟演示，不作为飞行依据。
 > 席位范围的 km 值与地图世界坐标的换算采用固定比例（`pxToKmFixed` / `kmToPxFixed`），
