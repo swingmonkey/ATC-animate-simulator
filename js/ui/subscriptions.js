@@ -18,7 +18,9 @@ import {
     updateTimeDisplay, updateProgressList, updateCommTargetSelect
 } from './indicators.js';
 import { appendCommMessage } from './commPanel.js';
+import { updateConsole } from './console.js';
 import { updateSeatPanel } from './seatPanel.js';
+import { updateSessionPanel } from './sessionPanel.js';
 import { showNextWaypointDialog } from './dialogs.js';
 
 /**
@@ -35,10 +37,11 @@ export function initSubscriptions() {
         saveState();
     });
 
-    /* 选中变更：模式指示 + 进程单高亮 */
+    /* 选中变更：模式指示 + 进程单高亮 + 指令台（按选中机重建推荐用语） */
     bus.on(EV.SELECTION_CHANGED, () => {
         updateModeIndicator();
         updateProgressList(true);
+        updateConsole(true);
     });
 
     /* 播放/暂停：按钮文字 + 编辑态禁用 + 指示器；暂停时关闭全部对话框 */
@@ -52,17 +55,34 @@ export function initSubscriptions() {
         }
     });
 
-    /* 通话消息追加 */
+    /* 通话消息追加（指令台的读数/复诵也随之刷新，节流） */
     bus.on(EV.COMM_ADDED, appendCommMessage);
+    bus.on(EV.COMM_ADDED, () => updateConsole());
 
-    /* 管制席位变更（移交/许可/落地/席位过滤/自动开关）：席位面板 + 进程单 */
+    /* 管制席位变更（移交/许可/落地/复诵/席位过滤/自动开关）：席位面板 + 进程单 + 指令台 */
     bus.on(EV.UNIT_CHANGED, () => {
         updateSeatPanel();
         updateProgressList(true);
+        updateConsole(true);
     });
+
+    /* 飞行阶段变化：指令台的合法指令集合随之变化（灰显项刷新） */
+    bus.on(EV.PHASE_CHANGED, () => updateConsole(true));
 
     /* 到达目标航路点：暂停播放并弹出下一航路点选择框 */
     bus.on(EV.WAYPOINT_ARRIVED, ({ ac, idx }) => showNextWaypointDialog(ac, idx));
+
+    /* 班次玩法：班次开始/结束/分数变化 → 班次面板（HUD 由 render/index.js 每帧绘制） */
+    bus.on(EV.SESSION_STARTED, () => {
+        updateSessionPanel();
+        updateSeatPanel();
+        updateProgressList(true);
+    });
+    bus.on(EV.SESSION_ENDED, () => {
+        updateSessionPanel();
+        updateProgressList(true);
+    });
+    bus.on(EV.SCORE_CHANGED, () => updateSessionPanel());
 }
 
 /**
@@ -75,6 +95,8 @@ export function refreshAll() {
     updateCommTargetSelect();
     updateProgressList(true);
     updateSeatPanel();
+    updateSessionPanel();
+    updateConsole(true);
     updateModeIndicator();
     updatePlayButton();
     updateEditModeUI();

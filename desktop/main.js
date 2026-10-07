@@ -320,6 +320,304 @@ const SCRIPT_AUTO_VERIFY = `(async () => {
     return out;
 })()`;
 
+/** 阶段五：班次玩法（装载关卡 + 导演无限流量 + 评分 + HUD + 时间轴锁定） */
+const SCRIPT_GAME = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const out = {};
+    document.getElementById('session-start-btn').click();
+    const dir = A.game.director();
+    out.gameStarted = A.game.active() === true;
+    out.gameScenarioId = dir.scenarioId;
+    out.gameAirport = dir.airport;
+    out.gameEntrypoints = dir.entrypoints;
+    out.gameAirlines = dir.airlines;
+    out.gameTimeline = dir.timeline;
+    out.clearedSandboxTraffic = st.aircraft.every(ac => ac.spawnedBy === 'director');
+
+    /* 班次内实时不可回溯：拖动时间轴应被拦截 */
+    const beforeTime = Math.round(st.time);
+    const slider = document.getElementById('time-slider');
+    slider.value = '900';
+    slider.dispatchEvent(new Event('input'));
+    out.timeLocked = Math.round(st.time) === beforeTime;
+
+    /* [configurations] 分数门槛：进度 5 → 仅 02L；进度 6 → 02L + 02R（反向端见 config2） */
+    out.planAt5 = A.game.runwayPlan(5).land.join('/');
+    out.planAt6 = A.game.runwayPlan(6).land.join('/');
+
+    /* [areaN] 最低高度区：机场中心处于 2000ft/10NM 与 3500ft/20NM 两区重叠内 → 取更高者 1067m */
+    const ap = A.airports.get('ZUUU');
+    const mva = A.mva.limitAt(ap.x, ap.y);
+    out.mvaLimitM = mva ? Math.round(mva.limitM) : 0;
+
+    const speed = document.getElementById('speed-select');
+    speed.value = '60';
+    speed.dispatchEvent(new Event('change'));
+    return out;
+})()`;
+
+/** 阶段六：关闭自动许可并把一架进港航班压到最低高度区以下（确定性触发 MVA 记分） */
+const SCRIPT_GAME_MVA = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const out = {};
+    const autoBox = document.getElementById('auto-clearance-toggle');
+    autoBox.checked = false;
+    autoBox.dispatchEvent(new Event('change'));
+    out.autoClearanceOff = st.autoClearance === false;
+    out.gameLandedBefore = st.aircraft.filter(ac => ac.landed).length;
+
+    const arr = st.aircraft.find(ac => ac.flow === 'arrival' && !ac.landed && ac.spawnedBy === 'director');
+    out.mvaTargetFound = !!arr;
+    if (arr) {
+        arr.approachType = null;
+        arr.clearance = null;
+        const input = document.getElementById('comm-input');
+        input.value = arr.flightNo + ' 下降 600';
+        document.getElementById('comm-send-btn').click();
+        out.mvaTargetAlt = arr.altCon;
+        out.mvaTargetCallsign = arr.flightNo;
+    }
+    return out;
+})()`;
+
+/** 阶段七：校核导演/评分/HUD/结算，并结束班次 */
+const SCRIPT_GAME_VERIFY = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const dir = A.game.director();
+    const sc = A.game.scoring();
+    const hud = A.game.hud();
+    const out = {
+        gameSimTime: Math.round(st.time),
+        gameCursor: dir.cursor,
+        gameTimelineDone: dir.timelineDone === true,
+        gameSpawnedArrival: dir.spawned.arrival,
+        gameSpawnedDeparture: dir.spawned.departure,
+        gameTotalSpawned: dir.totalSpawned,
+        gameDirectorAircraft: st.aircraft.filter(ac => ac.spawnedBy === 'director').length,
+        gameRunwayAssigned: st.aircraft.filter(ac => ac.spawnedBy === 'director').every(ac => !!ac.runway),
+        gameRunwayLand: sc.runway.land.join('/'),
+        gameProgress: sc.progress,
+        gameScore: sc.score,
+        gameGrade: sc.grade,
+        gameMvaCount: sc.counts.mva,
+        gameLanded: sc.landed,
+        gameScoreEvents: A.game.timeline(50).length,
+        hudSessionActive: hud.sessionActive === true,
+        hudTimeText: hud.timeText,
+        hudScore: hud.score,
+        hudGrade: hud.grade,
+        hudRunwayLand: (hud.runwayLand || []).join('/'),
+        hudPanelRows: document.querySelectorAll('#session-hud .session-row').length,
+        sceneTextBanner: dir.banner ? dir.banner.text : '',
+        sceneEventTypes: A.game.director().events.map(e => e.type).join(',')
+    };
+    document.getElementById('session-end-btn').click();
+    const r = A.game.result();
+    out.resultScore = r ? r.score : -1;
+    out.resultGrade = r ? r.grade : '';
+    out.resultObjectives = r ? r.objectives.total : -1;
+    out.resultObjectivePassed = r ? r.objectives.passed : -1;
+    out.resultTimeline = r ? r.timeline.length : -1;
+    out.resultReason = r ? r.reason : '';
+    out.sessionEnded = A.game.active() === false;
+    const box = document.getElementById('session-result');
+    out.resultPanelVisible = !!box && !box.classList.contains('hidden');
+    out.resultHasObjectives = !!box && box.querySelectorAll('.result-objectives li').length === 5;
+    return out;
+})()`;
+
+/** 阶段八：无位置文件时的自由流量班次（8 向入口 + 枢纽航司表 + 机场跑道回退） */
+const SCRIPT_GAME_DEFAULT = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    st.location = null;                       // 清除位置文件：验证开箱即用的自由流量班次
+    const diff = document.getElementById('session-difficulty');
+    diff.value = 'arcade';
+    diff.dispatchEvent(new Event('change'));
+    document.getElementById('session-start-btn').click();
+    const dir = A.game.director();
+    const sc = A.game.scoring();
+    return {
+        defaultSessionActive: A.game.active() === true,
+        defaultScenarioId: dir.scenarioId,
+        defaultEntrypoints: dir.entrypoints,
+        defaultAirlines: dir.airlines,
+        defaultTimeline: dir.timeline,
+        defaultDifficulty: dir.difficulty,
+        defaultRunwayLand: sc.runway.land.join('/'),
+        defaultRunwayStart: sc.runway.start.join('/')
+    };
+})()`;
+
+/** 阶段九：校核自由流量班次的注入与结算 */
+const SCRIPT_GAME_DEFAULT_VERIFY = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const dir = A.game.director();
+    const out = {
+        defaultSimTime: Math.round(st.time),
+        defaultSpawned: dir.totalSpawned,
+        defaultSpawnedArrival: dir.spawned.arrival,
+        defaultSpawnedDeparture: dir.spawned.departure,
+        defaultRunwayAssigned: st.aircraft.filter(ac => ac.spawnedBy === 'director').every(ac => !!ac.runway),
+        defaultMvaSilent: A.game.scoring().counts.mva === 0
+    };
+    document.getElementById('session-end-btn').click();
+    const r = A.game.result();
+    out.defaultResultGrade = r ? r.grade : '';
+    out.defaultResultObjectives = r ? r.objectives.total : -1;
+    out.defaultSessionEnded = A.game.active() === false;
+    return out;
+})()`;
+
+/** 阶段十：内置关卡包（清单 / 选择 / 装载 L2） */
+const SCRIPT_CONSOLE_LEVEL = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const out = {};
+    const levels = A.scenarios.list();
+    out.levelCount = levels.length;
+    out.levelIds = levels.map(l => l.id).join(',');
+    out.levelObjectives = levels.map(l => l.objectives).join(',');
+    out.levelEvents = levels.map(l => l.events).join(',');
+
+    const sel = document.getElementById('session-scenario');
+    sel.value = 'l2-departure-rush';
+    sel.dispatchEvent(new Event('change'));
+    out.difficultyLockedForLevel = document.getElementById('session-difficulty').disabled === true;
+    out.panelShowsBrief = document.getElementById('session-hud').textContent.indexOf('L2') >= 0;
+
+    document.getElementById('session-start-btn').click();
+    const dir = A.game.director();
+    const meta = A.session() ? A.session().meta : null;
+    out.l2Active = A.game.active() === true;
+    out.l2ScenarioId = dir.scenarioId;
+    out.l2Difficulty = dir.difficulty;
+    out.l2Events = dir.timeline;
+    out.l2Objectives = meta ? meta.objectives.length : -1;
+    out.l2ReadbackRate = A.readback.rate();
+    out.l2PlanAt0 = A.game.runwayPlan(0).land.join('/');
+    out.l2PlanAt5 = A.game.runwayPlan(5).land.join('/');
+    return out;
+})()`;
+
+/** 阶段十一：指令台 2.0（推荐用语 / 灰显 / 一键下发）+ 复诵（错诵与纠正） */
+const SCRIPT_CONSOLE_DOM = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const out = {};
+    const dep = st.aircraft.find(ac => ac.flow === 'departure') || st.aircraft[0];
+    out.depFound = !!dep;
+    if (!dep) return out;
+
+    const items = Array.prototype.slice.call(document.querySelectorAll('#progress-list .progress-item'));
+    const hit = items.find(el => el.dataset.flightNo === dep.flightNo);
+    if (hit) hit.click();
+    out.selectedIsAircraft = !!(st.selectedItem && st.selectedItem.type === 'aircraft');
+    A.console.update(true);
+
+    const buttons = Array.prototype.slice.call(document.querySelectorAll('#console-templates .console-btn'));
+    out.consoleButtons = buttons.length;
+    out.consoleGroups = document.querySelectorAll('#console-templates .console-group').length;
+    out.consoleTargetText = document.getElementById('console-target').textContent.trim().slice(0, 60);
+    const landBtn = buttons.find(b => b.textContent.indexOf('可以落地') >= 0);
+    out.landBtnDisabled = !!landBtn && landBtn.disabled === true;
+    out.landBtnHint = landBtn ? landBtn.title : '';
+    const toBtn = buttons.find(b => b.textContent.indexOf('可以起飞') >= 0);
+    out.takeoffBtnEnabled = !!toBtn && toBtn.disabled === false;
+    const before = document.querySelectorAll('#comm-messages .comm-msg').length;
+    if (toBtn) toBtn.click();
+    out.templateCommsAdded = document.querySelectorAll('#comm-messages .comm-msg').length - before;
+    out.templateApplied = dep.clearance === 'takeoff';
+
+    /* 复诵：强制漏项 → 「要求复诵」纠正 → 再造一次不纠正 */
+    const input = document.getElementById('comm-input');
+    st.defaults.readbackErrorRate = 1;
+    input.value = dep.flightNo + ' 高度 1200';
+    document.getElementById('comm-send-btn').click();
+    out.pendingAfterForce = A.readback.pending(dep) === true;
+    out.missing = dep.readback ? dep.readback.missing : '';
+    out.readbackText = A.readback.text(dep);
+    out.altConAfterCmd = dep.altCon;
+    A.console.update(true);
+    out.warnShown = document.getElementById('console-readback').className.indexOf('console-readback-warn') >= 0;
+    out.reissueBtnVisible = document.getElementById('console-reissue-btn').classList.contains('hidden') === false;
+
+    st.defaults.readbackErrorRate = 0;
+    document.getElementById('console-reissue-btn').click();
+    out.resolvedAfterReissue = A.readback.pending(dep) === false;
+    out.lastReadbackCorrect = dep.readback.correct === true;
+    out.readbackCountAfterCorrect = A.game.scoring().counts.readback;
+
+    st.defaults.readbackErrorRate = 1;
+    input.value = dep.flightNo + ' 高度 1800';
+    document.getElementById('comm-send-btn').click();
+    out.uncorrectedPending = A.readback.pending(dep) === true;
+
+    /* 第一批（CCAR-93TM-R6 §118）：复诵清单分级 + 加权错诵抽取 */
+    const crit = A.readback.critical || {};
+    out.criticalGroups = ['runway', 'alt', 'route']
+        .filter(k => Array.isArray(crit[k]) && crit[k].length > 0).join('/');
+    const NEW_ACTIONS = ['lineUp', 'holdShort', 'crossRunway', 'backtrack', 'qnh', 'squawk', 'transitionLevel', 'route'];
+    const texts = NEW_ACTIONS.map(k => A.readback.action({ type: k, value: 'W' }, dep));
+    out.actionTextCount = texts.filter(t => String(t).length > 0).length;
+    out.actionHits = NEW_ACTIONS.filter((k, i) => String(texts[i]).length > 0).join('/');
+    out.weightsDesc = [A.readback.weights.runway, A.readback.weights.route, A.readback.weights.alt].join('>');
+    out.fallbackNotPicked = A.readback.pickMissed([
+        { key: 'handoff', text: '联系塔台' },
+        { key: 'goaround', text: '复飞' }
+    ]) === null;
+    A.readback.seed(20261007);
+    const mixed = [
+        { key: 'land', text: '可以落地' },
+        { key: 'route', text: '经 ZUUU-01' },
+        { key: 'alt', text: '高度 1200' }
+    ];
+    const picked = { runway: 0, route: 0, alt: 0 };
+    for (let i = 0; i < 600; i++) {
+        const p = A.readback.pickMissed(mixed);
+        const gk = p && A.readback.groupOf(p.key);
+        if (gk && picked[gk] !== undefined) picked[gk]++;
+    }
+    out.pickCounts = [picked.runway, picked.route, picked.alt].join(',');
+    out.runwayMostPicked = picked.runway > picked.route && picked.route > picked.alt;
+    window.__SMOKE_DEP__ = dep.flightNo;
+    return out;
+})()`;
+
+/** 阶段十二：L2 运行时（事件驱动解锁跑道 / 未纠正复诵扣分）+ 结算 */
+const SCRIPT_L2_VERIFY = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const dir = A.game.director();
+    const sc = A.game.scoring();
+    const dep = st.aircraft.find(ac => ac.flightNo === window.__SMOKE_DEP__);
+    const out = {
+        l2SimTime: Math.round(st.time),
+        l2Cursor: dir.cursor,
+        l2Progress: sc.progress,
+        l2PlanNow: sc.runway.land.join('/'),
+        l2RunwayChanges: sc.runwayChanges,
+        l2ReadbackCount: sc.counts.readback,
+        l2ReadbackPenalized: !!(dep && dep.readback && dep.readback.penalized),
+        l2ReadbackMissing: dep && dep.readback ? dep.readback.missing : ''
+    };
+    st.defaults.readbackErrorRate = 0;
+    document.getElementById('session-end-btn').click();
+    const r = A.game.result();
+    out.l2ResultGrade = r ? r.grade : '';
+    out.l2ResultObjectives = r ? r.objectives.total : -1;
+    const rb = r ? r.objectives.items.find(i => i.kind === 'NO_READBACK_MISSED') : null;
+    out.l2ReadbackObjectiveOk = rb ? rb.ok : null;
+    out.l2ReadbackObjectiveActual = rb ? rb.actual : -1;
+    out.l2Ended = A.game.active() === false;
+    out.l2HudAfterEnd = A.game.hud().sessionActive;
+    return out;
+})()`;
+
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -337,6 +635,22 @@ async function runSmoke() {
         await win.webContents.executeJavaScript(SCRIPT_AUTO);
         await wait(7000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_AUTO_VERIFY));
+        // 阶段五~七：班次玩法（装载关卡 → 导演无限流量 → 评分/MVA → 结算）
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_GAME));
+        await wait(6000);
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_GAME_MVA));
+        await wait(4000);
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_GAME_VERIFY));
+        // 阶段八~九：无位置文件时的自由流量班次（开箱即用路径）
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_GAME_DEFAULT));
+        await wait(5000);
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_GAME_DEFAULT_VERIFY));
+        // 阶段十~十二：内置关卡包 + 指令台 2.0（用语模板/灰显）+ 复诵（错诵/纠正/扣分）
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_CONSOLE_LEVEL));
+        await wait(1200);
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_CONSOLE_DOM));
+        await wait(11000);
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_L2_VERIFY));
         // 离屏渲染下抓取整屏截图，便于人工核验渲染效果
         // （打包后 APP_ROOT 位于 app.asar 内不可写，故写入 userData 目录）
         try {
@@ -419,6 +733,88 @@ async function runSmoke() {
         ['跑道对被登记为 02L/20R + 02R/20L', report.locRunwayPair === '02L/20R,02R/20L'],
         ['示例机场按钮端到端（信标→航路点 + 焦点机场 + 播报）', report.locBeaconPoint === 1
             && report.locFocus === 'ZUUU' && report.locCommMentionsImport === true],
+        /* ---- P1 班次玩法（导演 / 评分 / HUD / 结算） ---- */
+        ['班次装载：由位置文件派生关卡并清空沙盒流量', report.gameStarted === true
+            && report.gameScenarioId === 'loc-ZUUU' && report.gameAirport === 'ZUUU'
+            && report.clearedSandboxTraffic === true],
+        ['导演消费 entrypoints/airlines/[scenario]（4 入口 · ≥5 航司 · 8 事件）',
+            (report.gameEntrypoints ?? 0) >= 4 && (report.gameAirlines ?? 0) >= 5 && (report.gameTimeline ?? 0) === 8],
+        ['班次内时间轴不可回溯（拖动被拦截）', report.timeLocked === true],
+        ['[configurations] 分数门槛解锁跑道（5→02L，6→02L/02R）',
+            report.planAt5 === '02L' && report.planAt6 === '02L/02R'],
+        ['[areaN] 最低高度区判定（重叠取更高者：机场中心 3500ft ≈ 1067m）',
+            Math.abs((report.mvaLimitM ?? 0) - 1067) <= 2],
+        ['导演无限流量注入（进港 + 离港）', (report.gameTotalSpawned ?? 0) >= 3
+            && (report.gameSpawnedArrival ?? 0) >= 1 && (report.gameSpawnedDeparture ?? 0) >= 1
+            && (report.gameDirectorAircraft ?? 0) >= 3],
+        ['[scenario] 时间轴执行完毕（elapse 已并入时间轴）', report.gameTimelineDone === true
+            && (report.gameCursor ?? 0) === 8 && String(report.sceneEventTypes || '').includes('arr')
+            && String(report.sceneEventTypes || '').includes('dep')],
+        ['[scenario] text 事件生成 HUD 字幕', String(report.sceneTextBanner || '').length > 0],
+        ['导演航班跑道取自构型计划', report.gameRunwayAssigned === true && String(report.gameRunwayLand || '').includes('02L')],
+        ['解锁分由 score 事件设定并随落地增长', (report.gameProgress ?? 0) >= 5],
+        ['MVA 违规计入评分（确定性：压到 610m 下限）', report.mvaTargetFound === true
+            && report.mvaTargetAlt === 610 && (report.gameMvaCount ?? 0) >= 1 && (report.autoClearanceOff ?? false) === true],
+        ['绩效分与评级（S/A/B/C/D）', (report.gameScore ?? 100) < 100 && /^[SABCD]$/.test(String(report.gameGrade || ''))
+            && report.hudScore === report.gameScore],
+        ['HUD 读值可用（班次/时钟/评级/跑道）', report.hudSessionActive === true
+            && /^\d\d:\d\d:\d\d$/.test(String(report.hudTimeText)) && String(report.hudRunwayLand).includes('02L')],
+        ['班次面板渲染实时读数', (report.hudPanelRows ?? 0) >= 6],
+        ['结算：评级 + 目标达成 + 事件时间轴', (report.resultScore ?? -1) >= 0
+            && /^[SABCD]$/.test(String(report.resultGrade || '')) && report.sessionEnded === true
+            && report.resultObjectives === 5 && (report.resultObjectivePassed ?? -1) >= 0
+            && (report.resultTimeline ?? 0) >= 1],
+        ['结算结果面板可见并列出 5 项目标', report.resultPanelVisible === true && report.resultHasObjectives === true],
+        /* ---- 开箱即用：无位置文件时的自由流量班次 ---- */
+        ['自由流量班次：无位置文件时按机场生成 8 向入口 + 枢纽航司表',
+            report.defaultSessionActive === true && report.defaultScenarioId === 'free-ZUUU'
+            && report.defaultEntrypoints === 8 && (report.defaultAirlines ?? 0) >= 3
+            && report.defaultTimeline === 0 && report.defaultDifficulty === 'arcade'],
+        ['自由流量班次：跑道回退机场表并持续注入航班',
+            String(report.defaultRunwayLand || '').includes('02L') && String(report.defaultRunwayStart || '').includes('02L')
+            && (report.defaultSpawned ?? 0) >= 2 && report.defaultRunwayAssigned === true
+            && (report.defaultSpawnedArrival ?? 0) >= 1],
+        ['自由流量班次：无 MVA 数据时不计违规并可结算',
+            report.defaultMvaSilent === true && report.defaultSessionEnded === true
+            && /^[SABCD]$/.test(String(report.defaultResultGrade || '')) && report.defaultResultObjectives === 5],
+        /* ---- P1-B：关卡包 + 指令台 2.0 + 复诵 ---- */
+        ['关卡包：内置 L1/L2/L3（目标数与事件数随关卡）', report.levelCount === 3
+            && report.levelIds === 'l1-approach-basic,l2-departure-rush,l3-reverse-wind'
+            && report.levelObjectives === '5,6,5' && report.levelEvents === '10,16,11'],
+        ['选中关卡后难度随关卡（下拉灰显 + 任务简述）', report.difficultyLockedForLevel === true
+            && report.panelShowsBrief === true],
+        ['L2 关卡装载（标准难度 · 16 条事件 · 6 项目标 · 复诵率 8%）', report.l2Active === true
+            && report.l2ScenarioId === 'l2-departure-rush' && report.l2Difficulty === 'standard'
+            && report.l2Events === 16 && report.l2Objectives === 6 && report.l2ReadbackRate === 0.08],
+        ['L2 分数门槛：进度 0 → 02L，进度 5 → 02L/02R', report.l2PlanAt0 === '02L' && report.l2PlanAt5 === '02L/02R'],
+        ['指令台按席位渲染推荐用语（分组/按钮/选中机摘要）', report.selectedIsAircraft === true
+            && (report.consoleGroups ?? 0) >= 3 && (report.consoleButtons ?? 0) >= 8
+            && String(report.consoleTargetText || '').length >= 8],
+        ['指令台灰显：不可下发项禁用并给出原因', report.landBtnDisabled === true
+            && String(report.landBtnHint || '').length > 0],
+        ['指令台一键下发（可以起飞 → 放行 + 通话记录）', report.takeoffBtnEnabled === true
+            && report.templateApplied === true && (report.templateCommsAdded ?? 0) >= 2],
+        ['复诵：定向指令漏项 → 复诵不符（高亮 + 要求复诵入口）', report.pendingAfterForce === true
+            && String(report.missing || '').length > 0 && String(report.readbackText || '').length > 0
+            && report.warnShown === true && report.reissueBtnVisible === true && report.altConAfterCmd === 1200],
+        ['复诵纠正：重新下发即视为纠正（未扣分）', report.resolvedAfterReissue === true
+            && report.lastReadbackCorrect === true && report.readbackCountAfterCorrect === 0],
+        ['未纠正复诵：宽限期后记一次未复诵', report.l2ReadbackPenalized === true
+            && (report.l2ReadbackCount ?? 0) >= 1 && String(report.l2ReadbackMissing || '').length > 0],
+        ['关卡事件驱动跑道解锁（t=600 score 事件 → 跑道变更）', (report.l2Progress ?? 0) >= 5
+            && String(report.l2PlanNow || '').includes('02R') && (report.l2RunwayChanges ?? 0) >= 1],
+        ['结算目标含复诵项且该项因漏项失败', report.l2ResultObjectives === 6
+            && report.l2ReadbackObjectiveOk === false && (report.l2ReadbackObjectiveActual ?? 0) >= 1
+            && report.l2Ended === true && report.l2HudAfterEnd === false
+            && /^[SABCD]$/.test(String(report.l2ResultGrade || ''))],
+        /* ---- 第一批（CCAR-93TM-R6 §118）：复诵清单分级 + 加权错诵抽取 ---- */
+        ['§118 复诵清单分级（跑道/高度/航路三组齐备）', report.criticalGroups === 'runway/alt/route'],
+        ['§118 八个新增复诵措辞函数就位', report.actionTextCount === 8
+            && report.actionHits === 'lineUp/holdShort/crossRunway/backtrack/qnh/squawk/transitionLevel/route'],
+        ['错诵按类别加权抽取（跑道 ≥ 航路 ≥ 高度，兜底项不参与）', report.weightsDesc === '6>3>2'
+            && report.fallbackNotPicked === true && report.runwayMostPicked === true
+            && /^(\d+),(\d+),(\d+)$/.test(String(report.pickCounts || ''))
+&& String(report.pickCounts).split(',').every(n => Number(n) > 0)],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]
     ];

@@ -33,29 +33,39 @@ export function appendCommMessage(msg) {
     container.scrollTop = container.scrollHeight;
 }
 
+/**
+ * 提交一条管制指令文本（陆空通话输入框与「指令台 2.0」模板按钮共用）：
+ * 录制输入（复盘/评分）→ 播报 → 解析执行 → 刷新受影响面板。
+ * @param {string} text 指令文本（含呼号时定向，否则广播）
+ * @returns {{ok:boolean, affected:number, message:string}|null}
+ */
+export function submitAtcText(text) {
+    const t = String(text || '').trim();
+    if (!t) return null;
+    recordInput(t, 'console');          // 班次输入录制（复盘/评分数据基础）
+    addComm('atc', t);
+    const res = executeCommand(t);
+    updateAircraftPanelList();
+    updateProgressList(true);
+    return res;
+}
+
 export function sendComm() {
     const input = $('comm-input');
     if (!input) return;
     const text = input.value.trim();
     if (!text) return;
-    recordInput(text, 'console');          // 班次输入录制（复盘/评分数据基础）
     const target = $('comm-target')?.value;
 
     if (target === 'atc' || target === undefined) {
-        addComm('atc', text);
-        executeCommand(text);
-        updateAircraftPanelList();
-        updateProgressList(true);
+        submitAtcText(text);
     } else {
         const ac = state.aircraft.find(a => a.id === parseInt(target));
         if (ac) {
-            addComm('atc', `→${ac.flightNo}: ${text}`);
             addComm(ac.flightNo, `收到指令：${text}`);
-            executeCommand(`${ac.flightNo} ${text}`);
-            updateAircraftPanelList();
-            updateProgressList(true);
+            submitAtcText(`${ac.flightNo} ${text}`);
         } else {
-            executeCommand(text);
+            submitAtcText(text);
         }
     }
     input.value = '';

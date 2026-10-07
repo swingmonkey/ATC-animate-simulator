@@ -22,6 +22,7 @@ import { updateAircraftPositionsForTime } from '../simulation/index.js';
 import { updateProgressList, updateTimeDisplay, openPointDialog } from '../ui/index.js';
 import { addPoint, addAircraft } from './factory.js';
 import { generateScenario } from '../generators/flightGenerator.js';
+import { isSessionActive } from '../game/session.js';
 import { toggleWeather, generateWeather } from '../weather/weather.js';
 
 /* ---------------- 工具栏：增删 ---------------- */
@@ -146,6 +147,12 @@ $('weather-regen-btn')?.addEventListener('click', () => {
 $('play-pause-btn')?.addEventListener('click', () => togglePlay());
 
 $('time-slider')?.addEventListener('input', e => {
+    // 游戏模式（班次进行中）实时不可回溯：拖动时间轴被拦截，复盘依赖评分事件时间轴
+    if (isSessionActive()) {
+        e.target.value = String(Math.floor(state.time));
+        addComm('atc', '班次进行中不可回溯时间轴（P1 规则）：复盘请看结算页的事件时间轴');
+        return;
+    }
     state.time = parseInt(e.target.value);
     resetClockAccumulator();          // 跳转后不补帧，避免位置跳变
     updateTimeDisplay(true);

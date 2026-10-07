@@ -53,6 +53,9 @@ export const state = {
     autoClearance: true,    // 自动许可：离港放行 / 进近许可 / 落地许可
     seatFilter: null,       // 进程单席位过滤：null = 显示全部
 
+    /* 席位视图（v1.7：ACC/APP/TWR 三张独立管制地图，档案见 data/viewProfiles.js） */
+    activeView: 'APP',      // 当前地图（比例尺/平移记忆在 core/viewport.js，切换入口 render/views.js）
+
     /* Endless ATC 位置文件（domain/locations.js 导入，几何已换算为世界坐标） */
     location: null,
 
@@ -187,4 +190,19 @@ export function setSeatFilter(code) {
     state.seatFilter = state.seatFilter === code ? null : (code || null);
     bus.emit(EV.UNIT_CHANGED, { seatFilter: state.seatFilter });
     requestRedraw();
+}
+
+/**
+ * 席位视图切换（三张管制地图：ACC/APP/TWR）。
+ * 只写状态与广播事件；比例尺/平移/图层的实际切换由 render/views.js 编排
+ * （内核层不依赖数据层与渲染层）。
+ * @param {string} code 视图键名
+ * @returns {boolean} 是否发生变化
+ */
+export function setActiveViewKey(code) {
+    if (!code || state.activeView === code) return false;
+    state.activeView = code;
+    bus.emit(EV.VIEW_CHANGED, { view: code });
+    requestRedraw();
+    return true;
 }

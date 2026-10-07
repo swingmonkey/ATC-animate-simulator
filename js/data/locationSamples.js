@@ -102,9 +102,11 @@ position = 0, 0
 labelpos = 20, 0
 
 [configurations]
+# 格式：分数门槛, 跑道标识, 用法（start=起飞 land=落地 rev=反向 int=交叉口 track=航迹 nosid=无SID）
+# 分数门槛 = 该用法生效所需的最低「解锁分」（[scenario] 的 score 事件可设定，每落地一架 +1）
 config1 =
     0, rwy1, landstart
-    0, rwy2, landstart
+    6, rwy2, landstart      ; 解锁分达到 6 后才开启第二跑道（02R）
 config2 =
     0, rwy1, landstartrev
     0, rwy2, landstartrev

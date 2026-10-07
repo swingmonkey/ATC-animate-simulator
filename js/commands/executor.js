@@ -18,7 +18,11 @@ import {
     assignRunwayClearance, markGoAround
 } from '../domain/clearances.js';
 import { handoffAircraft } from '../domain/airspace.js';
+import { makeReadback, resolveReadback } from '../domain/readback.js';
 import { unitLabel } from '../data/atcUnits.js';
+
+/** 定向指令最多为几架生成复诵（避免广播时刷屏；广播指令由机组按需复诵） */
+const READBACK_MAX_TARGETS = 3;
 
 function findWaypointByName(name) {
     const n = (name || '').toLowerCase();
@@ -49,6 +53,7 @@ export function executeCommand(text) {
     }
 
     let affected = 0;
+    const applied = [];
     for (const ac of targets) {
         if (state.time < (ac.startTime || 0)) continue;
         for (const act of parsed.actions) {
@@ -57,10 +62,16 @@ export function executeCommand(text) {
                     setAltitudeConstraint(ac, Math.max(altFloorM(), Math.min(altCeilingM(), act.value)));
                     break;
                 case 'climb':
-                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.min(altCeilingM(), altOf(ac) + act.value));
+                    setAltitudeConstraint(ac, act.absolute
+                        ? Math.min(altCeilingM(), act.value)
+                        : Math.min(altCeilingM(), altOf(ac) + act.value));
                     break;
                 case 'descend':
-                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.max(altFloorM(), altOf(ac) - act.value));
+                    // 绝对高度同样受可指令高度下限约束（导入位置文件后为 floor）；
+                    // 进近/落地许可的目标高度由 domain/clearances.js 直接下发，不受此限。
+                    setAltitudeConstraint(ac, act.absolute
+                        ? Math.max(altFloorM(), act.value)
+                        : Math.max(altFloorM(), altOf(ac) - act.value));
                     break;
                 case 'hdg':
                     ac.navMode = 'heading';
@@ -137,6 +148,17 @@ export function executeCommand(text) {
             }
         }
         affected++;
+        applied.push(ac);
+    }
+
+    // 机组复诵：定向指令逐架播报（含按难度概率抽取的漏项错诵，见 domain/readback.js）。
+    // 重新下发视为纠正：先清掉上一轮「复诵不符」状态，再播报新的复诵。
+    if (parsed.target) {
+        applied.slice(0, READBACK_MAX_TARGETS).forEach(ac => {
+            ac.lastCommandText = text;                 // 供指令台「要求复诵」原样重发
+            resolveReadback(ac, { by: 'reissue' });
+            makeReadback(ac, parsed);
+        });
     }
 
     const desc = parsed.actions.map(a => a.type).join('、');

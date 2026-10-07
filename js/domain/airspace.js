@@ -13,8 +13,8 @@
 
 import { state, addComm } from '../core/store.js';
 import { bus, EV, requestRedraw } from '../core/eventBus.js';
-import { pxToKmFixed } from '../core/viewport.js';
-import { posX, posY } from '../core/accessors.js';
+import { pxToKmFixed, kmToPxFixed } from '../core/viewport.js';
+import { altOf, posX, posY } from '../core/accessors.js';
 import { getAirport, runwayList, runwayEnd, runwayHeading } from '../data/airports.js';
 import { ATC_UNITS, UNIT_ORDER, nextUnit, unit, unitFrequency } from '../data/atcUnits.js';
 import { windAt } from '../weather/weather.js';
@@ -154,4 +154,60 @@ export function runwayEndsFor(airportCode) {
         ends.push(runwayEnd(pair, 0), runwayEnd(pair, 1));
     });
     return ends;
+}
+
+/* ---------------- 最低高度区（MVA，P1 违规判定） ----------------
+ * 数据源：state.location.areas（[areaN]，坐标已是世界坐标、半径为 km）。
+ * 判定为纯几何 + 高度比较，无副作用，供渲染（render/location.js）、
+ * 评分（game/scoring.js）与冒烟测试共用同一口径。
+ */
+
+/** 点是否在多边形内（射线法；points 为世界坐标闭包环） */
+function pointInPolygon(x, y, points) {
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        const xi = points[i].x, yi = points[i].y;
+        const xj = points[j].x, yj = points[j].y;
+        if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+}
+
+/** 某点是否落在最低高度区内（circle 用半径，polygon 用顶点环；未导入返回 false） */
+export function areaCovers(area, x, y) {
+    if (!area) return false;
+    if (area.shape === 'polygon' && area.points && area.points.length >= 3) {
+        return pointInPolygon(x, y, area.points);
+    }
+    const r = kmToPxFixed(area.radiusKm || 0);
+    if (!r) return false;
+    const dx = x - area.x, dy = y - area.y;
+    return dx * dx + dy * dy <= r * r;
+}
+
+/**
+ * 该点适用的最低高度限制。多区重叠时取**更高者**（更保守，与真实 MVA 图叠置规则一致）。
+ * @returns {{limitM:number, area:object}|null}
+ */
+export function mvaLimitAt(x, y) {
+    const areas = (state.location && state.location.areas) || [];
+    let hit = null;
+    for (const area of areas) {
+        if (!areaCovers(area, x, y)) continue;
+        if (!hit || area.altM > hit.limitM) hit = { limitM: area.altM, area };
+    }
+    return hit;
+}
+
+/**
+ * 航空器是否低于最低高度区（返回违规详情）。
+ * @returns {{area:object, limitM:number, altM:number}|null}
+ */
+export function mvaViolationFor(ac) {
+    if (!ac || ac.landed) return null;
+    if (state.time < (ac.startTime || 0)) return null;
+    const altM = altOf(ac);
+    const hit = mvaLimitAt(posX(ac), posY(ac));
+    if (!hit || altM >= hit.limitM) return null;
+    return { area: hit.area, limitM: hit.limitM, altM };
 }
