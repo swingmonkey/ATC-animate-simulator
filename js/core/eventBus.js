@@ -118,5 +118,19 @@ export const EV = {
     /** 日志滚动归档 → 复盘 / 归档 */
     LOG_ROLLED: 'log:rolled',
     /** 归档打包完成 → 复盘 / 归档 */
-    ARCHIVE_PACKED: 'archive:packed'
+    ARCHIVE_PACKED: 'archive:packed',
+
+    /* ---- v1.7 经营层：资金 / 人员 / 房间 / 合同 / 局方审批 ---- */
+    /** 经营状态整体变更（初始化 / 重开 / 升级 / 日结算）→ 经营面板 + HUD */
+    MANAGEMENT_CHANGED: 'management:changed',
+    /** 人事变更（招聘 / 任命 / 培训 / 排席）→ 经营面板 */
+    STAFF_CHANGED: 'management:staff_changed',
+    /** 设施变更（建设房间）→ 经营面板 */
+    ROOM_CHANGED: 'management:room_changed',
+    /** 合同变更（承接航班包）→ 经营面板 */
+    CONTRACT_CHANGED: 'management:contract_changed',
+    /** 局方审批状态变更（递交 / 批复 / 到期）→ 经营面板 */
+    TRIAL_CHANGED: 'management:trial_changed',
+    /** 结束今日经营（日结算完成）→ 经营面板 + 复盘 */
+    DAY_SETTLED: 'management:day_settled'
 };

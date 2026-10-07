@@ -700,6 +700,73 @@ const SCRIPT_R1_VERIFY = `(() => {
     return out;
 })()`;
 
+/** 阶段十三：空管单位经营（v1.7 M1）——招聘 / 任命 / 培训 / 设施 / 技术 / 合同 / 局方 / 日结算 */
+const SCRIPT_MGMT = `(() => {
+    const A = window.__ATC__;
+    const M = A.management;
+    const out = {};
+    M.reset();
+
+    /* 人事：招聘见习 + 管制员（扣招聘费） */
+    const hireTrainee = M.hire('trainee');
+    const hireController = M.hire('controller');
+    out.mgmtHireOk = hireTrainee.ok === true && hireController.ok === true;
+    out.mgmtHireFeeCharged = M.summary().cash < 5000000;
+    const staff = M.summary().staff;
+    const trainee = staff.find(s => s.role === 'trainee');
+    const controller = staff.find(s => s.role === 'controller');
+    out.mgmtStaffAfterHire = M.summary().staffCount;
+
+    /* 设施：培训室 + 塔台 + 进近 + 区域 + 设备机房 */
+    out.mgmtBuildOk = M.build('training').ok === true && M.build('tower').ok === true
+        && M.build('approach').ok === true && M.build('area').ok === true
+        && M.build('equipment').ok === true;
+    out.mgmtRoomsAfterBuild = M.summary().roomCount;
+
+    /* 培训 / 任命 / 合同 / 技术升级 */
+    out.mgmtTrainOk = M.train(trainee.id).ok === true;
+    out.mgmtTrainingCount = M.summary().trainingCount;
+    out.mgmtAppointOk = M.appoint(controller.id).ok === true;
+    out.mgmtSupervisorCount = M.summary().staffCounts.supervisor;
+    out.mgmtSignOk = M.sign('regional').ok === true;
+    out.mgmtContractCount = M.summary().contractCount;
+    out.mgmtUpgradeOk = M.upgrade('surveillance').ok === true;
+    out.mgmtTechAfterUpgrade = M.summary().tech;
+
+    /* 席位安排：把管制员排到第一个已开放席位 */
+    const seat = M.summary().availableSeats[0] || null;
+    out.mgmtSeatAssigned = seat || '';
+    out.mgmtAssignOk = seat ? M.assign(controller.id, seat).ok === true : false;
+
+    /* 局方实验运行申请（声望 55 / 监视管制 / 设备机房） */
+    out.mgmtTrialOk = M.trial().ok === true;
+    out.mgmtTrialPending = M.summary().trial.status;
+
+    /* 日结算：推进日次并写入历史 */
+    const before = M.summary();
+    out.mgmtEndDayOk = M.endDay().ok === true;
+    const after = M.summary();
+    out.mgmtDaySettled = after.day === before.day + 1;
+    out.mgmtCashChanged = after.cash !== before.cash;
+    out.mgmtRevenue = before.daily.revenue;
+    out.mgmtTechAfter = after.tech;
+    out.mgmtRadarSeat = Array.isArray(after.sectorPlan.area) && after.sectorPlan.area.indexOf('ACC-RDR') >= 0;
+    out.mgmtTrialStatusAfter = after.trial.status;
+    out.mgmtTrialDecided = after.trial.status === 'approved' || after.trial.status === 'rejected';
+    out.mgmtHistoryDays = Array.isArray(after.history) ? after.history.length : -1;
+
+    /* 面板与 HUD 联动 */
+    out.mgmtPanelMounted = !!document.getElementById('management-section')
+        && !!document.getElementById('management-body');
+    const bodyEl = document.getElementById('management-body');
+    out.mgmtBodyText = bodyEl ? bodyEl.textContent.length : 0;
+    out.mgmtStaffRows = document.querySelectorAll('#management-staff-list .mgmt-staff').length;
+    const hud = A.game.hud();
+    out.mgmtHudCashText = hud.cashText;
+    out.mgmtHudStaffCount = hud.staffCount;
+    out.mgmtHudRoomCount = hud.roomCount;
+    return out;
+})()`;
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -734,6 +801,8 @@ async function runSmoke() {
         await wait(11000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_L2_VERIFY));
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_R1_VERIFY));
+        // 阶段十三：空管单位经营（v1.7 M1）——招聘 / 任命 / 培训 / 建设 / 技术 / 合同 / 局方 / 日结算
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_MGMT));
         // 离屏渲染下抓取整屏截图，便于人工核验渲染效果
         // （打包后 APP_ROOT 位于 app.asar 内不可写，故写入 userData 目录）
         try {
@@ -953,6 +1022,27 @@ async function runSmoke() {
         ['值班面板渲染交接检查单七项', report.rosterHandoverRows === 7],
         ['「申请不参加本次执勤」按钮可用', report.rosterUnfitBtn === true],
         ['值班面板事件联动刷新不抛错', report.rosterPanelRefreshOk === true],
+        /* ---- 第三批（v1.7 M1）：空管单位经营（人事 / 设施 / 技术 / 合同 / 局方 / 日结算） ---- */
+        ['经营面板已挂载并渲染概览', report.mgmtPanelMounted === true && (report.mgmtBodyText ?? 0) > 40],
+        ['招聘见习/管制员：扣招聘费并计入人员', report.mgmtHireOk === true && report.mgmtHireFeeCharged === true
+            && report.mgmtStaffAfterHire === 2],
+        ['设施建设经 HUD 读数回显', report.mgmtRoomsAfterBuild === 5 && (report.mgmtHudRoomCount ?? 0) === 5],
+        ['建设设施后房间计入维护口径（5 间）', report.mgmtBuildOk === true && report.mgmtRoomsAfterBuild === 5],
+        ['见习管制员进入培训', report.mgmtTrainOk === true && (report.mgmtTrainingCount ?? 0) >= 1],
+        ['任命管制主管', report.mgmtAppointOk === true && report.mgmtSupervisorCount === 1],
+        ['承接航班合同：计入年架次并按日产生收入', report.mgmtSignOk === true && report.mgmtContractCount === 1
+            && (report.mgmtRevenue ?? 0) > 0],
+        ['技术升级：程序管制 → 监视管制', report.mgmtUpgradeOk === true && report.mgmtTechAfterUpgrade === 'surveillance'],
+        ['席位安排：管制员值守已开放席位', report.mgmtAssignOk === true && String(report.mgmtSeatAssigned || '').length > 0],
+        ['监视管制下区域现场增开 ACC-RDR 雷达席', report.mgmtRadarSeat === true],
+        ['局方实验运行：递交 → 次日批复', report.mgmtTrialOk === true && report.mgmtTrialPending === 'pending'
+            && report.mgmtTrialDecided === true],
+        ['结束今日：日次 +1 且现金随结算变化', report.mgmtEndDayOk === true && report.mgmtDaySettled === true
+            && report.mgmtCashChanged === true],
+        ['结束今日写入结算历史', (report.mgmtHistoryDays ?? 0) >= 1],
+        ['经营面板渲染员工卡片', report.mgmtStaffRows === 2],
+        ['HUD 顶栏显示经营读数（资金/人员/设施）', /万$/.test(String(report.mgmtHudCashText || ''))
+            && report.mgmtHudStaffCount === 2 && report.mgmtHudRoomCount === 5],
         ['js/** 无网络上报 API（fetch/XHR/SendBeacon/WebSocket/EventSource）', report.jsNetworkFree === true],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]

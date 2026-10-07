@@ -60,7 +60,10 @@ export const state = {
     location: null,
 
     /* 计数器（持久化） */
-    pointNameCounter: 1
+    pointNameCounter: 1,
+
+    /* 经营层状态（v1.7：资金 / 人员 / 房间 / 合同 / 局方审批）；由 game/management.js 装配 */
+    management: null
 };
 
 state.defaults = {

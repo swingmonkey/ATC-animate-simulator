@@ -14,6 +14,7 @@ import { formatHMS } from '../core/dom.js';
 import { scoringSummary } from '../game/scoring.js';
 import { directorSummary } from '../game/director.js';
 import { currentSession, isSessionActive } from '../game/session.js';
+import { managementSummary } from '../game/management.js';
 
 /** 秒 → hh:mm:ss（复用核心层格式化，避免重复实现） */
 export const formatClock = formatHMS;
@@ -23,6 +24,8 @@ export function hudModel() {
     const sc = scoringSummary();
     const d = directorSummary();
     const sess = currentSession();
+    const mgmt = managementSummary();
+    const cash = mgmt ? Math.round(mgmt.cash || 0) : 0;
     return {
         sessionActive: isSessionActive(),
         playing: state.isPlaying,
@@ -54,7 +57,13 @@ export function hudModel() {
         spawned: d.totalSpawned,
         activeAircraft: d.activeAircraft,
         maxAircraft: d.maxAircraft,
-        finish: d.finish
+        finish: d.finish,
+        cash,
+        cashText: `${Math.round(cash / 10000)}万`,
+        reputation: mgmt ? mgmt.reputation : 0,
+        staffCount: mgmt ? mgmt.staffCount : 0,
+        roomCount: mgmt ? mgmt.roomCount : 0,
+        day: mgmt ? mgmt.day : 0
     };
 }
 
@@ -89,10 +98,18 @@ export function drawHud() {
         put(`↗ ${(m.runwayStart || []).join('/') || '--'}`, '#fbbf24');
         put(`💨 ${m.wind ? `${m.wind.dir}° ${m.wind.spd}kt` : '--'}`, '#7dd3fc');
         put(`✈ ${m.activeAircraft}/${m.maxAircraft}`, '#cbd5e1');
+        put(`💰 ${m.cashText}`, '#fcd34d');
+        put(`🏅 ${m.reputation}`, '#c4b5fd');
+        put(`👥 ${m.staffCount}`, '#e2e8f0');
+        put(`🏠 ${m.roomCount}`, '#e2e8f0');
     } else {
         put('🎯 未开始班次 — 点击右侧「开始班次」装载关卡（无限流量 + 评分）', '#cbd5e1');
         put(`🕒 ${m.timeText}`, '#93c5fd');
         put(m.playing ? '沙盒模式 · 播放中' : '沙盒模式 · 暂停', '#94a3b8');
+        put(`💰 ${m.cashText}`, '#fcd34d');
+        put(`🏅 ${m.reputation}`, '#c4b5fd');
+        put(`👥 ${m.staffCount}`, '#e2e8f0');
+        put(`🏠 ${m.roomCount}`, '#e2e8f0');
     }
     ctx.restore();
 

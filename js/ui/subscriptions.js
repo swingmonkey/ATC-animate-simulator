@@ -22,6 +22,7 @@ import { updateConsole } from './console.js';
 import { updateSeatPanel } from './seatPanel.js';
 import { updateSessionPanel } from './sessionPanel.js';
 import { updateRosterPanel } from './rosterPanel.js';
+import { updateManagementPanel } from './managementPanel.js';
 import { showNextWaypointDialog } from './dialogs.js';
 
 /**
@@ -82,6 +83,7 @@ export function initSubscriptions() {
     });
     bus.on(EV.SESSION_ENDED, () => {
         updateSessionPanel();
+        updateManagementPanel();
         updateRosterPanel();
         updateProgressList(true);
     });
@@ -102,6 +104,11 @@ export function initSubscriptions() {
         EV.HANDOVER_FAMILIARIZE, EV.COWORKER_REMINDER,
         EV.LOG_APPENDED, EV.LOG_ROLLED, EV.ARCHIVE_PACKED
     ].forEach(evt => bus.on(evt, refreshRoster));
+
+    /* v1.7 经营层：资金 / 人员 / 房间 / 合同 / 局方审批 → 经营面板 */
+    [EV.MANAGEMENT_CHANGED, EV.STAFF_CHANGED, EV.ROOM_CHANGED,
+        EV.CONTRACT_CHANGED, EV.TRIAL_CHANGED, EV.DAY_SETTLED
+    ].forEach(evt => bus.on(evt, updateManagementPanel));
 }
 
 /**
@@ -121,4 +128,5 @@ export function refreshAll() {
     updatePlayButton();
     updateEditModeUI();
     updateTimeDisplay(true);
+    updateManagementPanel();
 }

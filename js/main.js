@@ -21,6 +21,10 @@ import {
     initSessionWiring, currentSession, recordInput,
     startGameSession, endGameSession, isSessionActive, currentDirector, sessionResult
 } from './game/session.js';
+import {
+    startManagement, resetManagement, managementSummary, hireStaff, appointSupervisor,
+    trainStaff, buildRoom, upgradeTech, assignSeat, signContract, requestTrialRun, endDay
+} from './game/management.js';
 import { scoringSummary, scoreTimeline, runwayPlan, gradeFor, GRADES, SCORE_WEIGHTS } from './game/scoring.js';
 import { scenarioSummary, scenarioFromLocation, defaultScenario, buildTimeline } from './game/scenario.js';
 import { evaluateObjectives, defaultObjectives, OBJECTIVE_KINDS } from './game/objectives.js';
@@ -44,7 +48,7 @@ import { getAirport } from './data/airports.js';
 import { drawRadar } from './render/index.js';
 import { initSubscriptions, refreshAll } from './ui/subscriptions.js';
 import { initFormBindings } from './ui/formBindings.js';
-import { initSessionPanel, initRosterPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
+import { initSessionPanel, initRosterPanel, initManagementPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
 import { hudModel } from './render/hud.js';
 import { tickKeyboard } from './interaction/index.js';
 
@@ -86,17 +90,20 @@ initFormBindings();
 initSessionPanel();                // 班次面板按钮绑定（开始班次 / 结束并结算）
 initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
 initRosterPanel();                 // 值班面板：申请不参加本次执勤（§128 权利，绑定一次）
+initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 合同 / 局方审批（事件委托，绑定一次）
 
 if (loadState()) {
     normalizeScene();                 // 领域字段补齐（旧存档 ac.phase → ac.flow）
     bus.emit(EV.SCENE_CHANGED);       // 重建面板 + 落盘（幂等）
 }
+startManagement();                    // 经营层：恢复已有存档或按默认值初始化（normalize + 补全）
 refreshAll();
 
 addComm('atc', '空管雷达模拟器已启动（领域层分层版 v2 · P1 班次/评分）');
 addComm('atc', '滚轮缩放地图 | ASWD或方向键移动 | 点击播放开始模拟');
 addComm('atc', '场景数据自动保存在浏览器本地（localStorage）');
 addComm('atc', '右侧「🎯 班次与评分」→ 开始班次：导演注入无限流量并按目标结算评级（班次内不可回溯时间轴）');
+addComm('atc', '右侧「🏢 单位经营」→ 招聘/建设/升级/签合同，点「结束今日并结算」推进日次（资金 / 声望 / 实验运行）');
 
 /** 自动化冒烟测试与调试用只读句柄（装配点导出，业务层不得依赖） */
 window.__ATC__ = {
@@ -157,6 +164,20 @@ window.__ATC__ = {
         familiarizeSec: FAMILIARIZE_SEC
     },
     logs: { fields: LOG_FIELDS },
+    management: {
+        start: startManagement,
+        reset: resetManagement,
+        summary: managementSummary,
+        hire: hireStaff,
+        appoint: appointSupervisor,
+        train: trainStaff,
+        build: buildRoom,
+        upgrade: upgradeTech,
+        assign: assignSeat,
+        sign: signContract,
+        trial: requestTrialRun,
+        endDay
+    },
     airports: { get: getAirport },
     session: currentSession,
     recordInput,

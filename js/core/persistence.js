@@ -19,7 +19,8 @@ export function saveState() {
             pointNameCounter: state.pointNameCounter,
             focusAirport: state.focusAirport,
             autoHandoff: state.autoHandoff,
-            autoClearance: state.autoClearance
+            autoClearance: state.autoClearance,
+            management: state.management
         }));
     } catch (e) {
         console.warn('保存场景状态失败:', e);
@@ -52,6 +53,7 @@ export function loadState() {
         if (data.focusAirport) state.focusAirport = data.focusAirport;
         if (typeof data.autoHandoff === 'boolean') state.autoHandoff = data.autoHandoff;
         if (typeof data.autoClearance === 'boolean') state.autoClearance = data.autoClearance;
+        if (data.management) state.management = data.management;
         return true;
     } catch (e) {
         console.warn('恢复场景状态失败:', e);

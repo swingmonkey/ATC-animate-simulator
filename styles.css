@@ -1199,3 +1199,83 @@ body {
     line-height: 1.4;
 }
 
+/* ---------------- 空管单位经营面板（v1.7 M1） ---------------- */
+
+.mgmt-status {
+    padding: 5px 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    font-size: 10px;
+    color: #1d4ed8;
+    line-height: 1.5;
+}
+
+.mgmt-pos { color: #059669 !important; }
+.mgmt-neg { color: #dc2626 !important; }
+
+.mgmt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 2px 0 4px;
+}
+
+.mgmt-btn {
+    flex: 1 1 auto;
+    padding: 5px 8px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 10px;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+}
+
+.mgmt-btn:hover:not(:disabled) {
+    background: #e0e7ff;
+    border-color: #818cf8;
+    color: #3730a3;
+}
+
+.mgmt-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.mgmt-hire-row .mgmt-btn,
+.mgmt-room-row .mgmt-btn,
+.mgmt-tech-row .mgmt-btn { flex: 1 1 45%; }
+.mgmt-contract-row .mgmt-btn { flex: 1 1 100%; }
+
+.mgmt-staff {
+    padding: 6px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+
+.mgmt-staff-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mgmt-tags {
+    margin-top: 2px;
+    font-size: 10px;
+    color: #b45309;
+}
+
+.mgmt-seat-select {
+    padding: 3px 6px;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    font-size: 10px;
+    color: #475569;
+    flex: 1 1 auto;
+}
