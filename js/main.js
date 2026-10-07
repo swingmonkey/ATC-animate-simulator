@@ -10,7 +10,9 @@ import { state } from './core/store.js';
 import { bus, EV, consumeRedraw } from './core/eventBus.js';
 import { resizeCanvas } from './core/viewport.js';
 import { loadState } from './core/persistence.js';
-import { updateAircraftPositionsForTime, updateTrails } from './simulation/index.js';
+import {
+    updateAircraftPositionsForTime, updateTrails, resolveUnitForDistance
+} from './simulation/index.js';
 import { drawRadar } from './render/index.js';
 import { initSubscriptions, refreshAll } from './ui/subscriptions.js';
 import { initFormBindings } from './ui/formBindings.js';
@@ -68,6 +70,6 @@ addComm('atc', '场景数据自动保存在浏览器本地（localStorage）');
 addComm('atc', '工具栏可生成场景 / 开启天气图层 / 输入管制指令');
 
 /** 自动化冒烟测试与调试用只读句柄 */
-window.__ATC__ = { state, bus, EV, stats };
+window.__ATC__ = { state, bus, EV, stats, seat: { resolveUnitForDistance } };
 
 requestAnimationFrame(animate);

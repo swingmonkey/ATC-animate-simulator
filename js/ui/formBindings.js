@@ -6,13 +6,15 @@
  * 所有结构性变更经 store 动作/commitScene 触发事件刷新，不再手工调用刷新函数。
  */
 
-import { state, select, addComm, commitScene, setPlaying } from '../core/store.js';
+import { state, select, addComm, commitScene, setPlaying, setAutoHandoff, setAutoClearance } from '../core/store.js';
 import { bus, EV } from '../core/eventBus.js';
 import { $ } from '../core/dom.js';
-import { updateAircraftPositionsForTime } from '../simulation/index.js';
+import { centerOnWorldPoint } from '../core/viewport.js';
+import { getAirport } from '../data/airports.js';
+import { updateAircraftPositionsForTime, handoffToNextUnit } from '../simulation/index.js';
 import {
     updateWaypointSelectOptions, updateWaypointInfo, updateRoutePathPreview,
-    updateNavModeUI, updateTargetInfo
+    updateNavModeUI, updateTargetInfo, updateSeatFieldsInDialog
 } from './dialogs.js';
 import { updateTimeDisplay } from './indicators.js';
 
@@ -173,6 +175,11 @@ export function initFormBindings() {
         ac.heading = parseFloat($('ac-heading').value) || ac.heading;
         ac.hdgCon = null;
         ac.navMode = $('ac-nav-mode').value || 'heading';
+        // 塔台/进近内容：跑道与进近方式（当前席位由 simulation/units.js 依据距离自动维护）
+        const rwyValue = $('ac-runway')?.value;
+        if (rwyValue !== undefined) ac.runway = rwyValue || null;
+        const approachValue = $('ac-approach')?.value;
+        if (approachValue !== undefined) ac.approachType = approachValue || null;
         const nextWpVal = $('ac-next-waypoint')?.value;
         if (nextWpVal !== '' && nextWpVal !== undefined && nextWpVal !== null) {
             ac.nextWaypointIdx = parseInt(nextWpVal);
@@ -203,6 +210,38 @@ export function initFormBindings() {
         select(null);
         $('aircraft-edit-dialog').classList.add('hidden');
         commitScene();
+    });
+
+    /* ---------------- 管制席位（塔台/进近）控件 ---------------- */
+
+    $('ac-handoff-btn')?.addEventListener('click', () => {
+        if (!state.editingAircraftId) return;
+        const ac = state.aircraft.find(a => a.id === state.editingAircraftId);
+        if (!ac) return;
+        if (!handoffToNextUnit(ac)) {
+            addComm('atc', `${ac.flightNo} 已在席位链末端，无需移交`);
+        }
+        updateSeatFieldsInDialog(ac);
+    });
+
+    $('seat-focus-btn')?.addEventListener('click', () => {
+        const ap = getAirport(state.focusAirport);
+        if (ap) centerOnWorldPoint(ap.x, ap.y);
+        addComm('atc', `视图已定位到焦点机场 ${state.focusAirport}`);
+    });
+
+    $('auto-handoff-toggle')?.addEventListener('change', e => {
+        setAutoHandoff(e.target.checked);
+        addComm('atc', e.target.checked
+            ? '已开启自动移交（跨界自动转频）'
+            : '已关闭自动移交（需手动下发「移交××」指令）');
+    });
+
+    $('auto-clearance-toggle')?.addEventListener('change', e => {
+        setAutoClearance(e.target.checked);
+        addComm('atc', e.target.checked
+            ? '已开启自动许可（离港放行 / 进近许可 / 落地许可）'
+            : '已关闭自动许可（需手动下发许可指令）');
     });
 
     /* ---------------- 设置对话框 ---------------- */

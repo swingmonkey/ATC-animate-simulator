@@ -9,8 +9,11 @@ import { state, isEditMode, setPlaying } from '../core/store.js';
 import { pxToKmFixed } from '../core/viewport.js';
 import { escapeHtml } from '../core/dom.js';
 import {
-    pointToSegmentDist, getWaypointInfoForAircraft, getPositionAndTimeForWaypoint
+    pointToSegmentDist, getWaypointInfoForAircraft, getPositionAndTimeForWaypoint,
+    clearanceText, referenceAirportCode, unitOfAircraft
 } from '../simulation/index.js';
+import { unit } from '../data/atcUnits.js';
+import { runwayList, runwayEnd } from '../data/airports.js';
 
 /** 飞机对话框：航线选择下拉（原 indicators.js，唯一调用方为 openAircraftDialog，就近内聚） */
 function updateRouteSelectOptions() {
@@ -187,6 +190,34 @@ export function openAircraftDialog(acId) {
         startTimeDisplay.textContent =
             `${String(Math.floor(t / 3600)).padStart(2, '0')}:${String(Math.floor((t % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
     }
+    updateSeatFieldsInDialog(ac);
+}
+
+/**
+ * 飞机对话框内的管制席位区块（塔台/进近内容）：
+ * 当前席位与管制状态、参考机场跑道下拉、进近方式。
+ */
+export function updateSeatFieldsInDialog(ac) {
+    if (!ac) return;
+    const unitEl = document.getElementById('ac-unit-display');
+    if (unitEl) {
+        const u = unit(unitOfAircraft(ac));
+        unitEl.textContent = `${u.name} · ${clearanceText(ac)}`;
+    }
+
+    const rwySel = document.getElementById('ac-runway');
+    if (rwySel) {
+        const code = referenceAirportCode(ac);
+        const ends = [];
+        runwayList(code).forEach(pair => { ends.push(runwayEnd(pair, 0), runwayEnd(pair, 1)); });
+        if (ac.runway && !ends.includes(ac.runway)) ends.unshift(ac.runway);
+        rwySel.innerHTML = '<option value="">未指派</option>'
+            + ends.map(r => `<option value="${escapeHtml(r)}">跑道 ${escapeHtml(r)}</option>`).join('');
+        rwySel.value = ac.runway || '';
+    }
+
+    const approachSel = document.getElementById('ac-approach');
+    if (approachSel) approachSel.value = ac.approachType || '';
 }
 
 export function updateNavModeUI(mode) {

@@ -23,7 +23,14 @@
  *   hold       盘旋/保持航向（盘旋/hold/进跑道/lineup）
  *   goaround   复飞（复飞/goaround：爬升 1500 并保持航向）
  *   direct     直飞某航路点（直飞/direct + 点名）
+ *   approach   进近许可（进近许可/ILS/RNAV/VOR/目视进近/approach，可带跑道）
+ *   land       落地许可（可以落地/cleared to land/land）
+ *   takeoff    起飞许可（可以起飞/cleared for takeoff/cto）
+ *   handoff    席位移交（移交塔台/联系进近/contact tower/handoff app）
+ *   runway     指派跑道（跑道 02L / runway 02L）
  */
+
+import { approachFromText, unitFromText } from '../data/atcUnits.js';
 
 const NUM = '(-?\\d+(?:\\.\\d+)?)';
 
@@ -108,6 +115,39 @@ export function parseCommand(text, knownCallsigns = []) {
     const dm = lower.match(/(?:直飞|direct(?:\s*to)?)\s*(\S+)/);
     if (dm) {
         actions.push({ type: 'direct', value: dm[1], raw: dm[0] });
+    }
+
+    /* ---------------- 塔台 / 进近 / 区调（管制席位内容） ---------------- */
+
+    // 跑道号（可单独下发，也可随进近/落地许可一起下发）
+    const rm = raw.match(/(?:跑道|rwy|runway)\s*([0-9]{1,2}[LRC]?)/i);
+    const runwayLabel = rm ? rm[1].toUpperCase() : null;
+
+    // 席位移交：移交塔台 / 联系进近 119.25 / contact tower / handoff app
+    const handoffHit = /(?:移交|交给|联系|转频|handoff|hand\s*off|contact)/i.test(lower);
+    const handoffUnit = handoffHit ? unitFromText(lower) : null;
+    if (handoffUnit) {
+        actions.push({ type: 'handoff', value: handoffUnit, raw: 'handoff' });
+    }
+
+    // 进近许可（含进近方式）：进近许可 / ILS 进近 / 目视进近 / cleared ILS approach
+    const approachHit = /(?:进近许可|可以进近|建立盲降|建立ils|ils进近|rnav进近|vor进近|目视进近|cleared\s+ils|approach)/i.test(lower)
+        || (/进近/.test(lower) && !handoffHit);
+    if (approachHit) {
+        actions.push({ type: 'approach', value: approachFromText(lower), runway: runwayLabel, raw: 'approach' });
+    }
+
+    // 起飞许可（塔台放行）
+    if (/(?:可以起飞|准许起飞|起飞|cleared\s+for\s+takeoff|takeoff|\bcto\b)/i.test(lower)) {
+        actions.push({ type: 'takeoff', raw: 'takeoff' });
+    }
+    // 落地许可（塔台）
+    if (/(?:可以落地|准许落地|可以着陆|落地|着陆|cleared\s+to\s+land|\bland\b)/i.test(lower)) {
+        actions.push({ type: 'land', runway: runwayLabel, raw: 'land' });
+    }
+    // 仅指派跑道（未同时下发进近/落地许可时）
+    if (runwayLabel && !approachHit && !/(?:可以落地|准许落地|可以着陆|落地|着陆|land)/i.test(lower)) {
+        actions.push({ type: 'runway', value: runwayLabel, raw: rm[0] });
     }
 
     return { target: callsign, actions };

@@ -36,6 +36,15 @@ export function moveView(dx, dy) {
 }
 
 /**
+ * 把视图中心平移到世界坐标 (x, y)。
+ * 屏幕坐标 S = (world - center) × viewScale + canvas/2 + offset，
+ * 令 S 落在画布中心即可解出 offset。
+ */
+export function centerOnWorldPoint(x, y) {
+    setViewOffset(-(x - centerX) * viewScale, -(y - centerY) * viewScale);
+}
+
+/**
  * 以鼠标位置为锚点缩放（滚轮）。
  * @param {number} factor 缩放倍率（>1 放大，<1 缩小）
  * @param {number} mouseX 屏幕坐标
@@ -75,6 +84,12 @@ export function kmToPx(km) { return km * getPixelsPerKm(); }
 export function pxToKm(px) { return px / getPixelsPerKm(); }
 /** 不含缩放的固定比例换算（标签/航线标注用） */
 export function pxToKmFixed(px) { return px / (Math.min(canvasWidth, canvasHeight) / 500); }
+/**
+ * pxToKmFixed 的反函数（管制区半径等「固定世界尺度」绘制用）。
+ * 与 getPixelsPerKm 不同：不含 viewScale，因而缩放地图不会改变管制区半径，
+ * 飞机的席位归属也不会随用户缩放而改变。
+ */
+export function kmToPxFixed(km) { return km * (Math.min(canvasWidth, canvasHeight) / 500); }
 
 export function toWorldX(screenX) {
     return (screenX - canvasWidth / 2 - viewOffsetX) / viewScale + centerX;

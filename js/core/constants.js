@@ -52,6 +52,25 @@ export const DESCENT_STEP = 600;
 /** 复飞增量 (m) */
 export const GOAROUND_ALT = 1500;
 
+/* ---------------- 管制席位 / 塔台·进近内容 ---------------- */
+
+/** 席位边界迟滞系数：已在席位的航空器需超出 scopeKm × 1.25 才外移，避免边界反复移交 */
+export const UNIT_SCOPE_HYSTERESIS = 1.25;
+/** 进近许可默认目标（高度 m / 速度 kt） */
+export const APPROACH_ALT = 900;
+export const APPROACH_SPD = 180;
+/** 落地许可默认目标（高度 m / 速度 kt） */
+export const LANDING_ALT = 300;
+export const LANDING_SPD = 150;
+/** 判定「已接地」：距机场 km 与高度 m */
+export const LANDING_ARRIVE_KM = 8;
+export const LANDING_ARRIVE_ALT = 600;
+/** 离港默认初始高度/速度（等待放行时保持） */
+export const DEPARTURE_INIT_ALT = 900;
+export const DEPARTURE_INIT_SPD = 220;
+/** 自动放行延迟（模拟秒）：离港航班出现后多久自动发起飞许可 */
+export const AUTO_TAKEOFF_DELAY = 45;
+
 /* ---------------- 视图/交互 ---------------- */
 
 export const ZOOM_MIN = 0.2;

@@ -9,7 +9,9 @@ desktop.ini
 # 依赖与构建产物
 node_modules/
 dist/
-build/
+# build/ 目录只保留图标（其余产物不入库）
+build/*
+!build/icon.ico
 *.log
 
 # 本地校验/冒烟测试临时产物

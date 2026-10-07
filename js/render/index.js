@@ -9,6 +9,7 @@ import {
     ctx, canvasWidth, canvasHeight, centerX, centerY, viewOffsetX, viewOffsetY, viewScale
 } from '../core/viewport.js';
 import { drawMapBackground, drawGrid, drawWeather, drawWeatherLegend } from './background.js';
+import { drawControlAreas, drawAirports } from './airports.js';
 import {
     drawRouteSegments, drawRoutePoints, drawConnectionPreview
 } from './routes.js';
@@ -24,6 +25,8 @@ export function drawRadar() {
     drawMapBackground();
     drawGrid();
     drawWeather();
+    drawControlAreas();
+    drawAirports();
     drawRouteSegments();
     drawRoutePoints();
     drawAircraftWarnings();

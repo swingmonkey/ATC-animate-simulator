@@ -18,6 +18,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(__dirname, '..');
 const SMOKE = process.argv.includes('--smoke');
+/** 应用图标（窗口/任务栏用；打包时由 electron-builder 写入 exe） */
+const ICON_PATH = path.join(APP_ROOT, 'build', 'icon.ico');
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -68,6 +70,7 @@ function createWindow({ show = true, headless = false } = {}) {
         show,
         backgroundColor: '#f1f5f9',
         title: '空管雷达动画模拟器',
+        icon: existsSync(ICON_PATH) ? ICON_PATH : undefined,
         autoHideMenuBar: true,
         webPreferences: {
             contextIsolation: true,
@@ -126,6 +129,10 @@ const SCRIPT_BOOT = `(() => {
     out.pointItems = document.querySelectorAll('#route-points-list .panel-item').length;
     out.routeItems = document.querySelectorAll('#route-list .panel-item').length;
     out.aircraftItems = document.querySelectorAll('#aircraft-list .panel-item').length;
+    out.seatRows = document.querySelectorAll('#seat-list .seat-row').length;
+    out.seatCounts = document.querySelectorAll('#seat-list .seat-row .seat-count').length;
+    out.autoHandoffDefault = st.autoHandoff === true;
+    out.autoClearanceDefault = st.autoClearance === true;
     const speed = document.getElementById('speed-select');
     speed.value = '5';
     speed.dispatchEvent(new Event('change'));
@@ -156,6 +163,44 @@ const SCRIPT_INTERACT = `(() => {
     out.altConApplied = st.aircraft.some(ac => ac.altCon === 3000);
     out.commAfterCmd = document.querySelectorAll('#comm-messages .comm-msg').length;
 
+    /* ---- 塔台 / 进近 / 区调：许可、移交、席位过滤 ---- */
+    const target = st.aircraft[0];
+    input.value = target.flightNo + ' ILS 进近 跑道 02L';
+    document.getElementById('comm-send-btn').click();
+    out.approachApplied = target.approachType === 'ILS' && target.runway === '02L';
+    input.value = target.flightNo + ' 可以落地';
+    document.getElementById('comm-send-btn').click();
+    out.landingClearanceIssued = target.clearance === 'land';
+
+    const autoBox = document.getElementById('auto-handoff-toggle');
+    autoBox.checked = false;
+    autoBox.dispatchEvent(new Event('change'));
+    out.autoHandoffOff = st.autoHandoff === false;
+    input.value = target.flightNo + ' 移交塔台';
+    document.getElementById('comm-send-btn').click();
+    out.manualHandoff = target.unit === 'TWR';
+    autoBox.checked = true;
+    autoBox.dispatchEvent(new Event('change'));
+    out.autoHandoffOn = st.autoHandoff === true;
+
+    out.seatComms = document.querySelectorAll(
+        '#comm-messages .comm-msg.twr, #comm-messages .comm-msg.app, #comm-messages .comm-msg.acc'
+    ).length;
+    out.unitsAssigned = st.aircraft.filter(ac => ac.unit).length;
+    out.unitBoundaries = A.seat.resolveUnitForDistance(10, null) === 'TWR'
+        && A.seat.resolveUnitForDistance(30, null) === 'APP'
+        && A.seat.resolveUnitForDistance(200, null) === 'ACC'
+        && A.seat.resolveUnitForDistance(18, 'TWR') === 'TWR'
+        && A.seat.resolveUnitForDistance(18, 'APP') === 'APP';
+
+    const beforeFilter = document.querySelectorAll('#progress-list .progress-item').length;
+    document.querySelector('#seat-list .seat-row[data-unit="TWR"]').click();
+    out.seatFilterOn = st.seatFilter === 'TWR';
+    out.filteredItems = document.querySelectorAll('#progress-list .progress-item').length;
+    out.filterWorks = out.filteredItems >= 1 && out.filteredItems <= beforeFilter;
+    document.querySelector('#seat-list .seat-row[data-unit="TWR"]').click();
+    out.seatFilterOff = st.seatFilter === null;
+
     document.getElementById('weather-toggle-btn').click();
     out.weatherOn = st.weatherEnabled === true && !!st.storm;
     document.getElementById('weather-toggle-btn').click();
@@ -181,6 +226,51 @@ const SCRIPT_INTERACT = `(() => {
     return out;
 })()`;
 
+/** 阶段三：自动许可链与自动移交（60× 快速推进，验证 塔台放行 → 进近 → 区调 全流程） */
+const SCRIPT_AUTO = `(() => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const out = {
+        seatCommsBeforeAuto: document.querySelectorAll(
+            '#comm-messages .comm-msg.twr, #comm-messages .comm-msg.app, #comm-messages .comm-msg.acc'
+        ).length
+    };
+    const speed = document.getElementById('speed-select');
+    speed.value = '60';
+    speed.dispatchEvent(new Event('change'));
+    out.speed = st.timeSpeed;
+    document.getElementById('play-pause-btn').click();
+    out.playing = st.isPlaying;
+    return out;
+})()`;
+
+/** 阶段四：读取自动流程结果并暂停 */
+const SCRIPT_AUTO_VERIFY = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const out = {
+        simTimeAuto: Math.round(st.time),
+        seatCommsAfterAuto: document.querySelectorAll(
+            '#comm-messages .comm-msg.twr, #comm-messages .comm-msg.app, #comm-messages .comm-msg.acc'
+        ).length,
+        autoTakeoffIssued: st.aircraft.some(ac => ac.phase === 'departure' && ac.clearance === 'takeoff'),
+        runwayAssigned: st.aircraft.every(ac => !!ac.runway),
+        departureAutoHandoff: st.aircraft.some(
+            ac => ac.phase === 'departure' && ac.handoffTime !== undefined && ac.unit === 'ACC'
+        ),
+        units: [...new Set(st.aircraft.filter(ac => ac.unit && !ac.landed).map(ac => ac.unit))].sort().join('/')
+    };
+    // 应用图标是否随包提供（验证 electron-builder files 配置 + app:// 协议）
+    try {
+        const iconResp = await fetch('app://bundle/build/icon.ico');
+        out.iconServed = iconResp.ok;
+    } catch (e) {
+        out.iconServed = false;
+    }
+    document.getElementById('play-pause-btn').click();
+    return out;
+})()`;
+
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -195,6 +285,9 @@ async function runSmoke() {
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_BOOT));
         await wait(3000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_INTERACT));
+        await win.webContents.executeJavaScript(SCRIPT_AUTO);
+        await wait(7000);
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_AUTO_VERIFY));
         // 离屏渲染下抓取整屏截图，便于人工核验渲染效果
         // （打包后 APP_ROOT 位于 app.asar 内不可写，故写入 userData 目录）
         try {
@@ -238,6 +331,24 @@ async function runSmoke() {
         ['新增航路点生效', (report.pointItemsAfterAdd ?? 0) >= 2],
         ['删除选中生效', (report.pointItemsAfterDelete ?? -1) === (report.pointItemsAfterAdd ?? 0) - 1],
         ['可恢复播放', report.resumed === true],
+        ['席位面板渲染三个席位', report.seatRows === 3],
+        ['席位面板默认开启自动移交/许可', report.autoHandoffDefault === true && report.autoClearanceDefault === true],
+        ['席位边界判定（含迟滞）', report.unitBoundaries === true],
+        ['航空器席位已归属', (report.unitsAssigned ?? 0) >= 7],
+        ['进近许可（ILS + 跑道）生效', report.approachApplied === true],
+        ['落地许可生效', report.landingClearanceIssued === true],
+        ['自动移交可关闭', report.autoHandoffOff === true],
+        ['手动移交生效（→塔台）', report.manualHandoff === true],
+        ['自动移交可恢复', report.autoHandoffOn === true],
+        ['席位通话（塔台/进近/区调）已记录', (report.seatComms ?? 0) >= 1],
+        ['席位过滤生效', report.seatFilterOn === true && report.filterWorks === true],
+        ['席位过滤可取消', report.seatFilterOff === true],
+        ['60× 推进到自动流程时段', (report.simTimeAuto ?? 0) > 200],
+        ['自动离港放行生效（45s 后）', report.autoTakeoffIssued === true],
+        ['自动跨界移交持续产生席位通话', (report.seatCommsAfterAuto ?? 0) > (report.seatCommsBeforeAuto ?? -1)],
+        ['离港航班自动流转移交出区（塔台→进近→区调）', report.departureAutoHandoff === true],
+        ['全部航班均已指派跑道', report.runwayAssigned === true],
+        ['应用图标随包提供（app:// 可加载）', report.iconServed === true],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]
     ];
@@ -278,6 +389,7 @@ if (!app.requestSingleInstanceLock() && !SMOKE) {
 
     app.whenReady().then(() => {
         protocol.handle('app', serveApp);
+        app.setAppUserModelId('com.swingmonkey.atc-animate-simulator');
         if (SMOKE) {
             // 冒烟测试窗口使用独立内存分区，需为该分区的 session 单独注册协议
             session.fromPartition('atc-smoke').protocol.handle('app', serveApp);

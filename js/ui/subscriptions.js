@@ -18,6 +18,7 @@ import {
     updateTimeDisplay, updateProgressList, updateCommTargetSelect
 } from './indicators.js';
 import { appendCommMessage } from './commPanel.js';
+import { updateSeatPanel } from './seatPanel.js';
 import { showNextWaypointDialog } from './dialogs.js';
 
 /**
@@ -54,6 +55,12 @@ export function initSubscriptions() {
     /* 通话消息追加 */
     bus.on(EV.COMM_ADDED, appendCommMessage);
 
+    /* 管制席位变更（移交/许可/落地/席位过滤/自动开关）：席位面板 + 进程单 */
+    bus.on(EV.UNIT_CHANGED, () => {
+        updateSeatPanel();
+        updateProgressList(true);
+    });
+
     /* 到达目标航路点：暂停播放并弹出下一航路点选择框 */
     bus.on(EV.WAYPOINT_ARRIVED, ({ ac, idx }) => showNextWaypointDialog(ac, idx));
 }
@@ -67,6 +74,7 @@ export function refreshAll() {
     updateAircraftPanelList();
     updateCommTargetSelect();
     updateProgressList(true);
+    updateSeatPanel();
     updateModeIndicator();
     updatePlayButton();
     updateEditModeUI();

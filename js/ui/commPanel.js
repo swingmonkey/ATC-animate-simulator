@@ -11,13 +11,22 @@ import { executeCommand } from '../commands/executor.js';
 import { updateCommTargetSelect, updateProgressList } from './indicators.js';
 import { updateAircraftPanelList } from './panels.js';
 
+/** 通话发送方 → 显示标签（管制员按席位着色：twr/app/acc 见 styles.css） */
+const SENDER_LABELS = {
+    atc: '[管制]',
+    pilot: '[机组]',
+    twr: '[塔台]',
+    app: '[进近]',
+    acc: '[区调]'
+};
+
 /** 由 comm:added 事件触发：向通话面板追加一条消息（已转义） */
 export function appendCommMessage(msg) {
     const container = document.getElementById('comm-messages');
     if (!container) return;
     const div = document.createElement('div');
     div.className = `comm-msg ${sanitizeClass(msg.sender)}`;
-    const label = msg.sender === 'atc' ? '[管制]' : `[${msg.sender}]:`;
+    const label = SENDER_LABELS[msg.sender] || `[${msg.sender}]:`;
     div.innerHTML = `<span class="comm-time">${escapeHtml(msg.time)}</span><span class="comm-label">${escapeHtml(label)}</span> ${escapeHtml(msg.text)}`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;

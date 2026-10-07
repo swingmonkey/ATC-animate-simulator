@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>空管雷达动画模拟器</title>
+    <link rel="icon" href="build/icon.ico">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -75,6 +76,22 @@
                     <h3 class="section-title">✈ 飞机</h3>
                     <div class="panel-items" id="aircraft-list"></div>
                     <button id="add-aircraft-btn" class="add-btn">+ 添加飞机</button>
+                </div>
+
+                <div class="panel-section" id="seat-section">
+                    <h3 class="section-title">🗼 管制席位</h3>
+                    <div id="seat-list" class="seat-list"></div>
+                    <div id="seat-airport-info" class="seat-info">--</div>
+                    <label class="seat-toggle">
+                        <input type="checkbox" id="auto-handoff-toggle" checked>
+                        <span>自动移交（跨界自动转频）</span>
+                    </label>
+                    <label class="seat-toggle">
+                        <input type="checkbox" id="auto-clearance-toggle" checked>
+                        <span>自动许可（放行/进近/落地）</span>
+                    </label>
+                    <div class="seat-hint">点击席位行可在进程单中只看该席位飞机（再点取消）</div>
+                    <button id="seat-focus-btn" class="edit-btn" style="width:100%;margin-top:6px;">🎯 视图定位焦点机场</button>
                 </div>
 
                 <div class="panel-section" id="progress-section">
@@ -204,6 +221,9 @@
                     <li><strong>速度</strong>：如「加速」「减速」「速度 300」「尽快」（expedite）</li>
                     <li><strong>盘旋/复飞</strong>：如「CCA1234 盘旋」「进跑道」「CCA1234 复飞」（go around）</li>
                     <li><strong>直飞</strong>：如「CCA1234 直飞 SASAN」（需存在同名航路点）</li>
+                    <li><strong>塔台放行</strong>：如「CCA1234 可以起飞」「CCA1234 可以落地」「CCA1234 跑道 02L」</li>
+                    <li><strong>进近许可</strong>：如「CCA1234 可以进近」「CCA1234 ILS 进近 跑道 02L」「CCA1234 目视进近」</li>
+                    <li><strong>席位移交</strong>：如「CCA1234 移交塔台」「CCA1234 联系进近」（关闭自动移交后需手动下发）</li>
                     <li><strong>广播</strong>：省略航班号或对全体说「全体 下降到 3000」</li>
                 </ul>
             </div>
@@ -414,6 +434,32 @@
                         <option value="free">自由导航（直飞目标点）</option>
                         <option value="heading">航向飞行（按固定航向飞行）</option>
                     </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>管制席位:</label>
+                        <div id="ac-unit-display" class="readout-box">--</div>
+                    </div>
+                    <div class="form-group">
+                        <label>跑道:</label>
+                        <select id="ac-runway" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>进近方式:</label>
+                        <select id="ac-approach" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;">
+                            <option value="">未指派</option>
+                            <option value="ILS">ILS 盲降</option>
+                            <option value="RNAV">RNAV 进近</option>
+                            <option value="VOR">VOR/DME 进近</option>
+                            <option value="VISUAL">目视进近</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>席位移交:</label>
+                        <button id="ac-handoff-btn" type="button" class="btn-secondary" style="width:100%;padding:8px 12px;">↗ 移交下一席位</button>
+                    </div>
                 </div>
                 <div class="form-group" id="free-nav-group" style="display:none;">
                     <label>目标点设置:</label>

@@ -54,5 +54,7 @@ export const EV = {
     /** 飞机到达目标航路点（askNextWaypoint 已勾选）→ 弹出下一航路点选择框 */
     WAYPOINT_ARRIVED: 'waypoint:arrived',
     /** 新增陆空通话 → 通讯面板追加 */
-    COMM_ADDED: 'comm:added'
+    COMM_ADDED: 'comm:added',
+    /** 管制席位状态变更（移交/许可/落地/席位过滤/自动开关）→ 席位面板 + 进程单刷新 */
+    UNIT_CHANGED: 'unit:changed'
 };

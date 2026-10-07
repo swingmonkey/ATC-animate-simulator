@@ -4,7 +4,7 @@
  * 自动创建 STAR/SID 航线，并使用约束模型模拟下降/爬升。
  */
 
-import { state } from '../core/store.js';
+import { state, setFocusAirport } from '../core/store.js';
 import { nextId } from '../core/ids.js';
 import {
     getAirport, distantAirport, airportName, AIRPORTS
@@ -16,6 +16,8 @@ import {
     getAircraft, defaultSpeed, defaultAltitude, randomType
 } from '../data/aircraft.js';
 import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/motion.js';
+import { assignRunwayFor } from '../simulation/units.js';
+import { DEPARTURE_INIT_ALT, DEPARTURE_INIT_SPD } from '../core/constants.js';
 
 /** 统一 ID（core/ids.js）：原 Date.now() 自增在同毫秒多实体时会碰撞 */
 const genId = nextId;
@@ -67,6 +69,9 @@ export function createArrival(focusCode = 'ZUUU', startTime = 0) {
         squawk: String(Math.floor(Math.random() * 7000) + 2000),
         departure: originCode,
         destination: focusCode,
+        phase: 'arrival',                                   // 进港：由区调 → 进近 → 塔台
+        runway: assignRunwayFor(focusCode, 0),               // 预指派落地跑道（塔台可改）
+        approachType: null,                                  // 进近方式待发进近许可时确定
         acType,
         altitude: def.cruiseAlt,
         speed: def.cruiseSpeed,
@@ -107,9 +112,14 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
         squawk: String(Math.floor(Math.random() * 7000) + 2000),
         departure: focusCode,
         destination: destCode,
+        phase: 'departure',                                 // 离港：由塔台 → 进近 → 区调
+        runway: assignRunwayFor(focusCode, 1),               // 起飞跑道（塔台放行时使用）
+        plannedAltitude: def.cruiseAlt,                      // 计划巡航高度：起飞许可后爬升
+        plannedSpeed: def.cruiseSpeed,                       // 计划巡航速度：起飞许可后加速
+        clearance: null,                                     // 待塔台放行
         acType,
-        altitude: 900,            // 起始低高度
-        speed: 220,
+        altitude: DEPARTURE_INIT_ALT,   // 起始低高度（等待放行）
+        speed: DEPARTURE_INIT_SPD,
         heading: 90,
         routeId: route.id,
         routeDistance: 0,
@@ -120,9 +130,8 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
         labelOffsetX: 18, labelOffsetY: -14
     };
     state.aircraft.push(ac);
-    // 离港过程：爬升并加速到巡航
-    setAltitudeConstraint(ac, def.cruiseAlt, 0);
-    setSpeedConstraint(ac, def.cruiseSpeed, 0);
+    // 爬升/加速不在此处施加：由塔台「可以起飞」许可（或自动许可）触发，
+    // 从而让 塔台放行 → 进近 → 区调 的席位流程在时间轴上可观察。
     return ac;
 }
 
@@ -132,6 +141,7 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
  */
 export function generateScenario(focusCode = 'ZUUU', arrivals = 4, departures = 3) {
     const before = state.aircraft.length;
+    setFocusAirport(focusCode);            // 管制区渲染 + 席位参考机场随场景切换
     const tMax = state.defaults.timeMax;
     for (let i = 0; i < arrivals; i++) {
         createArrival(focusCode, Math.floor(Math.random() * tMax * 0.25));

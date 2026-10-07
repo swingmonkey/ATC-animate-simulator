@@ -8,6 +8,7 @@ import {
 import { state } from '../core/store.js';
 import { acPos, altOf, hdgOf, posX, posY, spdOf } from '../core/accessors.js';
 import { isAircraftInConflictAt, getConflictPairs } from '../simulation/conflict.js';
+import { unit } from '../data/atcUnits.js';
 
 export function drawAircraft() {
     state.aircraft.forEach(ac => {
@@ -68,11 +69,17 @@ export function drawAircraft() {
         const line2 = `${p.alt}m ${p.spd}kt`;
         const line3 = ac.acType || '';
         const line4 = ac.destination ? `→ ${ac.destination}` : '';
+        // 第 5 行：管制席位 + 跑道 + 进近方式（塔台/进近管制内容在雷达标签上的体现）
+        const seat = unit(ac.unit || 'ACC');
+        const line5 = ac.landed
+            ? '已落地'
+            : `${seat.short}${ac.runway ? ` R${ac.runway}` : ''}${ac.approachType ? ` ${ac.approachType}` : ''}`;
         const boxW = Math.max(
             ctx.measureText(line1).width, ctx.measureText(line2).width,
-            ctx.measureText(line3).width, ctx.measureText(line4).width
+            ctx.measureText(line3).width, ctx.measureText(line4).width,
+            ctx.measureText(line5).width
         ) / viewScale + 8 / viewScale;
-        const boxH = (line4 ? 54 : 44) / viewScale;
+        const boxH = (line5 ? 66 : (line4 ? 54 : 44)) / viewScale;
 
         const corners = [
             { x: labelX, y: labelY }, { x: labelX + boxW, y: labelY },
@@ -101,6 +108,11 @@ export function drawAircraft() {
         ctx.fillText(line2, labelX + 3 / viewScale, labelY + 24 / viewScale);
         ctx.fillText(line3, labelX + 3 / viewScale, labelY + 36 / viewScale);
         if (line4) ctx.fillText(line4, labelX + 3 / viewScale, labelY + 48 / viewScale);
+        if (line5) {
+            ctx.font = `bold ${8 / viewScale}px Consolas`;
+            ctx.fillStyle = ac.landed ? '#94a3b8' : seat.color;
+            ctx.fillText(line5, labelX + 3 / viewScale, labelY + (line4 ? 60 : 48) / viewScale);
+        }
 
         if (isSelected) {
             ctx.strokeStyle = '#006400';

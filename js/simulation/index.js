@@ -11,6 +11,8 @@ import { posX, posY, spdOf } from '../core/accessors.js';
 export * from './geometry.js';
 export * from './motion.js';
 export * from './conflict.js';
+export * from './constraints.js';
+export * from './units.js';
 
 export function getWaypointInfoForAircraft(ac) {
     if (!ac.routeId) return null;

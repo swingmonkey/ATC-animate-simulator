@@ -13,6 +13,11 @@ import {
     ALT_MIN, ALT_MAX, SPD_MIN, SPD_MAX, EXPEDITE_BONUS, GOAROUND_ALT
 } from '../core/constants.js';
 import { parseCommand, hasActions } from './parser.js';
+import {
+    issueApproachClearance, issueLandingClearance, issueTakeoffClearance,
+    handoffAircraft, normalizeRunway
+} from '../simulation/units.js';
+import { unitLabel } from '../data/atcUnits.js';
 
 function findWaypointByName(name) {
     const n = (name || '').toLowerCase();
@@ -102,6 +107,29 @@ export function executeCommand(text) {
                         setHeadingConstraint(ac, Math.atan2(wp.x - ac.x, -(wp.y - ac.y)) * 180 / Math.PI);
                     } else {
                         addComm('atc', `未找到航路点 ${act.value}`);
+                    }
+                    break;
+                }
+                /* ---- 塔台 / 进近 / 区调：许可与移交 ---- */
+                case 'approach':
+                    issueApproachClearance(ac, act.value, act.runway);
+                    break;
+                case 'land':
+                    issueLandingClearance(ac, act.runway);
+                    break;
+                case 'takeoff':
+                    issueTakeoffClearance(ac);
+                    break;
+                case 'handoff':
+                    if (!handoffAircraft(ac, act.value)) {
+                        addComm('atc', `${ac.flightNo} 已在${unitLabel(ac.unit)}席位，无需移交`);
+                    }
+                    break;
+                case 'runway': {
+                    const rn = normalizeRunway(act.value);
+                    if (rn) {
+                        ac.runway = rn;
+                        addComm('atc', `${ac.flightNo}，预计使用跑道 ${rn}。`);
                     }
                     break;
                 }

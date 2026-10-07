@@ -796,3 +796,136 @@ body {
 .hidden {
     display: none !important;
 }
+
+/* ---------------- 管制席位面板（塔台 / 进近 / 区调） ---------------- */
+
+.seat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.seat-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.seat-row:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.seat-row.active {
+    background: #eff6ff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.seat-code {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.seat-name {
+    flex: 1;
+    font-size: 11px;
+    color: #334155;
+    font-weight: 600;
+}
+
+.seat-freq {
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.seat-count {
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e293b;
+    min-width: 16px;
+    text-align: right;
+}
+
+.seat-pending {
+    font-size: 10px;
+    color: #b45309;
+}
+
+.seat-info {
+    font-size: 10px;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+
+.seat-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #475569;
+    margin-bottom: 4px;
+    cursor: pointer;
+}
+
+.seat-toggle input {
+    width: 13px;
+    height: 13px;
+}
+
+.seat-hint {
+    font-size: 10px;
+    color: #cbd5e1;
+    line-height: 1.4;
+}
+
+/* 只读状态框（飞机对话框：当前管制席位） */
+.readout-box {
+    padding: 8px 12px;
+    background: #f0f9ff;
+    border: 1.5px solid #bae6fd;
+    color: #0369a1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* 进程单第三行：管制席位 · 管制状态 */
+.progress-item .seat-line {
+    font-size: 10px;
+    margin-top: 2px;
+    font-weight: 600;
+}
+
+/* 席位通话气泡：管制员按席位着色 */
+.comm-msg.twr {
+    background: #fff7ed;
+    border-left: 3px solid #b45309;
+    color: #7c2d12;
+}
+
+.comm-msg.app {
+    background: #f0f9ff;
+    border-left: 3px solid #0369a1;
+    color: #075985;
+}
+
+.comm-msg.acc {
+    background: #f5f3ff;
+    border-left: 3px solid #7c3aed;
+    color: #5b21b6;
+}

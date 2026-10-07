@@ -12,7 +12,8 @@ import { state, isEditMode, select } from '../core/store.js';
 import { pxToKmFixed } from '../core/viewport.js';
 import { escapeHtml, formatHMS } from '../core/dom.js';
 import { PROGRESS_REFRESH_MS } from '../core/constants.js';
-import { getWaypointInfoForAircraft } from '../simulation/index.js';
+import { getWaypointInfoForAircraft, clearanceText } from '../simulation/index.js';
+import { unit } from '../data/atcUnits.js';
 import { openAircraftDialog } from './dialogs.js';
 
 const TIME_REFRESH_MS = 100;
@@ -131,6 +132,8 @@ export function updateProgressList(force = false) {
 
     state.aircraft.forEach(ac => {
         if (state.time < (ac.startTime || 0)) return;
+        // 席位过滤：点击席位面板后只显示该席位管辖的航空器
+        if (state.seatFilter && (ac.unit || 'ACC') !== state.seatFilter) return;
         const route = ac.routeId ? state.routes.find(r => r.id === ac.routeId) : null;
         const navMode = ac.navMode || (ac.routeId ? 'route' : 'heading');
         let modeText = '';
@@ -150,11 +153,15 @@ export function updateProgressList(force = false) {
             const wpInfo = getWaypointInfoForAircraft(ac);
             if (wpInfo) waypointInfo = ` | ${wpInfo.nextPointName}(${wpInfo.distance}km)`;
         }
+        const seat = unit(ac.unit || 'ACC');
+        const seatText = `${seat.short}${ac.runway ? ` R${ac.runway}` : ''}`;
         const div = document.createElement('div');
         div.className = 'progress-item';
+        div.dataset.flightNo = ac.flightNo;
         div.innerHTML = `
-            <div class="flight-no" style="color:${isSelected ? '#006400' : '#1e40af'}">${escapeHtml(ac.flightNo)}${isSelected ? ' ✓' : ''}</div>
+            <div class="flight-no" style="color:${isSelected ? '#006400' : (ac.landed ? '#94a3b8' : '#1e40af')}">${escapeHtml(ac.flightNo)}${isSelected ? ' ✓' : ''}${ac.landed ? ' 🛬' : ''}</div>
             <div class="info">${escapeHtml(ac.departure)} → ${escapeHtml(ac.destination)} | ${ac.displayAltitude ?? ac.altitude}m | ${ac.displaySpeed ?? ac.speed}kt${escapeHtml(modeText)}${escapeHtml(waypointInfo)}</div>
+            <div class="seat-line" style="color:${seat.color}">${escapeHtml(seatText)} · ${escapeHtml(clearanceText(ac))}</div>
         `;
         if (isSelected) { div.style.borderLeftColor = '#006400'; div.style.background = '#f0fff0'; }
         div.style.cursor = 'pointer';
@@ -168,7 +175,8 @@ export function updateProgressList(force = false) {
         containerOverlay.onclick = e => {
             const item = e.target.closest('.progress-item');
             if (!item) return;
-            const flightNo = item.querySelector('.flight-no')?.textContent.replace(' ✓', '').trim();
+            const flightNo = item.dataset.flightNo
+                || item.querySelector('.flight-no')?.textContent.replace(' ✓', '').trim();
             const ac = state.aircraft.find(a => a.flightNo === flightNo);
             if (ac) openProgressAircraft(ac);
         };

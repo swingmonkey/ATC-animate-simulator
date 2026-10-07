@@ -47,6 +47,12 @@ export const state = {
     weatherEnabled: false,
     storm: null,
 
+    /* 管制席位（塔台 / 进近 / 区调） */
+    focusAirport: 'ZUUU',   // 场景焦点机场：管制区渲染与航班生成的参照
+    autoHandoff: true,      // 跨界自动移交：关闭后需手动下发「移交」指令
+    autoClearance: true,    // 自动许可：离港放行 / 进近许可 / 落地许可
+    seatFilter: null,       // 进程单席位过滤：null = 显示全部
+
     /* 计数器（持久化） */
     pointNameCounter: 1
 };
@@ -144,4 +150,36 @@ export function addComm(sender, text) {
     const msg = { sender, text, time: now.toTimeString().slice(0, 8) };
     state.commMessages.push(msg);
     bus.emit(EV.COMM_ADDED, msg);
+}
+
+/* ---------------- 管制席位（塔台 / 进近 / 区调） ---------------- */
+
+/** 场景焦点机场变更（管制区渲染与航班生成的参照机场） */
+export function setFocusAirport(code) {
+    if (!code || code === state.focusAirport) return;
+    state.focusAirport = code;
+    bus.emit(EV.UNIT_CHANGED, { focusAirport: code });
+    requestRedraw();
+}
+
+/** 自动移交开关（关闭后由管制员手动下发「移交塔台/进近/区调」） */
+export function setAutoHandoff(on) {
+    state.autoHandoff = !!on;
+    bus.emit(EV.UNIT_CHANGED, { autoHandoff: state.autoHandoff });
+}
+
+/** 自动许可开关（离港放行 / 进近许可 / 落地许可；关闭后全部手动下发） */
+export function setAutoClearance(on) {
+    state.autoClearance = !!on;
+    bus.emit(EV.UNIT_CHANGED, { autoClearance: state.autoClearance });
+}
+
+/**
+ * 席位过滤（点击席位面板选中/取消）：进程单只显示该席位管辖的航空器。
+ * @param {string|null} code 'TWR' | 'APP' | 'ACC'；重复点击同一席位 = 取消过滤
+ */
+export function setSeatFilter(code) {
+    state.seatFilter = state.seatFilter === code ? null : (code || null);
+    bus.emit(EV.UNIT_CHANGED, { seatFilter: state.seatFilter });
+    requestRedraw();
 }

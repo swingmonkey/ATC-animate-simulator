@@ -20,6 +20,24 @@
 - 支持飞机关联到航线（拖拽贴线）
 - 到达航路点后可选择下一航路点（勾选"到达目标点后询问"后自动暂停并弹窗）
 
+### 🗼 塔台 / 进近 / 区调管制（v1.2 新增）
+
+按真实管制单位划分三级席位，由内到外为 **塔台（TWR）→ 进近（APP）→ 区调（ACC）**，
+航班按「距参考机场的水平距离」自动归属席位，跨界时执行**移交（handoff）**（对标 openScope 的 sector/position 与 handoff 机制）：
+
+| 席位 | 频率 | 管制范围 | 职责 |
+|------|------|----------|------|
+| 🟠 塔台 TWR | 机场塔台频率（如 ZUUU 118.85） | 机场半径 15km | 起飞/落地许可、跑道、复飞 |
+| 🔵 进近 APP | 机场进近频率（如 ZUUU 120.35） | 终端区 60km | 进近许可（ILS / RNAV / VOR-DME / 目视）、下高度调速、雷达引导 |
+| 🟣 区调 ACC | 126.85 | 其余空域 | 巡航高度、航路、跨区移交 |
+
+- **管制席位面板**：实时显示三个席位的频率、在管架数、待移交数；点击席位行可让进程单只显示该席位管辖的飞机（再点取消）
+- **自动移交 / 自动许可**：两个开关默认开启——离港航班 45 秒后自动放行、进港航班进入终端区自动发进近许可、进入塔台区自动发落地许可；关闭后即变成「手动管制」玩法
+- **交界迟滞**：已在席位内的航班需超出范围 25% 才外移，避免在边界反复移交
+- **跑道与航道**：每个机场配示意跑道对，天气开启时按风场选择逆风跑道；焦点机场绘制跑道、进近航道延长线与 15km/60km 管制区圆环
+- **落地闭环**：离港「可以起飞」→ 爬升加速；进港「可以进近」→ 下 900m/180kt；「可以落地」→ 下 300m/150kt，进入塔台区且高度到位即判定接地，飞机离开雷达
+- **席位通话**：移交与许可都产生成对的管制指令 + 机组复诵通话，通话面板按席位着色（`[塔台]`/`[进近]`/`[区调]`）
+
 ### ⏱ 时间控制
 - 播放/暂停、可调播放速度（1x/2x/5x/10x/60x）
 - 拖动进度条直接跳转时间点；飞机位置按时间确定性推导，回放精确
@@ -64,22 +82,27 @@ ATC-animate-simulator/
 │   │   ├── accessors.js        # 显示值访问器（收口重复的 display* 取值）
 │   │   ├── ids.js              # 统一 ID 生成
 │   │   └── dom.js              # $ / escapeHtml / HH:MM:SS 格式化
-│   ├── data/                   # 静态数据：机型、航司、机场、航路点类型
+│   ├── data/                   # 静态数据：机型、航司、机场（含示意跑道/频率）、航路点类型、管制席位与进近方式
 │   ├── simulation/             # 运动模型：geometry（纯几何）/ motion（约束收敛）/ conflict（冲突检测）
+│   │   ├── constraints.js      # 高度/速度/航向约束原语（叶子模块，motion 与 units 共用）
+│   │   └── units.js            # 管制席位归属、移交、塔台/进近/落地许可、跑道指派
 │   ├── commands/               # 文本指令：parser（纯解析）/ executor（施加约束）
-│   ├── render/                 # Canvas 绘制：background / routes / aircraft
+│   ├── render/                 # Canvas 绘制：background / airports（机场·跑道·管制区）/ routes / aircraft
 │   ├── ui/                     # 界面层
 │   │   ├── panels.js           # 航路点/航线/飞机面板
-│   │   ├── dialogs.js          # 各对话框
-│   │   ├── indicators.js       # 模式指示、时间显示、进程单（内置节流）
-│   │   ├── commPanel.js        # 通话面板
+│   │   ├── dialogs.js          # 各对话框（含飞机对话框的席位/跑道/进近字段）
+│   │   ├── indicators.js       # 模式指示、时间显示、进程单（内置节流 + 席位过滤）
+│   │   ├── seatPanel.js        # 管制席位面板（频率/在管架数/待移交）
+│   │   ├── commPanel.js        # 通话面板（按席位着色）
 │   │   ├── formBindings.js     # 对话框表单控件事件绑定
 │   │   └── subscriptions.js    # 事件订阅中枢（唯一刷新接线处）
 │   ├── interaction/            # 输入层：canvasInput / keyboard / palette / toolbar / factory
-│   ├── generators/             # 随机场景生成
-│   └── weather/                # 风暴场 / 风场
+│   ├── generators/             # 随机场景生成（进港/离港 + 预指派跑道）
+│   └── weather/                # 风暴场 / 风场（跑道逆风选择复用）
+├── build/icon.ico              # 应用图标（由 tools/make-icon.py 生成）
 ├── desktop/main.js             # Electron 主进程（app:// 协议 + --smoke 冒烟测试）
 ├── tools/check-imports.mjs     # 零依赖 ES 模块导入/导出静态校验
+├── tools/make-icon.py          # 图标生成（Pillow 绘制雷达屏图标，多尺寸 ICO）
 ├── package.json                # 开发/打包脚本与 electron-builder 配置
 └── README.md
 ```
@@ -118,8 +141,24 @@ npm start
 
 ```bash
 npm run build:win
-# 产物：dist/ATC-Simulator-1.1.0.exe —— 双击即运行，无需安装、无需浏览器
+# 产物：dist/ATC-Simulator-1.2.0.exe —— 双击即运行，无需安装、无需浏览器
 ```
+
+**直接下载（免打包）**：见 [Releases](https://github.com/swingmonkey/ATC-animate-simulator/releases) 页面的
+`ATC-Simulator-1.2.0.exe`（Windows 便携版，单文件，约 74MB）。
+
+应用图标由 `tools/make-icon.py`（Pillow）绘制生成 `build/icon.ico`，窗口/任务栏图标在
+`desktop/main.js` 中通过 `BrowserWindow.icon` 指定；网页端使用 `<link rel="icon">`。
+如需重新生成图标：
+
+```bash
+npm run icon        # 等价于 python tools/make-icon.py
+```
+
+> ⚠️ EXE **文件本身**的图标需要在 `package.json` 中启用 `win.signAndEditExecutable`（默认关闭）：
+> electron-builder 会下载 `winCodeSign` 并调用 rcedit 改写 exe 资源，而该压缩包内含
+> macOS 符号链接，在未开启 Windows 开发者模式的机器上解压会失败。关闭后功能不受影响，
+> 仅资源管理器中的 exe 图标保持 Electron 默认图标。
 
 若 GitHub 直连受限，可先设置镜像再安装/打包：
 
@@ -133,8 +172,8 @@ npm run build:win
 ### 校验与冒烟测试
 
 ```bash
-npm run check    # 静态校验 40 个模块、261 条具名导入的导入/导出一致性
-npm run smoke    # 无头启动应用并脚本化驱动关键交互，26 项断言
+npm run check    # 静态校验 45 个模块、345 条具名导入的导入/导出一致性
+npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，44 项断言
 ```
 
 ## 使用指南
@@ -163,6 +202,10 @@ npm run smoke    # 无头启动应用并脚本化驱动关键交互，26 项断�
 | 航向 | `CCA1234 航向 270` / `左转 20` / `右转` | 航向飞行模式 |
 | 速度 | `加速到 500` / `减速` / `尽快` | 绝对或相对调速 |
 | 直飞 | `直飞 W1234` | 自由导航至指定航路点 |
+| 塔台放行 | `CCA1234 可以起飞` / `可以落地` | 起飞许可（爬升到计划高度）、落地许可（下 300m/150kt） |
+| 进近许可 | `CCA1234 ILS 进近 跑道 02L` / `可以进近` / `目视进近` | 指派进近方式与跑道，下 900m/180kt |
+| 跑道 | `CCA1234 跑道 20R` | 指派/更换跑道（可随进近、落地许可一起下发） |
+| 席位移交 | `CCA1234 移交塔台` / `联系进近` / `contact tower` | 手动移交（关闭自动移交后使用） |
 | 其他 | `保持高度` / `盘旋` / `复飞` | 平飞、保持航向、复飞爬升 |
 
 ## v1.1 深度重构说明
@@ -184,6 +227,29 @@ npm run smoke    # 无头启动应用并脚本化驱动关键交互，26 项断�
 
 > 场景数据键保持 `atc_simulator_state_v2`，旧存档可直接读取。
 > 需要清空存档时在开发者工具执行：`localStorage.removeItem('atc_simulator_state_v2')`
+
+## v1.2 塔台 / 进近管制内容
+
+在 v1.1 架构之上补齐「管制单位」这一层业务，主要新增与改动：
+
+| # | 内容 | 实现位置 |
+|---|------|----------|
+| 1 | 三级席位（塔台/进近/区调）+ 管制区半径 + 频率 + 职责数据 | `data/atcUnits.js` |
+| 2 | 席位归属（距离 + 迟滞判定）、移交（自动/手动）、起飞/进近/落地许可、跑道指派（按风选择逆风端） | `simulation/units.js` |
+| 3 | 约束原语下沉为叶子模块，避免 `motion ⇄ units` 循环依赖 | `simulation/constraints.js` |
+| 4 | 指令词表：`可以起飞/可以落地/进近许可(ILS/RNAV/VOR/目视)/跑道 xx/移交塔台` + 英文别名 | `commands/parser.js`、`commands/executor.js` |
+| 5 | 机场图层：跑道、进近航道延长线、各机场塔台区、焦点机场进近区 | `render/airports.js`、`core/viewport.js`（`kmToPxFixed`） |
+| 6 | 雷达标签第 5 行显示席位/跑道/进近方式；进程单增加「席位 · 管制状态」行 | `render/aircraft.js`、`ui/indicators.js` |
+| 7 | 管制席位面板：频率、在管架数、待移交数、席位过滤、自动开关、视图定位 | `ui/seatPanel.js`、`index.html`、`styles.css` |
+| 8 | 飞机对话框新增席位/跑道/进近方式字段与「移交下一席位」按钮 | `ui/dialogs.js`、`ui/formBindings.js` |
+| 9 | 通话面板按席位着色（`[塔台]`/`[进近]`/`[区调]`） | `ui/commPanel.js` |
+| 10 | 生成场景后自动聚焦焦点机场；离港航班改为「待放行 → 放行后爬升」，让席位流程在时间轴上可见 | `interaction/toolbar.js`、`generators/flightGenerator.js` |
+| 11 | 应用图标（雷达屏主题，多尺寸 ICO）+ 窗口图标 + 网页 favicon | `tools/make-icon.py`、`build/icon.ico`、`desktop/main.js`、`index.html` |
+| 12 | 冒烟测试扩充到 44 项：席位边界/许可/移交/过滤/自动流程 | `desktop/main.js` |
+
+> 跑道与频率为**示意数据**（真实机场的简化近似），仅用于模拟演示，不作为飞行依据。
+> 席位范围的 km 值与地图世界坐标的换算采用固定比例（`pxToKmFixed` / `kmToPxFixed`），
+> 因此缩放地图不会改变席位的归属判定。
 
 ## 浏览器兼容性
 

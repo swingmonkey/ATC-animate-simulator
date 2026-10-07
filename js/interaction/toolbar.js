@@ -10,10 +10,11 @@ import {
     state, isEditMode, select, togglePlay, addComm, commitScene,
     setRouteConnectMode, cancelRouteConnect
 } from '../core/store.js';
-import { centerX, centerY } from '../core/viewport.js';
+import { centerX, centerY, centerOnWorldPoint } from '../core/viewport.js';
 import { nextId } from '../core/ids.js';
 import { requestRedraw } from '../core/eventBus.js';
 import { $ } from '../core/dom.js';
+import { getAirport } from '../data/airports.js';
 import { updateAircraftPositionsForTime } from '../simulation/index.js';
 import { updateProgressList, updateTimeDisplay, openPointDialog } from '../ui/index.js';
 import { addPoint, addAircraft } from './factory.js';
@@ -109,6 +110,9 @@ $('settings-btn')?.addEventListener('click', () => {
 $('generate-scenario-btn')?.addEventListener('click', () => {
     const focus = $('scenario-focus')?.value || 'ZUUU';
     const summary = generateScenario(focus, 4, 3);
+    // 视图聚焦焦点机场：塔台区（15km）与进近区（60km）圆环、跑道与航道一目了然
+    const ap = getAirport(focus);
+    if (ap) centerOnWorldPoint(ap.x, ap.y);
     addComm('atc', `已生成场景：焦点 ${summary.focus}，新增 ${summary.added} 架航班`);
     commitScene();
 });

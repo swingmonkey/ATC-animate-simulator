@@ -14,6 +14,7 @@ import { KT_TO_KMPS, TRAIL_MAX_PTS } from '../core/constants.js';
 import { posX, posY } from '../core/accessors.js';
 import { getCategory } from '../data/aircraft.js';
 import { pointToSegmentDist, headingBetween } from './geometry.js';
+import { updateAircraftUnitState } from './units.js';
 
 /* ---------- 收敛原语 ---------- */
 
@@ -38,25 +39,9 @@ export function convergeAngle(current, target, rate, t) {
     return (h % 360 + 360) % 360;
 }
 
-/* ---------- 约束设定（供指令层调用） ---------- */
+/* ---------- 约束设定（原语已迁至 simulation/constraints.js，此处转出保持既有导入路径） ---------- */
 
-export function setAltitudeConstraint(ac, targetAlt, t) {
-    ac.altBase = ac.displayAltitude ?? ac.altitude;
-    ac.altCon = targetAlt;
-    ac.constraintTime = t ?? state.time;
-}
-
-export function setSpeedConstraint(ac, targetSpd, t) {
-    ac.spdBase = ac.displaySpeed ?? ac.speed;
-    ac.spdCon = targetSpd;
-    ac.constraintTime = t ?? state.time;
-}
-
-export function setHeadingConstraint(ac, targetHdg, t) {
-    ac.hdgBase = ac.displayHeading ?? (ac.heading || 90);
-    ac.hdgCon = ((targetHdg % 360) + 360) % 360;
-    ac.constraintTime = t ?? state.time;
-}
+export { setAltitudeConstraint, setSpeedConstraint, setHeadingConstraint } from './constraints.js';
 
 /* ---------- 运动学（确定性，scrub 安全） ---------- */
 
@@ -264,6 +249,7 @@ export function updateAircraftPositionsForTime(targetTime) {
         ac.displayHeading = pos.heading;
         ac._visible = pos.visible;
         updateAircraftKinematics(ac, targetTime);
+        updateAircraftUnitState(ac);   // 席位归属 / 自动移交 / 放行 / 落地判定
         checkWaypointArrival(ac);
     });
 }
