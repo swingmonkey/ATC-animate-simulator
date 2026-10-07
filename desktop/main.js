@@ -224,6 +224,31 @@ const SCRIPT_INTERACT = `(() => {
     out.historySamples = st.aircraft.reduce((n, ac) => Math.max(n, ac.history ? ac.history.length : 0), 0);
     out.clockSteps = A.clock.steps;
 
+    /* ---- Endless ATC 位置文件兼容：解析 → 换算 → 应用（真实按钮路径） ---- */
+    const locText = A.location.sample('ZUUU');
+    const parsedLoc = A.location.parse(locText);
+    out.locSections = parsedLoc.sections.length;
+    out.locWarnings = parsedLoc.warnings.length;
+    const imp = A.location.import(locText);            // 文本 → 场景 → 写入 state
+    out.locCode = imp.applied.code;
+    out.locRunways = imp.applied.runways;
+    out.locBeacons = imp.applied.beacons;
+    out.locAreas = imp.applied.areas;
+    out.locConfigs = imp.applied.configurations;
+    out.locEvents = imp.applied.events;
+    out.locNmToKm = Math.round(imp.scene.airspace.radiusKm * 100) / 100;
+    out.locAreaAltitude = imp.scene.areas.length ? Math.round(imp.scene.areas[0].altM) : -1;
+    out.locSepNm = st.defaults.minSeparationNm;
+    out.locAltMinM = st.defaults.altMinM;
+    out.locAltMaxM = st.defaults.altMaxM;
+    const zuuu = A.airports.get('ZUUU');
+    out.locRunwayPair = zuuu && zuuu.runways ? zuuu.runways.join(',') : '';
+    out.locLatLonMode = imp.scene.mode;
+    document.getElementById('location-sample-btn').click();   // 端到端：示例机场按钮（含信标→航路点）
+    out.locBeaconPoint = st.routePoints.filter(p => (p.name || '').toLowerCase() === 'ctu').length;
+    out.locFocus = st.focusAirport;
+    out.locCommMentionsImport = st.commMessages.some(m => (m.text || '').includes('已导入位置文件'));
+
     document.getElementById('weather-toggle-btn').click();
     out.weatherOn = st.weatherEnabled === true && !!st.storm;
     document.getElementById('weather-toggle-btn').click();
@@ -384,6 +409,16 @@ async function runSmoke() {
         ['班次已录制管制输入', (report.sessionInputs ?? 0) >= 1],
         ['状态采样已写入（剖面图数据源）', (report.historySamples ?? 0) >= 1],
         ['时钟模块驱动时间推进', (report.clockSteps ?? 0) > 0],
+        ['EATC 位置文件解析（节数 ≥10、零告警）', (report.locSections ?? 0) >= 10 && report.locWarnings === 0],
+        ['位置文件导入（跑道/信标/最低高度区/构型/事件）', report.locCode === 'ZUUU' && report.locRunways === 2
+            && report.locBeacons === 4 && report.locAreas === 2 && report.locConfigs === 2 && report.locEvents === 10],
+        ['NM→km 与 ft→m 换算正确（半径 55.56km / MVA 610m）',
+            report.locNmToKm === 55.56 && report.locAreaAltitude === 610],
+        ['隔离标准与高度上下限按文件生效（3NM / 610m / 3658m）',
+            report.locSepNm === 3 && report.locAltMinM === 610 && report.locAltMaxM === 3658],
+        ['跑道对被登记为 02L/20R + 02R/20L', report.locRunwayPair === '02L/20R,02R/20L'],
+        ['示例机场按钮端到端（信标→航路点 + 焦点机场 + 播报）', report.locBeaconPoint === 1
+            && report.locFocus === 'ZUUU' && report.locCommMentionsImport === true],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]
     ];

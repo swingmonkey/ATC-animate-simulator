@@ -53,13 +53,18 @@ export const state = {
     autoClearance: true,    // 自动许可：离港放行 / 进近许可 / 落地许可
     seatFilter: null,       // 进程单席位过滤：null = 显示全部
 
+    /* Endless ATC 位置文件（domain/locations.js 导入，几何已换算为世界坐标） */
+    location: null,
+
     /* 计数器（持久化） */
     pointNameCounter: 1
 };
 
 state.defaults = {
     altitude: 10600, speed: 480, acType: 'B738', squawk: '2000',
-    gridSpacing: 50, minSeparationNm: 15, timeMax: 2400
+    gridSpacing: 50, minSeparationNm: 15, timeMax: 2400,
+    /** 可指令高度下限/上限（m）：导入位置文件后按 floor / above 改写 */
+    altMinM: 3000, altMaxM: 15000
 };
 
 export function isEditMode() { return !state.isPlaying; }

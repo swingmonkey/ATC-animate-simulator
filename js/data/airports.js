@@ -38,6 +38,18 @@ export function getAirport(code) {
     return AIRPORTS[code] || null;
 }
 
+/**
+ * 运行期注册/覆盖机场（由 domain/locations.js 导入 Endless ATC 位置文件时调用）。
+ * 与 AIRPORTS 同库：导入后本场跑道/频率立即对生成器、席位与渲染生效。
+ * @param {string} code 四字码
+ * @param {object} def { name, region, x, y, runways, twr, app }
+ */
+export function registerAirport(code, def) {
+    if (!code || !def) return null;
+    AIRPORTS[code] = { ...(AIRPORTS[code] || {}), ...def };
+    return AIRPORTS[code];
+}
+
 export function airportName(code) {
     const a = AIRPORTS[code];
     return a ? a.name : code;

@@ -12,6 +12,8 @@ import {
 } from '../core/store.js';
 import { centerX, centerY, centerOnWorldPoint } from '../core/viewport.js';
 import { resetClockAccumulator } from '../core/clock.js';
+import { importLocationText } from '../domain/locations.js';
+import { sampleLocationText } from '../data/locationSamples.js';
 import { nextId } from '../core/ids.js';
 import { requestRedraw } from '../core/eventBus.js';
 import { $ } from '../core/dom.js';
@@ -154,4 +156,55 @@ $('time-slider')?.addEventListener('input', e => {
 
 $('speed-select')?.addEventListener('change', e => {
     state.timeSpeed = parseInt(e.target.value);
+});
+
+/* ---------------- Endless ATC 位置文件导入 ---------------- */
+
+/** 把位置文件的信标写成航路点（重名跳过），返回新增数量 */
+function addBeaconPoints(beacons) {
+    const existing = new Set(state.routePoints.map(p => (p.name || '').toLowerCase()));
+    let added = 0;
+    (beacons || []).forEach(b => {
+        const key = b.name.toLowerCase();
+        if (existing.has(key)) return;
+        addPoint(b.x, b.y, 'vor', b.name);
+        existing.add(key);
+        added++;
+    });
+    return added;
+}
+
+/** 导入文本 → 应用场景：注册机场、写入信标、对准视图、播报摘要 */
+function importLocation(text, label) {
+    const { scene, applied } = importLocationText(text);
+    const beacons = addBeaconPoints(scene.beacons);
+    const ap = getAirport(applied.code);
+    if (ap) centerOnWorldPoint(ap.x, ap.y);
+    addComm('atc', `已导入位置文件「${label}」：${applied.code} · 跑道 ${applied.runways} 组 · `
+        + `信标 ${beacons} 个 · 最低高度区 ${applied.areas} 个 · 跑道构型 ${applied.configurations} 组 · `
+        + `场景事件 ${applied.events} 条`);
+    if (applied.warnings) {
+        addComm('atc', `注意：该文件有 ${applied.warnings} 处无法解析（详见控制台）`);
+        console.warn('[location] 解析告警：', scene.warnings);
+    }
+    requestRedraw();
+}
+
+$('location-sample-btn')?.addEventListener('click', () => {
+    importLocation(sampleLocationText('ZUUU'), 'ZUUU 示例');
+});
+
+$('location-import-btn')?.addEventListener('click', () => {
+    document.getElementById('location-file-input')?.click();
+});
+
+$('location-file-input')?.addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+        importLocation(await file.text(), file.name);
+    } catch (err) {
+        addComm('atc', `位置文件读取失败：${err.message}`);
+    }
+    e.target.value = '';
 });

@@ -25,6 +25,10 @@ function findWaypointByName(name) {
     return state.routePoints.find(p => (p.name || '').toLowerCase() === n) || null;
 }
 
+/** 可指令高度下限/上限（m）：导入 Endless ATC 位置文件后由 floor / above 改写 */
+function altFloorM() { return state.defaults.altMinM || ALT_MIN; }
+function altCeilingM() { return state.defaults.altMaxM || ALT_MAX; }
+
 /**
  * @param {string} text 原始指令文本
  * @returns {{ok:boolean, affected:number, message:string}}
@@ -50,13 +54,13 @@ export function executeCommand(text) {
         for (const act of parsed.actions) {
             switch (act.type) {
                 case 'alt':
-                    setAltitudeConstraint(ac, act.value);
+                    setAltitudeConstraint(ac, Math.max(altFloorM(), Math.min(altCeilingM(), act.value)));
                     break;
                 case 'climb':
-                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.min(ALT_MAX, altOf(ac) + act.value));
+                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.min(altCeilingM(), altOf(ac) + act.value));
                     break;
                 case 'descend':
-                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.max(ALT_MIN, altOf(ac) - act.value));
+                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.max(altFloorM(), altOf(ac) - act.value));
                     break;
                 case 'hdg':
                     ac.navMode = 'heading';
@@ -94,7 +98,7 @@ export function executeCommand(text) {
                     setHeadingConstraint(ac, hdgOf(ac));
                     break;
                 case 'goaround':
-                    setAltitudeConstraint(ac, Math.min(ALT_MAX, altOf(ac) + GOAROUND_ALT));
+                    setAltitudeConstraint(ac, Math.min(altCeilingM(), altOf(ac) + GOAROUND_ALT));
                     ac.navMode = 'heading';
                     ac.routeId = null;
                     setHeadingConstraint(ac, hdgOf(ac));

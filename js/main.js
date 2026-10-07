@@ -17,6 +17,10 @@ import { resolveUnitForDistance } from './domain/airspace.js';
 import { PHASE, derivePhase, syncPhase, canIssue, issueHint } from './domain/phases.js';
 import { predictMinSeparation, predictedConflicts } from './domain/separation.js';
 import { initSessionWiring, currentSession, recordInput } from './game/session.js';
+import { parseLocationFile } from './domain/locationFile.js';
+import { locationToScene, importLocationText } from './domain/locations.js';
+import { sampleLocationText } from './data/locationSamples.js';
+import { getAirport } from './data/airports.js';
 import { drawRadar } from './render/index.js';
 import { initSubscriptions, refreshAll } from './ui/subscriptions.js';
 import { initFormBindings } from './ui/formBindings.js';
@@ -75,6 +79,13 @@ window.__ATC__ = {
     seat: { resolveUnitForDistance },
     phase: { PHASE, derivePhase, syncPhase, canIssue, issueHint },
     sep: { predictMinSeparation, predictedConflicts },
+    location: {
+        parse: parseLocationFile,
+        toScene: locationToScene,
+        import: importLocationText,
+        sample: sampleLocationText
+    },
+    airports: { get: getAirport },
     session: currentSession,
     recordInput,
     clock: clockStats

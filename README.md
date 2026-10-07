@@ -66,6 +66,9 @@
 - **Electron + electron-builder**：`app://` 自定义协议规避 `file://` 下 ES 模块 CORS 限制，并保证存档来源稳定
 - **分层架构（v1.3 起）**：`core → simulation → domain → game → ui/render/interaction` 单向依赖，由 `npm run check` 强制校验循环依赖与层级越界；
   领域层含**飞行阶段 FSM**、许可与复诵记录、席位/扇区、间隔预测，游戏层含班次与输入录制 —— 完整设计见 [`docs/PLAN-v2.md`](docs/PLAN-v2.md)
+- **兼容 Endless ATC 机场文件（v1.4 起）**：直接导入 [startgrid《Endless ATC》](https://github.com/EndlessATC/Airports) 社区位置文件（`.txt`）——
+  空域参数（半径/高度上下限/隔离标准）、跑道（真航向/长度/标高/ILS）、信标、最低高度区（MVA）、跑道构型、
+  SID/STAR 航路、进场点、航司表、机型性能表、`[scenario]` 事件时间轴与背景线；工具栏「📂 导入机场 / 📍 示例机场」即可使用
 
 ## 项目结构
 
@@ -86,17 +89,21 @@ ATC-animate-simulator/
 │   │   ├── ids.js              # 统一 ID 生成
 │   │   └── dom.js              # $ / escapeHtml / HH:MM:SS 格式化
 │   ├── data/                   # 静态数据：机型、航司、机场（含示意跑道/频率）、航路点类型、管制席位与进近方式
+│   │   └── locationSamples.js  # 内置示例位置文件（Endless ATC 格式，本项目自撰）
 │   ├── simulation/             # 仿真内核：geometry（纯几何）/ motion（时间推演 + 逐帧钩子）/ constraints（约束原语）
 │   ├── domain/                 # 领域层（无 DOM）
 │   │   ├── aircraft.js         # 航空器模型、尾流、逐帧推进（席位→许可→接地→阶段）、1Hz 采样
 │   │   ├── phases.js           # 飞行阶段 FSM + 指令合法性（canIssue / issueHint）
 │   │   ├── airspace.js         # 席位/扇区、距离与迟滞、移交、跑道指派
 │   │   ├── clearances.js       # 许可对象与记录、起飞/进近/落地/跑道/复飞
-│   │   └── separation.js       # 间隔标准、冲突判定与预测（AMBER/RED）
+│   │   ├── separation.js       # 间隔标准、冲突判定与预测（AMBER/RED）
+│   │   ├── locationFile.js     # Endless ATC 位置文件语法解析器（纯函数）
+│   │   └── locations.js        # 位置文件语义转换与应用（坐标/单位换算、机场注册）
 │   ├── game/                   # 游戏层
 │   │   └── session.js          # 班次生命周期、管制输入录制、领域层装配
 │   ├── commands/               # 文本指令：parser（纯解析）/ executor（施加约束与许可）
 │   ├── render/                 # Canvas 绘制：background / airports（机场·跑道·管制区）/ routes / aircraft
+│   │   └── location.js         # 位置文件图层：最低高度区（MVA）、空域边界、背景线
 │   ├── ui/                     # 界面层
 │   │   ├── panels.js           # 航路点/航线/飞机面板
 │   │   ├── dialogs.js          # 各对话框（含飞机对话框的席位/跑道/进近字段）
@@ -111,7 +118,8 @@ ATC-animate-simulator/
 ├── docs/PLAN-v2.md             # 空管指挥游戏重构方案（分层规则/领域模型/玩法/界面/里程碑）
 ├── build/icon.ico              # 应用图标（由 tools/make-icon.py 生成）
 ├── desktop/main.js             # Electron 主进程（app:// 协议 + --smoke 冒烟测试）
-├── tools/check-imports.mjs     # 零依赖 ES 模块导入/导出静态校验
+├── tools/check-imports.mjs     # 零依赖 ES 模块导入/导出静态校验（含循环依赖与层级越界）
+├── tools/check-location.mjs    # Endless ATC 位置文件离线校验（解析摘要 + 告警）
 ├── tools/make-icon.py          # 图标生成（Pillow 绘制雷达屏图标，多尺寸 ICO）
 ├── package.json                # 开发/打包脚本与 electron-builder 配置
 └── README.md
@@ -192,8 +200,9 @@ npm run build:win
 ### 校验与冒烟测试
 
 ```bash
-npm run check    # 静态校验 50 个模块、405 条具名导入 + 循环依赖 + 层级越界
-npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，55 项断言
+npm run check    # 静态校验 54 个模块、435 条具名导入 + 循环依赖 + 层级越界
+npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，61 项断言
+npm run location -- <机场文件.txt>   # Endless ATC 位置文件离线校验（解析摘要 + 告警）
 ```
 
 ## 使用指南

@@ -10,6 +10,7 @@ import {
 } from '../core/viewport.js';
 import { drawMapBackground, drawGrid, drawWeather, drawWeatherLegend } from './background.js';
 import { drawControlAreas, drawAirports } from './airports.js';
+import { drawLocationBackground, drawRestrictedAreas } from './location.js';
 import {
     drawRouteSegments, drawRoutePoints, drawConnectionPreview
 } from './routes.js';
@@ -24,6 +25,8 @@ export function drawRadar() {
 
     drawMapBackground();
     drawGrid();
+    drawLocationBackground();      // 位置文件：背景线 + 空域边界
+    drawRestrictedAreas();         // 位置文件：最低高度区（MVA）
     drawWeather();
     drawControlAreas();
     drawAirports();

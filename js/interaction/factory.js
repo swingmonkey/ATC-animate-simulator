@@ -8,10 +8,10 @@ import { state, addComm, commitScene } from '../core/store.js';
 import { nextId } from '../core/ids.js';
 import { randomAirline, randomFlightNumber, makeCallsign } from '../data/airlines.js';
 
-export function addPoint(x, y, type = 'normal') {
+export function addPoint(x, y, type = 'normal', name = null) {
     const pt = {
         id: nextId(),
-        name: `P${state.pointNameCounter++}`,
+        name: name || `P${state.pointNameCounter++}`,
         x, y,
         type
     };

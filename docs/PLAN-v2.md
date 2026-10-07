@@ -391,6 +391,76 @@ check-imports 增加**循环依赖**与**层级越界**校验；`ac.flow`/`ac.ph
 
 ---
 
+## 13. Endless ATC 兼容层（参考 startgrid《Endless ATC》）
+
+**参考对象**：`github.com/EndlessATC`（官方组织的机场/关卡库）
+- `Airports`（131★）：社区机场位置文件仓库，权威格式说明为根目录 `example.txt`；机场文件位于 `final/<洲>/<ICAO>/<ICAO>.txt`
+- `Raw_Airports`：自动生成的「原始」文件（起步模板）；`Tools`：其配套 Python 工具
+- 游戏本体：startgrid 的 Endless ATC（itch.io / Steam / Android），核心玩法 = **无限流量 + 分数门槛解锁跑道 + 最低高度区 + 场景事件脚本**
+
+### 13.1 我们采用的格式能力（已实现）
+
+| 段 | 字段 | 本项目去向 |
+|---|---|---|
+| `[airspace]` | radius / floor / ceiling / above / elevation / descentaltitude / separation | 空域半径（渲染+后续边界判定）、**可指令高度上下限**、隔离标准（`defaults.minSeparationNm`） |
+| `[airspace]` | center / magneticvar / decimaldegrees / metric / usa / automatic / strictspawn | 坐标模式判定、单位显示 |
+| `[airspace]` | beacons / boundary / line1..N / handoff / wake / speedrestriction / localizerspeed | 信标→**航路点**、空域边界、背景线、移交话音（P3）、唤醒间隔表（P3） |
+| `[airportN]` | name / code / runways（含真航向、长度、标高、下滑角、航道、塔台频率） | **机场注册**（跑道对 `02L/20R` 形式写入 `data/airports.js` 运行期表）、焦点机场 |
+| `[airportN]` | climbaltitude / sids / entrypoints / airlines（含机型池与方向偏好） | 离港上限、SID 点、**进场点（无限生成）**、航司概率表（P1 生成器） |
+| `[areaN]` | shape(circle/polygon) / altitude / radius / position / points / labelpos / drawdegrees | **最低高度区 MVA**（渲染 + P1 违规判定） |
+| `[configurations]` | score / 跑道 / start·land·rev·int·track / offsetheading / nosid | 跑道构型（按分数启用 → P1 计分解锁跑道） |
+| `[departureN]` / `[approachN]` / `[transitionN]` | route 航路点（含最大高度/速度）、ILS 拦截点、end/hold | 程序航路数据（P3 程序飞行） |
+| `[planetypes]` | 类别/速度/转弯率/下降率/进近速度/加速度/滚转角/爬升率 | 机型性能表（P3） |
+| `[scenario]` | finish + events（arr/dep/score/elapse/wind/cloud/config/text） | **班次事件时间轴**（P1 director 直接消费） |
+| `[background]` | line1..N（coast/airspace/runway 或 RGB） | 背景线渲染 |
+
+### 13.2 实现分层（严格遵守 §3.1 依赖方向）
+
+```
+domain/locationFile.js   语法解析（纯函数，零依赖）：[节] / key = value / 缩进多行列表 / # 与 ; 注释 / 经纬度·海里坐标
+        ↓
+domain/locations.js      语义转换：坐标统一换算到世界坐标系（km，x 向东 y 向南）、ft→m、NM→km，
+                         并 applyLocation() 写入运行期场景（注册机场、改写默认值、切换焦点机场）
+        ↓
+data/locationSamples.js  内置示例（**本项目自撰**的 ZUUU 位置文件，含格式注释）
+        ↓
+render/location.js       图层：最低高度区（MVA）、空域边界（多边形或半径圆）、背景线
+        ↓
+interaction/toolbar.js   入口：「📍 示例机场」「📂 导入机场(.txt)」；信标→航路点、视图对准、导入播报
+```
+
+**坐标约定**：文件坐标为「本场中心」的相对量；转换时按经纬度（有半球字母或 `decimaldegrees=true`）
+或海里（+y 为北，本项目 -y 为北）两种模式统一投影，并在导入时一次性平移到本场在世界坐标中的位置，
+因此渲染/生成/评分等其它层完全不需要感知文件格式。
+
+### 13.3 真实文件兼容性验证（本地离线，不随仓库分发）
+
+对官方与社区真实文件直接跑解析+转换（`tools/validate-location.mjs` 同源代码，见附录 B）：
+
+| 文件 | 行数 / 节数 | 解析告警 | 跑道 | 信标 | 最低高度区 | 跑道构型 | 程序航段 | 航司行 |
+|---|---|---|---|---|---|---|---|---|
+| `final/AS/ZUUU/ZUUU.txt` | 5941 / 233 | **0** | 2（02L、02R） | 27 | 0 | 2（8 项） | 352 | 561 |
+| `final/AS/ZBAA/ZBAA.txt` | 4240 / 189 | **0** | 3（36L、36R、01） | 23 | 3 | 2（18 项） | 244 | 1328 |
+| `example.txt`（官方规范） | 427 / 11 | **0** | 1 | 3 | 2 | 2 | 5 | 7 |
+
+> 版权：**不复制**上述社区文件到本仓库；本项目仅实现格式兼容，内置示例为自撰数据（示意值），
+> 用户可自行导入社区文件（导入即用，不落盘到仓库）。
+
+### 13.4 尚未消费（下一步接入计划）
+
+| 数据 | 接入点 |
+|---|---|
+| `entrypoints` + `airlines`（概率/方向/机型池） | P1 `game/director.js`：按进场点与航司表**无限生成**进离港 |
+| `[scenario].events` | P1 `game/director.js`：`elapse/arr/dep/score/wind/cloud/config/text` 逐条驱动 |
+| `[configurations]` 分数门槛 | P1 `game/scoring.js`：分数升高解锁跑道、降低关闭跑道 |
+| `[areaN]` 最低高度 | P1 违规判定（低于 MVA → 告警/扣分） |
+| `[departureN]` / `[approachN]` | P3 `domain/procedures.js`：SID/STAR 程序飞行与 ILS 拦截 |
+| `wake` 表 / `speedrestriction` / `localizerspeed` | P3 `domain/separation.js`、`domain/aircraft.js` 性能与限速 |
+
+
+
+---
+
 ## 附录 A：P0 交付记录（骨架重构 · 已完成）
 
 ### A.1 新增模块
@@ -443,6 +513,47 @@ dist\ATC-Simulator-1.3.0.exe --smoke   # 报告：%APPDATA%/atc-animate-simulato
 
 `data/scenarios/*.json` 关卡包 · `game/{scenario,director,objectives,scoring,events}.js` · `render/hud/*` ·
 `ui/{strips,console}.js` · 结果页与事件时间轴复盘 · 游戏模式禁用时间轴回溯（沙盒保留）。
+
+---
+
+## 附录 B：Endless ATC 兼容层交付记录（已完成）
+
+### B.1 新增模块
+
+| 文件 | 内容 |
+|---|---|
+| `domain/locationFile.js` | 位置文件**语法解析器**（纯函数、零依赖）：节/条目/缩进多行列表/`#` 与 `;` 注释、经纬度（含度分秒与 decimaldegrees）与海里坐标、宽松数值与布尔 |
+| `domain/locations.js` | **语义转换**：`[airspace]/[airportN]/[areaN]/[configurations]/[departureN]/[approachN]/[transitionN]/[planetypes]/[scenario]/[background]` → 场景模型；`locationToScene()`、`applyLocation()`、`importLocationText()`；ft→m、NM→km、坐标投影与平移 |
+| `data/locationSamples.js` | 内置示例：**本项目自撰**的 ZUUU 位置文件（含中文格式注释），用于「示例机场」按钮与冒烟测试 |
+| `render/location.js` | 图层：**最低高度区（MVA）**、空域边界（多边形/半径圆）、背景线（coast/airspace/runway 或 RGB） |
+| `tools/check-location.mjs` | 离线校验器：`node tools/check-location.mjs <文件.txt>` → 解析摘要与告警（导入前自检） |
+
+### B.2 改造点
+
+| 项 | 说明 |
+|---|---|
+| 机场运行期注册 | `data/airports.js` 新增 `registerAirport()`：导入后跑道对（`02L/20R` 形式）、名称、频率立即对生成器/席位/渲染生效 |
+| 可指令高度上下限 | `state.defaults.altMinM/altMaxM` 由文件 `floor/above` 改写，`commands/executor.js` 改用动态上下限 |
+| 隔离标准 | 文件 `separation`（NM）→ `state.defaults.minSeparationNm`，直接驱动冲突判定与预测 |
+| 场景状态 | `state.location` 保存换算后的场景（世界坐标），供渲染与后续 director/scoring 使用 |
+| 交互入口 | 工具栏新增「📍 示例机场」「📂 导入机场(.txt)」；信标→航路点（`addPoint` 支持自定义名）、视图对准本场、导入摘要播报与解析告警上报 |
+| 渲染顺序 | `render/index.js` 在网格后插入 `drawLocationBackground()`（背景线/边界）与 `drawRestrictedAreas()`（MVA） |
+
+### B.3 验证结果
+
+| 验证项 | 结果 |
+|---|---|
+| `npm run check` | **54 个模块 / 435 条具名导入 / 186 条跨层引用 / 循环依赖 0 / 层级越界 0** ✓ |
+| `npm run smoke`（开发态） | **61 项断言全部通过**（新增 6 项：位置文件解析、导入计数、NM→km 与 ft→m 换算、隔离与高度上下限生效、跑道对登记、示例机场按钮端到端） |
+| 真实社区文件离线校验 | `ZUUU.txt` 5941 行/233 节 **0 告警**；`ZBAA.txt` 4240 行/189 节 **0 告警**；官方 `example.txt` 427 行/11 节 **0 告警**（详见 §13.3） |
+| 渲染核验 | 截图确认：MVA 圆（2000ft/3500ft 标注）、空域边界多边形、信标点（CTU/PDU/ZUUU/SAS）与工具栏两个新入口均正常 |
+| 冒烟发现的缺陷 | `domain/locations.js` 调用 `parseLocationFile` 未 import（`check-imports` 无法发现未声明标识符）→ 由冒烟端到端捕获并修复，随后 61/61 通过 |
+
+### B.4 下一步（P1 起）
+
+`game/director.js` 消费 `[scenario].events` 与 `entrypoints`/`airlines` 实现**无限流量**；
+`game/scoring.js` 按 `[configurations]` 分数门槛**解锁/关闭跑道**；`[areaN]` 接入 MVA 违规判定。
+
 
 
 
