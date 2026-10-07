@@ -10,26 +10,53 @@
  *   · 维护 ac.readback 状态：{ text, correct, missing, t, resolved, penalized }
  *     未纠正的错诵由 game/scoring.js 在宽限期后扣分（PLAN §7.2「未复诵 −3」）
  *
+ * CCAR-93TM-R6 §118 对齐（docs/CCAR-93TM-ALIGNMENT.md §6.2）：
+ *   必背复诵按类别分为三组 —— 跑道类（②跑道类 + ③正在使用的跑道）、
+ *   航路类（①航路许可）、高度类（③高度表拨正值/应答机编码/高度层/航向速度/过渡高度层）。
+ *   错诵**按类别加权抽取**：跑道类最易被漏且后果最重 → 权重最高；兜底项不参与抽取。
+ *
  * 依赖方向：core（0）与 data（1）；不触碰界面。
  */
 
 import { state, addComm } from '../core/store.js';
 import { bus, EV } from '../core/eventBus.js';
-import { makeRng } from '../core/random.js';
+import { makeRng, pickWeighted } from '../core/random.js';
 import { altOf } from '../core/accessors.js';
 import { approachLabel, unit } from '../data/atcUnits.js';
 
 /** 复诵未纠正的宽限时间（模拟秒），超时计入「未复诵」 */
 export const READBACK_GRACE_SEC = 30;
 
-/* ---------------- 关键复诵项（错诵仅在这些项内抽取） ---------------- */
+/* ---------------- §118 必背复诵清单（分级） ---------------- */
 
-/** 漏项抽取的候选动作 type：跑道/航路/高度相关的关键参数 */
-const CRITICAL_TYPES = [
-    'lineUp', 'holdShort', 'crossRunway', 'backtrack', 'land', 'takeoff', 'runway',
-    'alt', 'climb', 'descend', 'level', 'hdg', 'turnLeft', 'turnRight', 'spd', 'qnh', 'squawk', 'transitionLevel',
-    'approach', 'direct', 'route'
+/** ② 跑道类 + ③ 正在使用的跑道（跑道号）——最易被漏、后果最重 */
+export const CRITICAL_RUNWAY = ['lineUp', 'holdShort', 'crossRunway', 'backtrack', 'land', 'takeoff', 'runway'];
+
+/** ③ 高度层 / 航向速度 / 高度表拨正值 / 应答机编码 / 过渡高度层 */
+export const CRITICAL_ALT = ['alt', 'climb', 'descend', 'level', 'hdg', 'turnLeft', 'turnRight', 'spd', 'qnh', 'squawk', 'transitionLevel'];
+
+/** ① 航路许可（完整航路/进场程序） */
+export const CRITICAL_ROUTE = ['approach', 'direct', 'route'];
+
+/** 类别抽取权重：跑道类 > 航路类 > 高度类（只影响错诵抽取，不影响复诵正文） */
+export const READBACK_GROUP_WEIGHTS = { runway: 6, route: 3, alt: 2 };
+
+/** 分组表（顺序即界面/文档的展示顺序） */
+export const CRITICAL_GROUPS = [
+    { key: 'runway', items: CRITICAL_RUNWAY },
+    { key: 'route', items: CRITICAL_ROUTE },
+    { key: 'alt', items: CRITICAL_ALT }
 ];
+
+/**
+ * 动作 type → 所属关键类别；非关键项（如 handoff）返回 null —— 兜底项不参与错诵抽取。
+ * @param {string} type
+ * @returns {'runway'|'route'|'alt'|null}
+ */
+export function criticalGroupOf(type) {
+    for (const g of CRITICAL_GROUPS) if (g.items.indexOf(type) >= 0) return g.key;
+    return null;
+}
 
 let rng = makeRng(1);
 
@@ -67,7 +94,18 @@ const ACTION_TEXT = {
     land: (a, ac) => `可以落地，跑道 ${a.runway || ac.runway || '--'}`,
     takeoff: (a, ac) => `可以起飞，跑道 ${ac.runway || '--'}`,
     handoff: a => `联系${unit(a.value).short}`,
-    runway: a => `跑道 ${a.value}`
+    runway: a => `跑道 ${a.value}`,
+    /* §118 ② 跑道类（parser 暂未产生，措辞先就位并可单测） */
+    lineUp: (a, ac) => `进跑道 ${runwayOf(a, ac)}`,
+    holdShort: (a, ac) => `跑道外等待，跑道 ${runwayOf(a, ac)}`,
+    crossRunway: (a, ac) => `穿越跑道 ${runwayOf(a, ac)}`,
+    backtrack: (a, ac) => `在跑道 ${runwayOf(a, ac)} 上滑行`,
+    /* §118 ③ 高度表拨正值 / 应答机编码 / 过渡高度层 */
+    qnh: a => `高度表拨正 ${a.value}`,
+    squawk: a => `应答机 ${a.value}`,
+    transitionLevel: a => `过渡高度层 ${a.value}`,
+    /* §118 ① 完整航路许可 */
+    route: a => `经 ${a.value}`
 };
 
 /**
@@ -95,12 +133,27 @@ function readbackItems(ac, parsed) {
 }
 
 /**
- * 抽取一个「被漏掉」的复诵项；只考虑关键参数，非关键/兜底项不参与。
+ * 按 §118 类别加权抽取一个「被漏掉」的复诵项。
+ * 只在关键类别（跑道/航路/高度）内抽取；无关键项时返回 null（兜底项不参与）。
  * @param {Array<{key:string, text:string}>} items
+ * @param {() => number} [random] 随机源，默认走种子序列（可注入以便单测）
  * @returns {{key:string, text:string}|null}
  */
-function pickMissedItem(items) {
-    return (items || []).find(it => CRITICAL_TYPES.indexOf(it.key) >= 0) || null;
+export function pickMissedItem(items, random) {
+    const rand = typeof random === 'function' ? random : rng;
+    const byGroup = new Map();
+    for (const it of items || []) {
+        const gk = criticalGroupOf(it.key);
+        if (!gk) continue;                               // 非关键/兜底项不参与抽取
+        if (!byGroup.has(gk)) byGroup.set(gk, []);
+        byGroup.get(gk).push(it);
+    }
+    const present = CRITICAL_GROUPS
+        .filter(g => byGroup.has(g.key))
+        .map(g => ({ key: g.key, weight: READBACK_GROUP_WEIGHTS[g.key], entries: byGroup.get(g.key) }));
+    if (!present.length) return null;
+    const group = pickWeighted(rand, present, g => g.weight);
+    return pickWeighted(rand, group.entries, () => 1);
 }
 
 /* ---------------- 状态读写 ---------------- */
@@ -149,7 +202,7 @@ export function makeReadback(ac, parsed, opts = {}) {
     let missing = null;
     let kept = items;
     if (rate > 0 && random() < rate) {
-        const target = pickMissedItem(items);
+        const target = pickMissedItem(items, random);
         if (target) {
             missing = target;
             kept = items.filter(it => it !== target);

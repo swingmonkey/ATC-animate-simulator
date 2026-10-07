@@ -27,7 +27,8 @@ import { evaluateObjectives, defaultObjectives, OBJECTIVE_KINDS } from './game/o
 import { scenarioList, getBuiltinScenario } from './data/scenarios.js';
 import { phrasesForUnit, fillPhrase } from './data/phraseology.js';
 import {
-    isReadbackPending, readbackTextOf, readbackErrorRate, READBACK_GRACE_SEC, seedReadback
+    isReadbackPending, readbackTextOf, readbackErrorRate, READBACK_GRACE_SEC, seedReadback,
+    CRITICAL_RUNWAY, CRITICAL_ALT, CRITICAL_ROUTE, READBACK_GROUP_WEIGHTS, criticalGroupOf, actionTextOf, pickMissedItem
 } from './domain/readback.js';
 import { parseLocationFile } from './domain/locationFile.js';
 import { locationToScene, importLocationText } from './domain/locations.js';
@@ -126,9 +127,14 @@ window.__ATC__ = {
         text: readbackTextOf,
         rate: readbackErrorRate,
         graceSec: READBACK_GRACE_SEC,
-        seed: seedReadback
+        seed: seedReadback,
+        // CCAR-93TM-R6 §118：分级必背清单 + 加权错诵抽取（第一批）
+        critical: { runway: CRITICAL_RUNWAY, alt: CRITICAL_ALT, route: CRITICAL_ROUTE },
+        weights: READBACK_GROUP_WEIGHTS,
+        groupOf: criticalGroupOf,
+        action: actionTextOf,
+        pickMissed: pickMissedItem
     },
-
     console: { update: updateConsole },
     airports: { get: getAirport },
     session: currentSession,

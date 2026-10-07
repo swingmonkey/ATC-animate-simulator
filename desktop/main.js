@@ -557,6 +557,33 @@ const SCRIPT_CONSOLE_DOM = `(() => {
     document.getElementById('comm-send-btn').click();
     out.uncorrectedPending = A.readback.pending(dep) === true;
 
+    /* 第一批（CCAR-93TM-R6 §118）：复诵清单分级 + 加权错诵抽取 */
+    const crit = A.readback.critical || {};
+    out.criticalGroups = ['runway', 'alt', 'route']
+        .filter(k => Array.isArray(crit[k]) && crit[k].length > 0).join('/');
+    const NEW_ACTIONS = ['lineUp', 'holdShort', 'crossRunway', 'backtrack', 'qnh', 'squawk', 'transitionLevel', 'route'];
+    const texts = NEW_ACTIONS.map(k => A.readback.action({ type: k, value: 'W' }, dep));
+    out.actionTextCount = texts.filter(t => String(t).length > 0).length;
+    out.actionHits = NEW_ACTIONS.filter((k, i) => String(texts[i]).length > 0).join('/');
+    out.weightsDesc = [A.readback.weights.runway, A.readback.weights.route, A.readback.weights.alt].join('>');
+    out.fallbackNotPicked = A.readback.pickMissed([
+        { key: 'handoff', text: '联系塔台' },
+        { key: 'goaround', text: '复飞' }
+    ]) === null;
+    A.readback.seed(20261007);
+    const mixed = [
+        { key: 'land', text: '可以落地' },
+        { key: 'route', text: '经 ZUUU-01' },
+        { key: 'alt', text: '高度 1200' }
+    ];
+    const picked = { runway: 0, route: 0, alt: 0 };
+    for (let i = 0; i < 600; i++) {
+        const p = A.readback.pickMissed(mixed);
+        const gk = p && A.readback.groupOf(p.key);
+        if (gk && picked[gk] !== undefined) picked[gk]++;
+    }
+    out.pickCounts = [picked.runway, picked.route, picked.alt].join(',');
+    out.runwayMostPicked = picked.runway > picked.route && picked.route > picked.alt;
     window.__SMOKE_DEP__ = dep.flightNo;
     return out;
 })()`;
@@ -780,6 +807,14 @@ async function runSmoke() {
             && report.l2ReadbackObjectiveOk === false && (report.l2ReadbackObjectiveActual ?? 0) >= 1
             && report.l2Ended === true && report.l2HudAfterEnd === false
             && /^[SABCD]$/.test(String(report.l2ResultGrade || ''))],
+        /* ---- 第一批（CCAR-93TM-R6 §118）：复诵清单分级 + 加权错诵抽取 ---- */
+        ['§118 复诵清单分级（跑道/高度/航路三组齐备）', report.criticalGroups === 'runway/alt/route'],
+        ['§118 八个新增复诵措辞函数就位', report.actionTextCount === 8
+            && report.actionHits === 'lineUp/holdShort/crossRunway/backtrack/qnh/squawk/transitionLevel/route'],
+        ['错诵按类别加权抽取（跑道 ≥ 航路 ≥ 高度，兜底项不参与）', report.weightsDesc === '6>3>2'
+            && report.fallbackNotPicked === true && report.runwayMostPicked === true
+            && /^(\d+),(\d+),(\d+)$/.test(String(report.pickCounts || ''))
+&& String(report.pickCounts).split(',').every(n => Number(n) > 0)],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]
     ];
