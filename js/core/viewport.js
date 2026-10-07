@@ -2,6 +2,12 @@
  * core/viewport.js — 画布与视图变换（内核层）
  * 视图偏移/缩放的唯一事实源（原 core.js 与 interaction/view.js 双份存储已合并）。
  * 所有写入路径统一经过 setViewOffset/setViewScale/moveView/zoomAt，并自动请求重绘。
+ *
+ * 席位视图（v1.7）：ACC / APP / TWR 是**三张独立地图**，各自记住自己的比例尺与平移。
+ * 本模块只维护「按视图键名索引的几何量」这一件事，档案（范围/图层/高度单位）见 data/viewProfiles.js，
+ * 切换流程见 render/views.js —— 内核层不依赖数据层。
+ * 导出名 viewOffsetX / viewOffsetY / viewScale 始终是**当前视图**的实时值，
+ * 因此所有渲染与交互代码无需感知多视图。
  */
 
 import { requestRedraw } from './eventBus.js';
@@ -14,19 +20,92 @@ export const ctx = canvas.getContext('2d');
 export let canvasWidth = 0, canvasHeight = 0;
 export let centerX = 0, centerY = 0;
 
-/* 视图变换（唯一事实源） */
+/* ---------------- 多视图几何状态 ---------------- */
+
+/** 每个视图的几何量（键名与 data/viewProfiles.js 的视图代码一致） */
+const viewGeometry = new Map();
+/** 当前视图键名 */
+let activeViewKey = 'APP';
+/** 当前视图的缩放限值（由 render/views.js 按档案设置） */
+let zoomLimits = { min: ZOOM_MIN, max: ZOOM_MAX };
+
+function geometryOf(key) {
+    const k = key || activeViewKey;
+    if (!viewGeometry.has(k)) viewGeometry.set(k, { offsetX: 0, offsetY: 0, scale: 1, initialized: false });
+    return viewGeometry.get(k);
+}
+
+/* 视图变换（唯一事实源；始终对应当前视图） */
 export let viewOffsetX = 0;
 export let viewOffsetY = 0;
 export let viewScale = 1;
 
+/** 把当前视图几何写回其存储（切换视图前调用） */
+function storeActiveGeometry() {
+    const g = geometryOf(activeViewKey);
+    g.offsetX = viewOffsetX;
+    g.offsetY = viewOffsetY;
+    g.scale = viewScale;
+}
+
+/** 从存储载入某视图几何（切换视图后调用） */
+function loadGeometry(key) {
+    const g = geometryOf(key);
+    activeViewKey = key;
+    viewOffsetX = g.offsetX;
+    viewOffsetY = g.offsetY;
+    viewScale = g.scale;
+}
+
+/** 当前视图键名 */
+export function activeView() { return activeViewKey; }
+
+/** 某视图的几何量副本（面板/冒烟断言读值用） */
+export function viewState(key) {
+    const g = geometryOf(key || activeViewKey);
+    return { key: key || activeViewKey, offsetX: g.offsetX, offsetY: g.offsetY, scale: g.scale, initialized: g.initialized };
+}
+
+/** 标记某视图已初始化（首次进入后不再自动居中） */
+export function markViewInitialized(key) {
+    geometryOf(key).initialized = true;
+}
+
+/**
+ * 切换当前视图：保存旧视图几何 → 载入新视图几何 → 应用该视图的缩放限值。
+ * @param {string} key 视图键名（TWR / APP / ACC）
+ * @param {{zoom?:{min:number,max:number}}} [opts]
+ * @returns {boolean} 是否发生了切换
+ */
+export function setActiveView(key, opts = {}) {
+    if (!key) return false;
+    if (opts.zoom) zoomLimits = { min: opts.zoom.min, max: opts.zoom.max };
+    if (key === activeViewKey) return false;
+    storeActiveGeometry();
+    loadGeometry(key);
+    requestRedraw();
+    return true;
+}
+
+/** 直接写入当前视图几何（由 render/views.js 计算初始比例尺/居中时使用） */
+export function applyViewGeometry({ scale, offsetX, offsetY } = {}) {
+    if (Number.isFinite(scale)) viewScale = Math.max(zoomLimits.min, Math.min(zoomLimits.max, scale));
+    if (Number.isFinite(offsetX)) viewOffsetX = offsetX;
+    if (Number.isFinite(offsetY)) viewOffsetY = offsetY;
+    storeActiveGeometry();
+    requestRedraw();
+}
+
 export function setViewScale(v) {
-    viewScale = v;
+    viewScale = Math.max(zoomLimits.min, Math.min(zoomLimits.max, v));
+    storeActiveGeometry();
     requestRedraw();
 }
 
 export function setViewOffset(x, y) {
     viewOffsetX = x;
     viewOffsetY = y;
+    storeActiveGeometry();
     requestRedraw();
 }
 
@@ -51,13 +130,14 @@ export function centerOnWorldPoint(x, y) {
  * @param {number} mouseY 屏幕坐标
  */
 export function zoomAt(factor, mouseX, mouseY) {
-    const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, viewScale * factor));
+    const newScale = Math.max(zoomLimits.min, Math.min(zoomLimits.max, viewScale * factor));
     if (newScale === viewScale) return;
     const worldX = toWorldX(mouseX);
     const worldY = toWorldY(mouseY);
     viewScale = newScale;
     viewOffsetX = mouseX - canvasWidth / 2 - (worldX - centerX) * newScale;
     viewOffsetY = mouseY - canvasHeight / 2 - (worldY - centerY) * newScale;
+    storeActiveGeometry();
     requestRedraw();
 }
 

@@ -16,7 +16,19 @@ import { normalizeScene } from './domain/aircraft.js';
 import { resolveUnitForDistance } from './domain/airspace.js';
 import { PHASE, derivePhase, syncPhase, canIssue, issueHint } from './domain/phases.js';
 import { predictMinSeparation, predictedConflicts } from './domain/separation.js';
-import { initSessionWiring, currentSession, recordInput } from './game/session.js';
+import { mvaLimitAt, mvaViolationFor } from './domain/airspace.js';
+import {
+    initSessionWiring, currentSession, recordInput,
+    startGameSession, endGameSession, isSessionActive, currentDirector, sessionResult
+} from './game/session.js';
+import { scoringSummary, scoreTimeline, runwayPlan, gradeFor, GRADES } from './game/scoring.js';
+import { scenarioSummary, scenarioFromLocation, defaultScenario, buildTimeline } from './game/scenario.js';
+import { evaluateObjectives, defaultObjectives, OBJECTIVE_KINDS } from './game/objectives.js';
+import { scenarioList, getBuiltinScenario } from './data/scenarios.js';
+import { phrasesForUnit, fillPhrase } from './data/phraseology.js';
+import {
+    isReadbackPending, readbackTextOf, readbackErrorRate, READBACK_GRACE_SEC, seedReadback
+} from './domain/readback.js';
 import { parseLocationFile } from './domain/locationFile.js';
 import { locationToScene, importLocationText } from './domain/locations.js';
 import { sampleLocationText } from './data/locationSamples.js';
@@ -24,7 +36,8 @@ import { getAirport } from './data/airports.js';
 import { drawRadar } from './render/index.js';
 import { initSubscriptions, refreshAll } from './ui/subscriptions.js';
 import { initFormBindings } from './ui/formBindings.js';
-import { updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
+import { initSessionPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
+import { hudModel } from './render/hud.js';
 import { tickKeyboard } from './interaction/index.js';
 
 let _lastTime = performance.now();
@@ -43,6 +56,7 @@ function animate(currentTime) {
             // 两者内部均按 100ms / 250ms 节流，60× 倍速下不再每秒重建数千次 DOM
             updateTimeDisplay();
             updateProgressList();
+            updateConsole();
         }
     }
 
@@ -61,6 +75,8 @@ initSessionWiring();                  // 领域层推进注入仿真循环 + 时
 bus.on(EV.PLAYBACK_CHANGED, resetClockAccumulator);   // 暂停/恢复不补帧
 initSubscriptions();
 initFormBindings();
+initSessionPanel();                // 班次面板按钮绑定（开始班次 / 结束并结算）
+initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
 
 if (loadState()) {
     normalizeScene();                 // 领域字段补齐（旧存档 ac.phase → ac.flow）
@@ -68,10 +84,10 @@ if (loadState()) {
 }
 refreshAll();
 
-addComm('atc', '空管雷达模拟器已启动（领域层分层版 v2 · P0）');
+addComm('atc', '空管雷达模拟器已启动（领域层分层版 v2 · P1 班次/评分）');
 addComm('atc', '滚轮缩放地图 | ASWD或方向键移动 | 点击播放开始模拟');
 addComm('atc', '场景数据自动保存在浏览器本地（localStorage）');
-addComm('atc', '工具栏可生成场景 / 开启天气图层 / 输入管制指令');
+addComm('atc', '右侧「🎯 班次与评分」→ 开始班次：导演注入无限流量并按目标结算评级（班次内不可回溯时间轴）');
 
 /** 自动化冒烟测试与调试用只读句柄（装配点导出，业务层不得依赖） */
 window.__ATC__ = {
@@ -79,12 +95,41 @@ window.__ATC__ = {
     seat: { resolveUnitForDistance },
     phase: { PHASE, derivePhase, syncPhase, canIssue, issueHint },
     sep: { predictMinSeparation, predictedConflicts },
+    mva: { limitAt: mvaLimitAt, violationFor: mvaViolationFor },
     location: {
         parse: parseLocationFile,
         toScene: locationToScene,
         import: importLocationText,
         sample: sampleLocationText
     },
+    game: {
+        start: startGameSession,
+        end: endGameSession,
+        active: isSessionActive,
+        director: currentDirector,
+        scoring: scoringSummary,
+        timeline: scoreTimeline,
+        objectives: evaluateObjectives,
+        defaultObjectives,
+        objectiveKinds: OBJECTIVE_KINDS,
+        runwayPlan,
+        gradeFor,
+        grades: GRADES,
+        hud: hudModel,
+        result: sessionResult,
+        scenario: { summary: scenarioSummary, fromLocation: scenarioFromLocation, create: defaultScenario, buildTimeline }
+    },
+    scenarios: { list: scenarioList, get: getBuiltinScenario },
+    phrases: { forUnit: phrasesForUnit, fill: fillPhrase },
+    readback: {
+        pending: isReadbackPending,
+        text: readbackTextOf,
+        rate: readbackErrorRate,
+        graceSec: READBACK_GRACE_SEC,
+        seed: seedReadback
+    },
+
+    console: { update: updateConsole },
     airports: { get: getAirport },
     session: currentSession,
     recordInput,

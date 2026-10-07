@@ -99,6 +99,15 @@
                     <div id="progress-list" class="progress-list"></div>
                 </div>
 
+                <div class="panel-section" id="console-section">
+                    <h3 class="section-title">🎛 指令台</h3>
+                    <div id="console-target" class="console-target"></div>
+                    <div id="console-readback" class="console-readback"></div>
+                    <button id="console-reissue-btn" class="edit-btn hidden" style="width:100%;margin:4px 0 0 0;">🔁 重新下发（要求复诵）</button>
+                    <div id="console-templates" class="console-templates"></div>
+                    <div class="console-hint">点击按钮 = 用呼号填充并直接下发；灰显项为当前阶段不可下发的指令（悬停看原因）</div>
+                </div>
+
                 <div class="panel-section" id="comm-section">
                     <h3 class="section-title">📻 陆空通话</h3>
                     <div id="comm-messages" class="comm-messages"></div>
@@ -111,6 +120,26 @@
                         <input type="text" id="comm-input" placeholder="输入指令..." style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;color:#1e293b;">
                         <button id="comm-send-btn" class="btn-primary" style="padding:5px 10px;font-size:11px;flex:0 0 50px;">发送</button>
                     </div>
+                </div>
+
+                <div class="panel-section" id="session-section">
+                    <h3 class="section-title">🎯 班次与评分</h3>
+                    <div style="display:flex;gap:4px;margin-bottom:6px;">
+                        <select id="session-scenario" style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                            <option value="">自动（位置文件 / 自由流量）</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;gap:4px;margin-bottom:6px;">
+                        <select id="session-difficulty" style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                            <option value="arcade">街机（流量最密）</option>
+                            <option value="standard" selected>标准</option>
+                            <option value="realistic">拟真（流量最疏）</option>
+                        </select>
+                    </div>
+                    <button id="session-start-btn" class="add-btn" style="width:100%;">🎬 开始班次</button>
+                    <button id="session-end-btn" class="edit-btn" style="width:100%;margin-top:4px;" disabled>⏹ 结束并结算</button>
+                    <div id="session-hud" class="session-hud"></div>
+                    <div id="session-result" class="session-result hidden"></div>
                 </div>
 
                 <div class="panel-section" id="scenario-section">

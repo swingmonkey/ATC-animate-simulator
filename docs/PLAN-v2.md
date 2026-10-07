@@ -3,6 +3,12 @@
 > 状态：**已定稿（路线 A：保留零构建 ES 模块 + Canvas 2D）**
 > 目标版本：v2.0.0
 > 本文件是重构的唯一上位依据：分层规则、领域模型、玩法系统、界面规范、里程碑与验收标准。
+> 配套文档：[`docs/FLIGHT-LIFECYCLE.md`](FLIGHT-LIFECYCLE.md) —— **航班全流程与管制岗位服务规范**：
+> 凡涉及"某阶段由哪个岗位提供什么服务、下什么指令、复诵什么、何时移交"以该文为准（本文定架构，该文定业务过程）。
+> 配套文档之二：[`docs/WORKPLACE.md`](WORKPLACE.md) —— **工作现场与值班制度规范**（P5 · v2.1+）：
+> 凡涉及"人在哪、能不能上岗、上多久、谁来接班、现场出了什么事"以该文为准（本文定架构，该文定现场与值班）。
+> 配套文档之三：[`docs/CCAR-93TM-ALIGNMENT.md`](CCAR-93TM-ALIGNMENT.md) —— **CCAR-93TM-R6 规章对齐与合规边界**（P6 · v2.1+）：
+> 凡涉及"这条规则为什么这样定、现实依据是什么、我们简化到什么程度"以该文为准；其中的数值均为游戏化示意值，不得作为真实运行依据。
 
 ---
 
@@ -111,17 +117,25 @@ js/
 ├── simulation/  ★ motion constraints geometry
 ├── domain/      ☆ aircraft phases airspace clearances separation      # P0
 │                ☆ procedures vectoring wind                            # P3
+│                ☆ roster.js seats.js handoff.js priority.js             # P5 值班/疲劳/交接 · P6 席位门槛/责任移交/优先顺序（纯函数）
 ├── game/        ☆ session（P0） · scenario director objectives scoring events（P1）
+│                ☆ avatar.js workplace.js                              # P5 小人移动 / 现场装配与代管
 ├── commands/    ★ parser executor
 ├── render/      ★ background routes aircraft airports index
 │                ☆ radar/* hud/* profile/*          # P1/P2
+│                ☆ scene.js                         # P5 工作现场俯视（房间/席位/角色/事件图标）
 ├── ui/          ★ panels dialogs indicators commPanel seatPanel formBindings subscriptions index
 │                ☆ strips console review panels/* dialogs/*   # P1
+│                ☆ rosterPanel.js prepPanel.js debriefPanel.js  # P5/P6 值班/交接检查单/岗前准备/讲评
 ├── data/        ★ airports atcUnits aircraft airlines waypointTypes
 │                ☆ airports/*.json scenarios/*.json phraseology.js  # P1/P3
+│                ☆ agreements.js atis.js logFields.js                # P6 管制协议 / ATIS 通播 / 九项工作日志
+│                ☆ emergencyPlans.js handoverChecklist.js            # P6/P5 应急预案六要素 / 交接检查单
+│                ★ viewProfiles.js  ☆ workspaces.js roster.js        # 席位地图档案(v1.7) / 现场布局(P5) / 值班参数(P5-P6)
 ├── weather/     ★ perlin stormRadar weather
 ├── generators/  ★ flightGenerator
 ├── interaction/ ★ canvasInput keyboard palette toolbar factory
+│                ☆ avatarInput.js                            # P5 现场层输入（WASD/E/Q/F/Tab）
 └── sandbox/     ☆ 原编辑器（P4 迁入）
 ```
 
@@ -157,6 +171,8 @@ js/
 ```
 
 - `derivePhase(ac)`：**由状态推导**（高度/速度/是否已许可/席位/进近方式），不引入隐藏状态，保证时间轴可重放。
+- 地面段（`PARKED` / `TAXI` / `HOLD_SHORT` / `TAKEOFF_ROLL` / `VACATE` / `TAXI_IN`）的**服务链与岗位职责**
+  见 [`docs/FLIGHT-LIFECYCLE.md`](FLIGHT-LIFECYCLE.md) §3–§7；该文 §10 给出了当前 `derivePhase` 尚未产生地面段的差距清单。
 - `canIssue(ac, type)`：该阶段**是否允许**下发某类指令——P1 用于指令台灰显与提示，P3 拟真难度下强制拦截。
 - 阶段变化 `emit('phase:changed')`：进程单、标签、评分、目标判定统一订阅，避免各自推断。
 
@@ -196,6 +212,16 @@ js/
 | `selection:changed`（已有） | item | 渲染高亮 + **剖面图联动** |
 | `unit:changed`（已有，收敛为席位专用） | ac, from, to | 席位面板、进程单 |
 | `comm:added`（已有） | msg | 通话面板 |
+| `workspace:entered` / `avatar:moved`（P5） | code / { x, y, facing, state } | 现场层渲染（`render/scene.js`） |
+| `seat:taken` / `seat:released`（P5） | { seatId, unit, view } | **席位地图档案切换**（`setActiveViewKey`）+ 渲染图层 + 席位面板 |
+| `shift:rest_due` / `handover:done`（P5） | { fatigue, forced } / { missed, score } | 值班面板、评分、复盘 |
+| `supervisor:finding` / `bulletin`（P5） | { seatId, kind, text } / { kind, text, effect } | 通话面板、通报板、导演（流控速率 / 跑道构型） |
+| `emergency:raised` / `emergency:resolved`（P5） | { kind, ac, seat, handled } | HUD、评分、复盘时间轴 |
+| `seats:planned` / `seat:merged` / `seat:opened` / `seat:closed`（P6） | { plan } / { from, to, reason } / { seatId, unit } | 现场层、席位面板、日志（§63①） |
+| `duty:prep_started` / `:prep_done` / `:prep_failed` / `:overflow`（P6） | { reason, items } / { dutySec } / { item } / { extraSec } | 岗前准备面板、值班面板、复盘 |
+| `handover:familiarize` / `handoff:requested` / `:accepted` / `:rejected`（P6） | { sec } / { ac, to } / { ac, to } / { ac, to, reason } | 交接台、席位面板、进程单、评分 |
+| `clearance:voided` / `readback:corrected`（P6） | { ac, clearance, reason } / { ac, item, attempts } | 指令台、进程单、评分、复盘 |
+| `separation:standard_changed` / `runway:braking_changed`（P6） | { unit, from, to, reason } / { runway, level, factors } | HUD、ATIS 面板、许可播报、复盘 |
 
 ---
 
@@ -249,6 +275,33 @@ Score = 100
 - **模板**：指令台按“选中飞机 + 当前阶段”只列出**合法且推荐**的用语（非法项灰显并给出原因，如“尚未进入进近阶段”）。
 - **复诵**：严格模式比对关键参数，不一致 → 要求再次确认，累计计入评分。
 - **快捷条**：`↑↓ 高度`、`+− 速度`、`←→ 航向`、`进近 / 落地 / 移交 / 等待 / 复飞` 一键可点，键盘 `1..9`。
+
+### 7.5 工作现场与值班（P5 · 见 [`docs/WORKPLACE.md`](WORKPLACE.md)）
+
+三个席位**不只是三张地图，而是三个工作现场**（区域管制大厅 / 进近管制室 / 塔台）：玩家操控一个**小人**，
+走到席位就座即进入该席位的席位地图；现场有 **AI 同事**（邻扇区、协调席）、**领班**（巡视 / 通报 / 授权 / 讲评）、
+**休息区与交接台**。
+
+- **值班制度**：疲劳累积（`domain/roster.js`）→ 提示休息 → 强制休息 → **交接班检查单** → 接班管制员（AI）接管；
+  离席期间由 AI **代管**（走 `core/random.js`，同 seed 可复现）
+- **突发情况**：席位突发（特情航班，走既有指令链路）/ 现场突发（设备、人员）/ 协同突发（跑道侵入、FOD）；
+  领班**通报**会改变玩法条件（流控速率、跑道构型、设备降级）
+- **分层落点**：`data/workspaces.js`(1) · `domain/roster.js`(2) · `game/{avatar,workplace}.js`(3) ·
+  `render/scene.js`(3) · `ui/rosterPanel.js`(5) · `interaction/avatarInput.js`(6)
+- **红线**：移动低成本（默认坐席开局 + 快速前往 + 可关闭现场层）；离席不毁体验；一切可复现
+
+### 7.6 规章对齐（P6 · 见 [`docs/CCAR-93TM-ALIGNMENT.md`](CCAR-93TM-ALIGNMENT.md)）
+
+本文与 WORKPLACE 解决"**人在哪、制度怎么跑**"，规章对齐文档解决"**这些规则的现实依据是什么、我们简化到什么程度**"。
+
+- **席位设置门槛规则化**：按架次/跑道/雷达条件自动推导应开席位（`domain/seats.js`），让"小机场合并值守 / 大机场分席"可被体验
+- **岗位工作制度三件套**：值班 FSM（`PREP → ON_POSITION → DEBRIEF`）+ 岗前准备 5 项 + 交接班 7 项检查单
+- **责任移交三要素**：`requestHandoff / accept / reject`，`HANDOFF_PENDING` 期间责任**不转移**（旧实现一步改 `ac.unit` 属缺陷）
+- **许可与复诵必背清单**：按 §118 补齐 `holdShort / crossRunway / backtrack / lineUp / qnh / squawk / transitionLevel / route`，含 `voidAt` 失效时间
+- **间隔分级**：进近 ≥5.6 km / 区域 ≥9.3 km，未协调边界 2.8/4.7 km；`tieredSeparation` **默认 false**，不破坏 v1.6 手感
+- **执勤疲劳硬指标**：连续执勤 / 周执勤 / 管制席 6 h / 雷达 2 h 轮换，全部压缩为游戏时长（见对齐文档 §8.2）
+- **记录与合规边界**：九项工作日志（§63）+ 保存分级（§64–§66）；**§69 不得用于商业目的 → 不采集、不上传、不对外提供**
+- **红线**：所有新机制默认关闭或走旧路径；`npm run check` 与 `npm run smoke` 现有断言必须保持全 PASS
 
 ---
 
@@ -350,6 +403,12 @@ check-imports 增加**循环依赖**与**层级越界**校验；`ac.flow`/`ac.ph
 结果页与事件时间轴复盘；游戏模式禁用时间轴回溯。
 **验收**：能完整玩完 L1/L2 并给出评级；新增 ≈12 项断言（注入节奏、复诵、计分事件、评级、HUD 数值、复盘重放一致）。
 
+> **状态：第一批（P1-A）与第二批（P1-B）已交付** —— `game/{scenario,director,objectives,scoring}.js` +
+> `render/hud.js` + `ui/sessionPanel.js`（结算结果页）+ 班次内禁用时间轴回溯（附录 C）；
+> `data/{scenarios,phraseology}.js` + `domain/readback.js` + `ui/console.js`（指令台 2.0：用语模板/灰显/复诵）+
+> `core/random.js`（种子随机收口）（附录 D，`npm run smoke` 92 项断言全绿）。
+> **剩余**：`ui/strips.js`（电子进程单 2.0）、复盘逐帧重放、成绩持久化。
+
 ### P2 · 高度剖面图
 `render/profile/{approachProfile,altitudeHistory}.js` + 采样缓冲 + 联动 + 剖面告警。
 **验收**：三视图截图核验；坐标映射纯函数单测；新增 ≈6 项断言。
@@ -362,6 +421,34 @@ check-imports 增加**循环依赖**与**层级越界**校验；`ac.flow`/`ac.ph
 ### P4 · 打磨与发布
 教程关、讲评模式、特情脚本库、成绩持久化、性能压测（50+ 架）、`sandbox/` 编辑器迁入、v2.0.0 打包与 Release。
 **验收**：打包 EXE 冒烟全绿；README/Release 更新并上传资产。
+
+### P5 · 工作现场与值班（v2.1+，见 [`docs/WORKPLACE.md`](WORKPLACE.md) §10）
+把"三张地图"扩展为**三个工作现场**（区域管制大厅 / 进近管制室 / 塔台）：
+`data/workspaces.js`(1) + `domain/roster.js`(2) + `game/{avatar,workplace}.js`(3) + `render/scene.js`(3) +
+`ui/rosterPanel.js`(5) + `interaction/avatarInput.js`(6)。
+
+| 步骤 | 版本 | 内容 | 验收 |
+|---|---|---|---|
+| **W1** | v2.1 | 三个现场俯视图 + 走到席位就座（`seat:taken → setActiveViewKey`）+ 快速前往 + "跳过现场层"开关 | ≈10 项断言；三现场截图 + 就座后席位地图截图 |
+| **W2** | v2.2 | 值班制度：疲劳 / 强制休息 / 交接班检查单 / 接班管制员 AI 代管（种子随机） | ≈14 项断言；"工作→疲劳→交接→休息→回岗"可玩 |
+| **W3** | v2.3 | 领班巡视与检查项、通报（流控/天气/跑道/设备）、授权、突发情况（席位/现场/协同） | ≈16 项断言；特情关可玩完并给出讲评 |
+
+> **前置**：W1 依赖 v1.7 席位地图**渲染接线**完成（档案与多视图几何已就位，切换入口待接）。
+> **兼容**：现场层可整体关闭，关闭时行为与 v1.6 一致；短班模式永久保留。
+
+### P6 · 规章对齐（v2.1+，见 [`docs/CCAR-93TM-ALIGNMENT.md`](CCAR-93TM-ALIGNMENT.md) §11）
+把"看起来像空管"升级为"**规则有出处**"：席位门槛、岗位制度、责任移交、复诵必背、间隔分级、执勤疲劳、运行记录。
+全部数值为**游戏化示意值**，集中在 `data/` 与 `core/constants.js`；所有机制**默认关闭或走旧路径**。
+
+| 步骤 | 版本 | 内容 | 验收 |
+|---|---|---|---|
+| **R1** | v2.1 | 席位门槛（`domain/seats.js`）+ 岗位 FSM 与岗前准备 + 执勤疲劳参数（`data/roster.js`）+ 九项日志字段（`data/logFields.js`） | ≈26 项断言；门槛规则可推导席位、三段计时可分列 |
+| **R2** | v2.2 | 移交三要素（`domain/handoff.js`）+ 复诵必背补齐与纠正链路 + 间隔分级与跑道状况（`data/atis.js`） | ≈34 项断言；`HANDOFF_PENDING` 期间责任不转移、`tieredSeparation=false` 回退旧值 |
+| **R3** | v2.3 | 应急六要素与演练（`data/emergencyPlans.js`）+ 讲评"规章视角" + 访客/门禁 + 档案保存分级 | ≈18 项断言；缺段不可标记恢复、演练不计运行评分 |
+
+> **与 P5 的关系**：P5（W1–W3）建"现场与人在哪"，P6（R1–R3）建"制度与规则怎么算"，
+> 共享 `data/roster.js` 与 `data/workspaces.js`。建议实现顺序 **W1 → R1 → W2 → R2 → W3 → R3**。
+> **合规红线**：§69 管制运行记录不得用于商业目的 → 本项目**不采集、不上传、不对外提供**。
 
 ---
 
@@ -388,6 +475,11 @@ check-imports 增加**循环依赖**与**层级越界**校验；`ac.flow`/`ac.ph
 | 用语 | 中文为主，英文（MSFS 风）同义可识别 |
 | 剖面图 | **进近剖面（默认）+ 高度-时间曲线**；等待航线图放 P3 |
 | 编辑器 | 降级为 `sandbox/` 沙盒与关卡编辑模式（保留功能） |
+| 工作现场层 | **默认坐席开局**；现场层（大厅/进近室/塔台俯视 + 小人 + 值班/交接/突发）为 **P5（v2.1+）** 可开关玩法层，关闭时与 v1.6 行为一致（见 `docs/WORKPLACE.md`） |
+| 值班与疲劳 | 示意值 90 min 工作 / 15 min 休息；**短班模式永久保留**；疲劳只影响"玩家操作精度"，不改变世界 |
+| 规章对齐 | 单独成文 [`docs/CCAR-93TM-ALIGNMENT.md`](CCAR-93TM-ALIGNMENT.md)（P6 · v2.1+）：逐条列出"规章要求 → 本项目机制 → 偏离程度 → 代码落点"；数值全部为游戏化示意值，**不得作为真实运行依据** |
+| 分层间隔开关 | `tieredSeparation` **默认 false**：不改变 v1.6 的既有间隔手感；开启后进近 5.6 km / 区域 9.3 km（§406），未协调边界 2.8/4.7 km |
+| 运行记录合规 | 依据 §69：日志只写本机存档，**不采集、不上传、不对外提供**；存档头声明"模拟练习数据，非真实管制运行记录" |
 
 ---
 
@@ -553,6 +645,96 @@ dist\ATC-Simulator-1.3.0.exe --smoke   # 报告：%APPDATA%/atc-animate-simulato
 
 `game/director.js` 消费 `[scenario].events` 与 `entrypoints`/`airlines` 实现**无限流量**；
 `game/scoring.js` 按 `[configurations]` 分数门槛**解锁/关闭跑道**；`[areaN]` 接入 MVA 违规判定。
+
+---
+
+## 附录 C：P1-A 交付记录（无限流量 · 评分 · HUD · 结算，已完成）
+
+> 对应 PLAN §P1 的第一批交付：把 v1.4.0 已解析但未消费的位置文件数据接进玩法闭环。
+
+### C.1 新增模块
+
+| 文件 | 层 | 内容 |
+|---|---|---|
+| `game/scenario.js` | 3 | 场景包 v3 模型（`atc_scenario_v3`）、`buildTimeline()`（**首列为距上一事件的经过秒数**，`elapse` 只推进时间轴）、`scenarioFromLocation()`（由位置文件派生关卡）、mulberry32 种子随机 `makeRng()` + `pickWeighted()` |
+| `game/director.js` | 3 | 流量导演：消费 `[scenario]` 事件（`config`/`score`/`wind`/`text`/`arr`/`dep`）、按 `entrypoints`+`airlines` **无限注入**进离港（机型别名表、呼号概率表、进港高度阶梯）、`directorGoal()`（`finish` 落地架数/时限）、`directorSummary()` |
+| `game/scoring.js` | 3 | 两条分数轴：`performance`（绩效分 0–100 → S/A/B/C/D）与 `progress`（解锁分，落地 +1、`score` 事件可设定）；`[configurations]` 分数门槛 → `runwayPlan()` 解锁/关闭跑道；间隔不足（现行判定）/MVA 违规/复飞/延误/连击记分（配对 45s、单机 60s 冷却） |
+| `game/objectives.js` | 3 | 目标定义与评估（纯函数）：零间隔不足 / 零 MVA 违规 / 落地架数 / 平均延误上限 / 复飞上限 / 解锁更多跑道 |
+| `render/hud.js` | 3 | 屏幕空间 HUD（班次名·时钟·绩效分与评级·落地/解锁分·告警·风与跑道·`[scenario]` 字幕·最近告警）+ `hudModel()` 读值模型 |
+| `ui/sessionPanel.js` | 5 | 「开始班次/结束并结算」按钮、难度选择、实时读数、结算结果（评级·目标达成·评分事件时间轴） |
+
+### C.2 改造点
+
+| 项 | 说明 |
+|---|---|
+| `domain/airspace.js` | 新增最低高度区判定 `areaCovers` / `mvaLimitAt`（**多区重叠取更高者**）/ `mvaViolationFor`，与 `render/location.js` 的 MVA 图层共用同一口径 |
+| `game/session.js` | `startGameSession()`（清空沙盒流量与导演航路 → 装载关卡 → 启动导演与记分 → 开始播放）、`endGameSession()`（结算：评级/目标/时间轴）、`tickSession()`（每时钟步进：导演 → 记分 → 完成条件） |
+| `core/eventBus.js` | 新增 `session:started` / `session:ended` / `score:changed` / `director:event` 四个事件 |
+| 游戏模式不可回溯 | 班次进行中拖动时间轴被拦截（`interaction/toolbar.js`），复盘改用评分事件时间轴与场景事件序列 |
+| MVA 记分口径 | 仅对**进港且尚未发进近许可**的航空器计违规（已按程序进近的飞机由进近程序提供超障保护），避免落地过程误判 |
+| 指令执行器缺陷修复 | `下降 <绝对高度>` 此前绕过可指令高度下限（`floor`），现与高度指令一致受 `altFloorM()/altCeilingM()` 约束（进近/落地许可目标不受限） |
+| `data/locationSamples.js` | `[configurations]` 改为分数门槛示例：`rwy2` 需解锁分 ≥ 6（落地积累），演示「分数升高解锁跑道」 |
+| 自动流量高度阶梯 | 导演注入的进港航班按 600m 步进取目标高度（垂直间隔标准两倍），避免全部压在同一高度 |
+
+### C.3 验收结果
+
+| 验证项 | 结果 |
+|---|---|
+| `npm run check` | **60 个模块 / 540 条具名导入 / 226 条跨层引用 / 循环依赖 0 / 层级越界 0** ✓ |
+| `npm run smoke`（开发态） | **77 项断言全部通过**（v1.4.0 的 61 项 + 新增 16 项：关卡装载、导演消费 entrypoints/airlines、时间轴锁定、分数门槛解锁跑道、MVA 判定与记分、无限流量注入、`[scenario]` 事件执行、跑道取自构型、HUD 读值、结算评级/目标/时间轴、结果面板） |
+
+### C.4 仍未消费（下一步）
+
+| 数据 | 接入点 |
+|---|---|
+| `[departureN]` / `[approachN]` / `[transitionN]` | P3 `domain/procedures.js`：SID/STAR 程序飞行与 ILS 拦截（当前导演航路为「进场点→本场」直线） |
+| `wake` / `speedrestriction` / `localizerspeed` | P3 `domain/separation.js`：尾流间隔加码与限速 |
+| `[planetypes]` | P3：机型性能表（当前用 `data/aircraft.js` 类别性能 + 机型别名映射） |
+| `cloud` 事件 | P3 天气接入（当前仅记录到导演事件时间轴） |
+| 排序/间隔自动化 | P3：等待航线与进近排序（当前同场多机同时进近需管制员自行引导，60× 快进下间隔扣分明显） |
+
+---
+
+## 附录 D：P1-B 交付记录（关卡包 · 指令台 2.0 · 复诵，已完成）
+
+### D.1 新增模块
+
+| 文件 | 层 | 内容 |
+|---|---|---|
+| `core/random.js` | 0 | 种子伪随机统一收口（mulberry32 `makeRng` / `pickWeighted` / `pickOne` / `DEFAULT_SEED`）——原 `game/scenario.js` 内部实现上迁，供流量注入与复诵抽取共用 |
+| `data/scenarios.js` | 1 | 内置关卡包 **L1 进近入门（单跑道 02L）· L2 离港洪峰（双跑道 + 分数门槛解锁 02R）· L3 逆风换向（rev 反向跑道 20R/20L + 拟真）**；关卡自足（进场点只给方位+信标名，坐标由导演推算），`timeline` 直接给绝对时刻；`scenarioList()` / `getBuiltinScenario()` |
+| `data/phraseology.js` | 1 | 用语模板表（19 条，按 许可/高度/引导/速度/移交 分组）+ `phrasesForUnit()`（按席位过滤）+ `fillPhrase()`（{cs}/{rwy}/{fix} 占位符） |
+| `domain/readback.js` | 2 | 机组复诵：动作→中文措辞（`下降到 3000`）、按难度概率抽取**漏项错诵**、`ac.readback` 状态（`pending`/`resolved`/`penalized`）、`noteCorrectReadback`/`makeReadback`/`resolveReadback`；随机源用关卡 seed → 可复现 |
+| `ui/console.js` | 5 | 指令台 2.0：选中机摘要、按席位/阶段渲染的模板按钮、**非法项灰显 + `issueHint()` 原因**、一键下发、复诵回显与「重新下发（要求复诵）」 |
+
+### D.2 改造点
+
+| 项 | 说明 |
+|---|---|
+| `game/scenario.js` | 移除内部 PRNG（改用 `core/random.js`）；难度预设增加 `readbackErrorRate`（街机 0 / 标准 0.08 / 拟真 0.2） |
+| `game/session.js` | `startGameSession({ scenarioId })` 支持装载内置关卡；按关卡难度写入复诵错诵率并用关卡 seed `seedReadback()`；关卡简述播报 |
+| `game/scoring.js` | 新增 `READBACK_MISSED: -3` 与宽限期（`READBACK_GRACE_SEC` 30s）复核；跑道构型优先取**关卡数据**（`setScoringScenario`），位置文件缺失时也能按关卡跑双跑道/反向跑道；`resetScoring` 不再把上一班构型误记为「本班跑道变更」 |
+| `game/objectives.js` | 新增 `NO_READBACK_MISSED` 目标（L2/L3 使用，L2 共 6 项目标） |
+| `commands/executor.js` | 定向指令在施加后生成机组复诵（最多 3 架，避免广播刷屏）；记录 `ac.lastCommandText` 供「要求复诵」原样重发 |
+| `domain/clearances.js` | 起飞/进近/落地许可播报复诵的同时写入 `ac.readback`（正确），使复诵状态在自动/手动两条路径上一致 |
+| `ui/commPanel.js` | 抽出 `submitAtcText()`：输入框与指令台按钮**同一条提交路径**（录制 → 播报 → 执行 → 刷新） |
+| `ui/sessionPanel.js` | 关卡下拉（内置 3 关 + 自动）、选中关卡时难度随关卡（灰显）并显示任务简述；结算面板增加未复诵计数 |
+| `render/hud.js` | 告警计数纳入未复诵；时钟格式化复用 `core/dom.js` 的 `formatHMS`（去掉重复实现） |
+
+### D.3 验收结果
+
+| 验证项 | 结果 |
+|---|---|
+| `npm run check` | **65 个模块 / 586 条具名导入 / 252 条跨层引用 / 循环依赖 0 / 层级越界 0** ✓ |
+| `npm run smoke`（开发态） | **92 项断言全部通过**（v1.5.0 的 80 项 + 新增 12 项：关卡清单/难度随关卡/L2 装载/分数门槛/指令台模板与灰显/一键下发/复诵不符与纠正/未纠正扣分/事件驱动解锁跑道/结算复诵目标） |
+| 实测（打包版报告） | 指令台 18 个模板按钮 / 5 组；对「等待放行」离港航班 `可以落地` 灰显且提示「尚未进入进近阶段（当前：等待放行）」；强制漏项复诵 → `missing = 高度 1200`、面板高亮、要求复诵可见；重新下发后未扣分；未纠正 30s 后记 1 次未复诵并使 `NO_READBACK_MISSED` 目标失败；L2 在 t=600 的 `score 5` 事件后跑道由 02L 扩为 02L/02R |
+
+### D.4 P1 剩余
+
+`ui/strips.js`（电子进程单 2.0：分栏/排序/延误列）、复盘**逐帧重放**（当前为事件时间轴）、
+`data/scenarios` 的关卡解锁与最佳成绩持久化（`atc_progress_v3`，P4）。
+
+
 
 
 

@@ -14,6 +14,7 @@ import { setAltitudeConstraint, setSpeedConstraint, setHeadingConstraint } from 
 import { runwayHeading } from '../data/airports.js';
 import { APPROACH_TYPES, approachLabel } from '../data/atcUnits.js';
 import { referenceAirportCode, assignRunway, normalizeRunway } from './airspace.js';
+import { noteCorrectReadback } from './readback.js';
 import { APPROACH_ALT, APPROACH_SPD, LANDING_ALT, LANDING_SPD } from '../core/constants.js';
 
 /** 席位通话发送方键（commPanel 映射为 [塔台]/[进近]/[区调]） */
@@ -60,6 +61,7 @@ export function issueTakeoffClearance(ac, options = {}) {
     recordClearance(ac, 'TAKEOFF', { runway: ac.runway });
     addComm(seatSender(ac.unit || 'TWR'), `${ac.flightNo}，跑道 ${ac.runway}，可以起飞。`);
     addComm('pilot', `跑道 ${ac.runway}，可以起飞，${ac.flightNo}。`);
+    noteCorrectReadback(ac, `跑道 ${ac.runway}，可以起飞，${ac.flightNo}`);
     bus.emit(EV.UNIT_CHANGED, { ac, clearance: 'takeoff', auto: !!options.auto });
     return true;
 }
@@ -88,6 +90,7 @@ export function issueApproachClearance(ac, approachType, runwayLabel) {
     recordClearance(ac, 'APPROACH', { approachType: type, runway: ac.runway });
     addComm(seatSender(ac.unit || 'APP'), `${ac.flightNo}，可以${approachLabel(type)}，跑道 ${ac.runway}。`);
     addComm('pilot', `${approachLabel(type)}，跑道 ${ac.runway}，${ac.flightNo}。`);
+    noteCorrectReadback(ac, `${approachLabel(type)}，跑道 ${ac.runway}，${ac.flightNo}`);
     bus.emit(EV.UNIT_CHANGED, { ac, clearance: 'approach', approachType: type });
     return { ok: true, approachType: type, runway: ac.runway, headingApplied };
 }
@@ -105,6 +108,7 @@ export function issueLandingClearance(ac, runwayLabel) {
     recordClearance(ac, 'LAND', { runway: ac.runway });
     addComm(seatSender(ac.unit || 'TWR'), `${ac.flightNo}，跑道 ${ac.runway}，可以落地。`);
     addComm('pilot', `跑道 ${ac.runway}，可以落地，${ac.flightNo}。`);
+    noteCorrectReadback(ac, `跑道 ${ac.runway}，可以落地，${ac.flightNo}`);
     bus.emit(EV.UNIT_CHANGED, { ac, clearance: 'land' });
     return true;
 }

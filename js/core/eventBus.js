@@ -60,5 +60,15 @@ export const EV = {
     /** 时钟步进（固定步长） → 采样器 / HUD */
     CLOCK_TICK: 'clock:tick',
     /** 飞行阶段变化 → 进程单 / 标签 / 目标判定 */
-    PHASE_CHANGED: 'phase:changed'
+    PHASE_CHANGED: 'phase:changed',
+    /** 班次开始（关卡装载 + 导演启动）→ HUD / 班次面板 */
+    SESSION_STARTED: 'session:started',
+    /** 班次结束（含结算结果：评级/目标/时间轴）→ 结果页 / 存档 */
+    SESSION_ENDED: 'session:ended',
+    /** 评分变化（安全/效率事件、跑道解锁）→ HUD / 班次面板 */
+    SCORE_CHANGED: 'score:changed',
+    /** 导演事件（[scenario] 时间轴事件、流量注入、字幕）→ HUD / 通话面板 */
+    DIRECTOR_EVENT: 'director:event',
+    /** 席位视图切换（ACC/APP/TWR 三张地图）→ 席位面板 / HUD / 进程单 / 重绘 */
+    VIEW_CHANGED: 'view:changed'
 };

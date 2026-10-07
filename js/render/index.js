@@ -15,6 +15,7 @@ import {
     drawRouteSegments, drawRoutePoints, drawConnectionPreview
 } from './routes.js';
 import { drawAircraft, drawAircraftWarnings, drawFreeNavTargets } from './aircraft.js';
+import { drawHud } from './hud.js';
 
 export function drawRadar() {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -39,4 +40,5 @@ export function drawRadar() {
 
     ctx.restore();
     drawWeatherLegend();
+    drawHud();                     // 屏幕空间 HUD：班次/分数/评级/告警/跑道/字幕
 }
