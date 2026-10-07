@@ -16,7 +16,8 @@ import {
     getAircraft, defaultSpeed, defaultAltitude, randomType
 } from '../data/aircraft.js';
 import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/motion.js';
-import { assignRunwayFor } from '../simulation/units.js';
+import { assignRunwayFor } from '../domain/airspace.js';
+import { normalizeAircraft } from '../domain/aircraft.js';
 import { DEPARTURE_INIT_ALT, DEPARTURE_INIT_SPD } from '../core/constants.js';
 
 /** 统一 ID（core/ids.js）：原 Date.now() 自增在同毫秒多实体时会碰撞 */
@@ -69,7 +70,7 @@ export function createArrival(focusCode = 'ZUUU', startTime = 0) {
         squawk: String(Math.floor(Math.random() * 7000) + 2000),
         departure: originCode,
         destination: focusCode,
-        phase: 'arrival',                                   // 进港：由区调 → 进近 → 塔台
+        flow: 'arrival',                                    // 进港：由区调 → 进近 → 塔台
         runway: assignRunwayFor(focusCode, 0),               // 预指派落地跑道（塔台可改）
         approachType: null,                                  // 进近方式待发进近许可时确定
         acType,
@@ -84,6 +85,7 @@ export function createArrival(focusCode = 'ZUUU', startTime = 0) {
         trail: [],
         labelOffsetX: 18, labelOffsetY: -14
     };
+    normalizeAircraft(ac);                                  // 统一 flow/phase/wake/clearances 字段
     state.aircraft.push(ac);
     // 进港过程：下降并减速
     setAltitudeConstraint(ac, 3600, 0);
@@ -112,7 +114,7 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
         squawk: String(Math.floor(Math.random() * 7000) + 2000),
         departure: focusCode,
         destination: destCode,
-        phase: 'departure',                                 // 离港：由塔台 → 进近 → 区调
+        flow: 'departure',                                  // 离港：由塔台 → 进近 → 区调
         runway: assignRunwayFor(focusCode, 1),               // 起飞跑道（塔台放行时使用）
         plannedAltitude: def.cruiseAlt,                      // 计划巡航高度：起飞许可后爬升
         plannedSpeed: def.cruiseSpeed,                       // 计划巡航速度：起飞许可后加速
@@ -129,6 +131,7 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
         trail: [],
         labelOffsetX: 18, labelOffsetY: -14
     };
+    normalizeAircraft(ac);                                  // 统一 flow/phase/wake/clearances 字段
     state.aircraft.push(ac);
     // 爬升/加速不在此处施加：由塔台「可以起飞」许可（或自动许可）触发，
     // 从而让 塔台放行 → 进近 → 区调 的席位流程在时间轴上可观察。

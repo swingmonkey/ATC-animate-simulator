@@ -11,7 +11,8 @@ import { bus, EV } from '../core/eventBus.js';
 import { $ } from '../core/dom.js';
 import { centerOnWorldPoint } from '../core/viewport.js';
 import { getAirport } from '../data/airports.js';
-import { updateAircraftPositionsForTime, handoffToNextUnit } from '../simulation/index.js';
+import { updateAircraftPositionsForTime } from '../simulation/index.js';
+import { handoffToNextUnit } from '../domain/airspace.js';
 import {
     updateWaypointSelectOptions, updateWaypointInfo, updateRoutePathPreview,
     updateNavModeUI, updateTargetInfo, updateSeatFieldsInDialog

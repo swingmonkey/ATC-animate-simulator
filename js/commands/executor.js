@@ -15,8 +15,9 @@ import {
 import { parseCommand, hasActions } from './parser.js';
 import {
     issueApproachClearance, issueLandingClearance, issueTakeoffClearance,
-    handoffAircraft, normalizeRunway
-} from '../simulation/units.js';
+    assignRunwayClearance, markGoAround
+} from '../domain/clearances.js';
+import { handoffAircraft } from '../domain/airspace.js';
 import { unitLabel } from '../data/atcUnits.js';
 
 function findWaypointByName(name) {
@@ -97,6 +98,7 @@ export function executeCommand(text) {
                     ac.navMode = 'heading';
                     ac.routeId = null;
                     setHeadingConstraint(ac, hdgOf(ac));
+                    markGoAround(ac);          // 领域记录 + 阶段推导转入 GO_AROUND
                     break;
                 case 'direct': {
                     const wp = findWaypointByName(act.value);
@@ -125,14 +127,9 @@ export function executeCommand(text) {
                         addComm('atc', `${ac.flightNo} 已在${unitLabel(ac.unit)}席位，无需移交`);
                     }
                     break;
-                case 'runway': {
-                    const rn = normalizeRunway(act.value);
-                    if (rn) {
-                        ac.runway = rn;
-                        addComm('atc', `${ac.flightNo}，预计使用跑道 ${rn}。`);
-                    }
+                case 'runway':
+                    assignRunwayClearance(ac, act.value);
                     break;
-                }
             }
         }
         affected++;

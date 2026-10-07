@@ -12,7 +12,8 @@ import { state, isEditMode, select } from '../core/store.js';
 import { pxToKmFixed } from '../core/viewport.js';
 import { escapeHtml, formatHMS } from '../core/dom.js';
 import { PROGRESS_REFRESH_MS } from '../core/constants.js';
-import { getWaypointInfoForAircraft, clearanceText } from '../simulation/index.js';
+import { getWaypointInfoForAircraft } from '../simulation/index.js';
+import { clearanceText } from '../domain/clearances.js';
 import { unit } from '../data/atcUnits.js';
 import { openAircraftDialog } from './dialogs.js';
 

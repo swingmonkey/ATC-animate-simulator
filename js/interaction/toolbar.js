@@ -11,6 +11,7 @@ import {
     setRouteConnectMode, cancelRouteConnect
 } from '../core/store.js';
 import { centerX, centerY, centerOnWorldPoint } from '../core/viewport.js';
+import { resetClockAccumulator } from '../core/clock.js';
 import { nextId } from '../core/ids.js';
 import { requestRedraw } from '../core/eventBus.js';
 import { $ } from '../core/dom.js';
@@ -144,6 +145,7 @@ $('play-pause-btn')?.addEventListener('click', () => togglePlay());
 
 $('time-slider')?.addEventListener('input', e => {
     state.time = parseInt(e.target.value);
+    resetClockAccumulator();          // 跳转后不补帧，避免位置跳变
     updateTimeDisplay(true);
     updateAircraftPositionsForTime(state.time);
     updateProgressList();

@@ -8,6 +8,7 @@
 import { state, addComm } from '../core/store.js';
 import { escapeHtml, sanitizeClass, $ } from '../core/dom.js';
 import { executeCommand } from '../commands/executor.js';
+import { recordInput } from '../game/session.js';
 import { updateCommTargetSelect, updateProgressList } from './indicators.js';
 import { updateAircraftPanelList } from './panels.js';
 
@@ -37,6 +38,7 @@ export function sendComm() {
     if (!input) return;
     const text = input.value.trim();
     if (!text) return;
+    recordInput(text, 'console');          // 班次输入录制（复盘/评分数据基础）
     const target = $('comm-target')?.value;
 
     if (target === 'atc' || target === undefined) {

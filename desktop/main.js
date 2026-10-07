@@ -133,6 +133,8 @@ const SCRIPT_BOOT = `(() => {
     out.seatCounts = document.querySelectorAll('#seat-list .seat-row .seat-count').length;
     out.autoHandoffDefault = st.autoHandoff === true;
     out.autoClearanceDefault = st.autoClearance === true;
+    out.phasesAssigned = st.aircraft.filter(ac => !!ac.phase && !!ac.flow && !!ac.wake).length;
+    out.clearanceArrays = st.aircraft.every(ac => Array.isArray(ac.clearances));
     const speed = document.getElementById('speed-select');
     speed.value = '5';
     speed.dispatchEvent(new Event('change'));
@@ -171,6 +173,9 @@ const SCRIPT_INTERACT = `(() => {
     input.value = target.flightNo + ' 可以落地';
     document.getElementById('comm-send-btn').click();
     out.landingClearanceIssued = target.clearance === 'land';
+    input.value = target.flightNo + ' 跑道 20R';
+    document.getElementById('comm-send-btn').click();
+    out.runwayCommandApplied = target.runway === '20R';
 
     const autoBox = document.getElementById('auto-handoff-toggle');
     autoBox.checked = false;
@@ -200,6 +205,24 @@ const SCRIPT_INTERACT = `(() => {
     out.filterWorks = out.filteredItems >= 1 && out.filteredItems <= beforeFilter;
     document.querySelector('#seat-list .seat-row[data-unit="TWR"]').click();
     out.seatFilterOff = st.seatFilter === null;
+
+    /* ---- P0：领域层 API（阶段 FSM / 指令合法性 / 间隔预测 / 许可记录 / 班次 / 采样 / 时钟） ---- */
+    const cruiseAc = st.aircraft.find(a => a.unit === 'ACC' && !a.clearance && !a.approachType);
+    if (cruiseAc) {
+        out.altAllowedInDescent = A.phase.canIssue(cruiseAc, 'ALT') === true;
+        out.takeoffDeniedInDescent = A.phase.canIssue(cruiseAc, 'TAKEOFF') === false;
+        out.landDeniedInDescent = A.phase.canIssue(cruiseAc, 'LAND') === false;
+        out.issueHintText = A.phase.issueHint(cruiseAc, 'LAND');
+    }
+    const sep = A.sep.predictMinSeparation(st.aircraft[0], st.aircraft[1], 60, 30);
+    out.sepPredictionFinite = Number.isFinite(sep.minKm) && sep.minKm > 0;
+    out.predictedConflictsShape = Array.isArray(A.sep.predictedConflicts(60));
+    out.clearanceRecords = st.aircraft.reduce((n, ac) => n + (ac.clearances ? ac.clearances.length : 0), 0);
+    const s = A.session();
+    out.sessionInputs = s ? s.inputs.length : -1;
+    out.sessionRecordedText = s && s.inputs.length ? s.inputs[0].text : '';
+    out.historySamples = st.aircraft.reduce((n, ac) => Math.max(n, ac.history ? ac.history.length : 0), 0);
+    out.clockSteps = A.clock.steps;
 
     document.getElementById('weather-toggle-btn').click();
     out.weatherOn = st.weatherEnabled === true && !!st.storm;
@@ -253,11 +276,12 @@ const SCRIPT_AUTO_VERIFY = `(async () => {
         seatCommsAfterAuto: document.querySelectorAll(
             '#comm-messages .comm-msg.twr, #comm-messages .comm-msg.app, #comm-messages .comm-msg.acc'
         ).length,
-        autoTakeoffIssued: st.aircraft.some(ac => ac.phase === 'departure' && ac.clearance === 'takeoff'),
+        autoTakeoffIssued: st.aircraft.some(ac => ac.flow === 'departure' && ac.clearance === 'takeoff'),
         runwayAssigned: st.aircraft.every(ac => !!ac.runway),
         departureAutoHandoff: st.aircraft.some(
-            ac => ac.phase === 'departure' && ac.handoffTime !== undefined && ac.unit === 'ACC'
+            ac => ac.flow === 'departure' && ac.handoffTime !== undefined && ac.unit === 'ACC'
         ),
+        phaseVariety: new Set(st.aircraft.filter(ac => ac.phase).map(ac => ac.phase)).size,
         units: [...new Set(st.aircraft.filter(ac => ac.unit && !ac.landed).map(ac => ac.unit))].sort().join('/')
     };
     // 应用图标是否随包提供（验证 electron-builder files 配置 + app:// 协议）
@@ -349,6 +373,17 @@ async function runSmoke() {
         ['离港航班自动流转移交出区（塔台→进近→区调）', report.departureAutoHandoff === true],
         ['全部航班均已指派跑道', report.runwayAssigned === true],
         ['应用图标随包提供（app:// 可加载）', report.iconServed === true],
+        ['阶段 FSM 字段已初始化（phase/flow/wake）', (report.phasesAssigned ?? 0) >= 7],
+        ['许可记录写入领域对象', report.clearanceArrays === true && (report.clearanceRecords ?? 0) >= 3],
+        ['阶段随流程推进（≥2 种阶段并存）', (report.phaseVariety ?? 0) >= 2],
+        ['指令合法性判定（下降阶段：高度可发、起飞/落地不可发）', report.altAllowedInDescent === true
+            && report.takeoffDeniedInDescent === true && report.landDeniedInDescent === true],
+        ['跑道指令生效（领域记录）', report.runwayCommandApplied === true],
+        ['非法指令给出提示文案', typeof report.issueHintText === 'string' && report.issueHintText.length > 0],
+        ['间隔预测可用（确定性外推）', report.sepPredictionFinite === true && report.predictedConflictsShape === true],
+        ['班次已录制管制输入', (report.sessionInputs ?? 0) >= 1],
+        ['状态采样已写入（剖面图数据源）', (report.historySamples ?? 0) >= 1],
+        ['时钟模块驱动时间推进', (report.clockSteps ?? 0) > 0],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]
     ];

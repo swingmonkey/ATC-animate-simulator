@@ -64,6 +64,8 @@
 - **确定性运动模型**：约束收敛（高度/速度/航向）+ 时间推导，保证时间轴拖拽可精确回放
 - **localStorage 场景持久化**（键 `atc_simulator_state_v2`，兼容 v1 存档）
 - **Electron + electron-builder**：`app://` 自定义协议规避 `file://` 下 ES 模块 CORS 限制，并保证存档来源稳定
+- **分层架构（v1.3 起）**：`core → simulation → domain → game → ui/render/interaction` 单向依赖，由 `npm run check` 强制校验循环依赖与层级越界；
+  领域层含**飞行阶段 FSM**、许可与复诵记录、席位/扇区、间隔预测，游戏层含班次与输入录制 —— 完整设计见 [`docs/PLAN-v2.md`](docs/PLAN-v2.md)
 
 ## 项目结构
 
@@ -76,6 +78,7 @@ ATC-animate-simulator/
 │   ├── core/                   # 内核层（叶子模块，不依赖任何业务层）
 │   │   ├── eventBus.js         # 发布-订阅 + 重绘脏标记
 │   │   ├── store.js            # 全局状态与动作（select/commitScene/togglePlay/addComm）
+│   │   ├── clock.js            # 固定步长时钟（时间推进的唯一入口）
 │   │   ├── viewport.js         # 画布与视图变换的唯一事实源（缩放/平移/坐标互转）
 │   │   ├── persistence.js      # localStorage 读写
 │   │   ├── constants.js        # 命中半径、单位换算、业务常量
@@ -83,22 +86,29 @@ ATC-animate-simulator/
 │   │   ├── ids.js              # 统一 ID 生成
 │   │   └── dom.js              # $ / escapeHtml / HH:MM:SS 格式化
 │   ├── data/                   # 静态数据：机型、航司、机场（含示意跑道/频率）、航路点类型、管制席位与进近方式
-│   ├── simulation/             # 运动模型：geometry（纯几何）/ motion（约束收敛）/ conflict（冲突检测）
-│   │   ├── constraints.js      # 高度/速度/航向约束原语（叶子模块，motion 与 units 共用）
-│   │   └── units.js            # 管制席位归属、移交、塔台/进近/落地许可、跑道指派
-│   ├── commands/               # 文本指令：parser（纯解析）/ executor（施加约束）
+│   ├── simulation/             # 仿真内核：geometry（纯几何）/ motion（时间推演 + 逐帧钩子）/ constraints（约束原语）
+│   ├── domain/                 # 领域层（无 DOM）
+│   │   ├── aircraft.js         # 航空器模型、尾流、逐帧推进（席位→许可→接地→阶段）、1Hz 采样
+│   │   ├── phases.js           # 飞行阶段 FSM + 指令合法性（canIssue / issueHint）
+│   │   ├── airspace.js         # 席位/扇区、距离与迟滞、移交、跑道指派
+│   │   ├── clearances.js       # 许可对象与记录、起飞/进近/落地/跑道/复飞
+│   │   └── separation.js       # 间隔标准、冲突判定与预测（AMBER/RED）
+│   ├── game/                   # 游戏层
+│   │   └── session.js          # 班次生命周期、管制输入录制、领域层装配
+│   ├── commands/               # 文本指令：parser（纯解析）/ executor（施加约束与许可）
 │   ├── render/                 # Canvas 绘制：background / airports（机场·跑道·管制区）/ routes / aircraft
 │   ├── ui/                     # 界面层
 │   │   ├── panels.js           # 航路点/航线/飞机面板
 │   │   ├── dialogs.js          # 各对话框（含飞机对话框的席位/跑道/进近字段）
 │   │   ├── indicators.js       # 模式指示、时间显示、进程单（内置节流 + 席位过滤）
 │   │   ├── seatPanel.js        # 管制席位面板（频率/在管架数/待移交）
-│   │   ├── commPanel.js        # 通话面板（按席位着色）
+│   │   ├── commPanel.js        # 通话面板（按席位着色 + 输入录制）
 │   │   ├── formBindings.js     # 对话框表单控件事件绑定
 │   │   └── subscriptions.js    # 事件订阅中枢（唯一刷新接线处）
 │   ├── interaction/            # 输入层：canvasInput / keyboard / palette / toolbar / factory
 │   ├── generators/             # 随机场景生成（进港/离港 + 预指派跑道）
 │   └── weather/                # 风暴场 / 风场（跑道逆风选择复用）
+├── docs/PLAN-v2.md             # 空管指挥游戏重构方案（分层规则/领域模型/玩法/界面/里程碑）
 ├── build/icon.ico              # 应用图标（由 tools/make-icon.py 生成）
 ├── desktop/main.js             # Electron 主进程（app:// 协议 + --smoke 冒烟测试）
 ├── tools/check-imports.mjs     # 零依赖 ES 模块导入/导出静态校验
@@ -107,17 +117,27 @@ ATC-animate-simulator/
 └── README.md
 ```
 
-### 依赖方向（单向、无循环）
+### 依赖方向（单向、无循环，已由工具强制校验）
 
 ```
-interaction ─┐
-commands ────┼─→ store / eventBus ─→ ui（订阅刷新） / render / simulation → core
-generators ──┘
+输入 interaction → 界面 ui → 游戏 game → 领域 domain → 仿真 simulation → 内核 core
+                                  ↘ 渲染 render ↗        （data / weather 为横向资源）
 ```
 
+| 层 | 目录 | 允许 import |
+|---|---|---|
+| 0 内核 | `core/` | 仅本层 |
+| 1 仿真/数据/天气 | `simulation/`、`data/`、`weather/` | 层 0–1 |
+| 2 领域 | `domain/` | 层 0–2 |
+| 3 游戏/渲染 | `game/`、`render/` | 层 0–3 |
+| 4 命令/生成 | `commands/`、`generators/` | 层 0–4 |
+| 5 界面 | `ui/` | 层 0–5 |
+| 6 输入 | `interaction/` | 层 0–6 |
+| 装配点 | `js/main.js` | 全部（唯一允许跨层 import 的文件） |
+
+- `npm run check` 会做**循环依赖检测**与**层级越界检测**（越界即构建失败），规则详见 [`docs/PLAN-v2.md`](docs/PLAN-v2.md) §3.1
+- 领域层需要逐帧推进时使用**依赖倒置**（`simulation/motion.js` 的 `onAircraftStep(fn)`），仿真层不反向依赖领域层
 - UI 刷新一律由 `ui/subscriptions.js` 订阅事件完成，业务层不再手工调用刷新函数
-- `ui` 不依赖 `interaction`；`core` 不依赖任何业务层
-- 对话框由输入层/界面层调用打开函数，其余交互经 store 动作 + 事件总线
 
 ## 快速开始
 
@@ -172,8 +192,8 @@ npm run build:win
 ### 校验与冒烟测试
 
 ```bash
-npm run check    # 静态校验 45 个模块、349 条具名导入的导入/导出一致性
-npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，45 项断言
+npm run check    # 静态校验 50 个模块、405 条具名导入 + 循环依赖 + 层级越界
+npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，55 项断言
 ```
 
 ## 使用指南

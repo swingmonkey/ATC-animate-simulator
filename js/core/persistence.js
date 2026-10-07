@@ -14,7 +14,7 @@ export function saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
             routePoints: state.routePoints,
             routes: state.routes,
-            aircraft: state.aircraft,
+            aircraft: state.aircraft.map(({ history, ...rest }) => rest),   // history 为运行期采样（P2 剖面图），不入档
             defaults: state.defaults,
             pointNameCounter: state.pointNameCounter,
             focusAirport: state.focusAirport,

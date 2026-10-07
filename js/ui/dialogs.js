@@ -9,11 +9,11 @@ import { state, isEditMode, setPlaying } from '../core/store.js';
 import { pxToKmFixed } from '../core/viewport.js';
 import { escapeHtml } from '../core/dom.js';
 import {
-    pointToSegmentDist, getWaypointInfoForAircraft, getPositionAndTimeForWaypoint,
-    clearanceText, referenceAirportCode, unitOfAircraft
+    pointToSegmentDist, getWaypointInfoForAircraft, getPositionAndTimeForWaypoint
 } from '../simulation/index.js';
+import { clearanceText } from '../domain/clearances.js';
+import { referenceAirportCode, unitOfAircraft, runwayEndsFor } from '../domain/airspace.js';
 import { unit } from '../data/atcUnits.js';
-import { runwayList, runwayEnd } from '../data/airports.js';
 
 /** 飞机对话框：航线选择下拉（原 indicators.js，唯一调用方为 openAircraftDialog，就近内聚） */
 function updateRouteSelectOptions() {
@@ -208,8 +208,7 @@ export function updateSeatFieldsInDialog(ac) {
     const rwySel = document.getElementById('ac-runway');
     if (rwySel) {
         const code = referenceAirportCode(ac);
-        const ends = [];
-        runwayList(code).forEach(pair => { ends.push(runwayEnd(pair, 0), runwayEnd(pair, 1)); });
+        const ends = runwayEndsFor(code);
         if (ac.runway && !ends.includes(ac.runway)) ends.unshift(ac.runway);
         rwySel.innerHTML = '<option value="">未指派</option>'
             + ends.map(r => `<option value="${escapeHtml(r)}">跑道 ${escapeHtml(r)}</option>`).join('');

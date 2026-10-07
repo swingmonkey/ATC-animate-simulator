@@ -7,7 +7,7 @@ import {
 } from '../core/viewport.js';
 import { state } from '../core/store.js';
 import { acPos, altOf, hdgOf, posX, posY, spdOf } from '../core/accessors.js';
-import { isAircraftInConflictAt, getConflictPairs } from '../simulation/conflict.js';
+import { isAircraftInConflictAt, getConflictPairs } from '../domain/separation.js';
 import { unit } from '../data/atcUnits.js';
 
 export function drawAircraft() {

@@ -56,5 +56,9 @@ export const EV = {
     /** 新增陆空通话 → 通讯面板追加 */
     COMM_ADDED: 'comm:added',
     /** 管制席位状态变更（移交/许可/落地/席位过滤/自动开关）→ 席位面板 + 进程单刷新 */
-    UNIT_CHANGED: 'unit:changed'
+    UNIT_CHANGED: 'unit:changed',
+    /** 时钟步进（固定步长） → 采样器 / HUD */
+    CLOCK_TICK: 'clock:tick',
+    /** 飞行阶段变化 → 进程单 / 标签 / 目标判定 */
+    PHASE_CHANGED: 'phase:changed'
 };

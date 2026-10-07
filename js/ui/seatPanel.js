@@ -10,7 +10,7 @@ import { state, setSeatFilter } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
 import { ATC_UNITS, UNIT_ORDER, unitFrequency } from '../data/atcUnits.js';
 import { airportName, runwayList } from '../data/airports.js';
-import { unitSummary } from '../simulation/index.js';
+import { unitSummary } from '../domain/airspace.js';
 
 export function updateSeatPanel() {
     const list = document.getElementById('seat-list');

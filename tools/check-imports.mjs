@@ -177,10 +177,94 @@ for (const file of files) {
     }
 }
 
+/* ---------------- 依赖图校验：循环依赖 + 层级越界 ----------------
+ * 规则见 docs/PLAN-v2.md §3.1：0 core < 1 simulation/weather < 2 data/domain <
+ * 3 game/render < 4 commands/generators < 5 ui < 6 interaction，允许同层互引，
+ * 禁止 import 更高层（数值更大）；js 根目录下的入口文件（js/main.js）不参与层级校验。
+ */
+
+const LAYERS = {
+    core: 0,
+    simulation: 1, weather: 1,
+    data: 1,
+    domain: 2,
+    game: 3, render: 3,
+    commands: 4, generators: 4,
+    ui: 5,
+    interaction: 6
+};
+
+function layerOf(file) {
+    const rel = relative(JS_ROOT, file).split(/[\\/]/);
+    if (rel.length === 1) return { name: '入口', level: 99 };
+    const top = rel[0];
+    return { name: top, level: top in LAYERS ? LAYERS[top] : null };
+}
+
+/** 模块依赖图（仅相对导入） */
+const edges = new Map();
+for (const file of files) {
+    const src = sourceOf(file);
+    const deps = new Set();
+    for (const m of src.matchAll(importRe)) {
+        const target = resolveSpecifier(file, m[5]);
+        if (target) deps.add(target);
+    }
+    for (const m of src.matchAll(sideEffectRe)) {
+        const target = resolveSpecifier(file, m[1]);
+        if (target) deps.add(target);
+    }
+    edges.set(file, deps);
+}
+
+/* 循环依赖：DFS 三色标记，报告回路 */
+const cycles = [];
+const state = new Map();   // file -> 1 访问中 / 2 已完成
+const stack = [];
+function visit(file) {
+    const st = state.get(file) || 0;
+    if (st === 2) return;
+    if (st === 1) {
+        const idx = stack.indexOf(file);
+        const loop = stack.slice(idx).concat(file).map(f => relative(ROOT, f));
+        cycles.push(loop.join(' → '));
+        return;
+    }
+    state.set(file, 1);
+    stack.push(file);
+    for (const dep of edges.get(file) || []) {
+        if (!edges.has(dep)) continue;       // 只跟踪 js 目录内的模块
+        visit(dep);
+    }
+    stack.pop();
+    state.set(file, 2);
+}
+for (const file of files) visit(file);
+for (const loop of cycles) errors.push(`循环依赖：${loop}`);
+
+/* 层级越界 */
+let layerChecked = 0;
+for (const [from, deps] of edges) {
+    const lf = layerOf(from);
+    if (lf.level === null || lf.level === 99) continue;
+    for (const to of deps) {
+        const lt = layerOf(to);
+        if (lt.level === null || lt.level === 99) continue;
+        layerChecked++;
+        if (lt.level > lf.level) {
+            errors.push(
+                `层级越界：${relative(ROOT, from)}（层 ${lf.level} ${lf.name}）`
+                + ` → ${relative(ROOT, to)}（层 ${lt.level} ${lt.name}）`
+            );
+        }
+    }
+}
+
 console.log(`已校验 ${files.length} 个模块、${checkedImports} 条具名导入`);
+console.log(`依赖图：${edges.size} 个节点 / ${layerChecked} 条跨层引用，循环依赖 ${cycles.length} 处`);
 if (errors.length) {
     console.error(`\n发现 ${errors.length} 处问题：`);
     errors.forEach(e => console.error(' - ' + e));
     process.exit(1);
 }
-console.log('导入/导出关系校验通过 ✓');
+console.log('导入/导出关系、循环依赖与层级边界校验通过 ✓');
