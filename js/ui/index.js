@@ -11,6 +11,7 @@ export * from './commPanel.js';
 export * from './console.js';
 export * from './seatPanel.js';
 export * from './sessionPanel.js';
+export * from './rosterPanel.js';
 export * from './subscriptions.js';
 export * from './formBindings.js';
 export { addComm } from '../core/store.js';

@@ -70,5 +70,53 @@ export const EV = {
     /** 导演事件（[scenario] 时间轴事件、流量注入、字幕）→ HUD / 通话面板 */
     DIRECTOR_EVENT: 'director:event',
     /** 席位视图切换（ACC/APP/TWR 三张地图）→ 席位面板 / HUD / 进程单 / 重绘 */
-    VIEW_CHANGED: 'view:changed'
+    VIEW_CHANGED: 'view:changed',
+
+    /* ---- CCAR-93TM-R6 对齐 R1：席位 / 值班 / 日志 / 归档事件 ---- */
+    /** 席位设置解算完成（按门槛开合/合并席位）→ 席位面板 / 值班面板 */
+    SEATS_PLANNED: 'seats:planned',
+    /** 席位合并（某席由他席兼任）→ 席位面板文案 */
+    SEAT_MERGED: 'seat:merged',
+    /** 席位拆分（APP → APP-ARR/APP-DEP）→ 席位面板文案 */
+    SEAT_SPLIT: 'seat:split',
+    /** 值班开始（进入岗位前）→ 值班面板 */
+    DUTY_STARTED: 'duty:started',
+    /** 值班结束 → 值班面板 */
+    DUTY_ENDED: 'duty:ended',
+    /** 值班超时溢出 → 值班面板提示 */
+    DUTY_OVERFLOW: 'duty:overflow',
+    /** 岗前准备开始（五项逐项确认）→ 值班面板 */
+    DUTY_PREP_STARTED: 'duty:prep_started',
+    /** 岗前准备完成 → 值班面板 + 日志字段 */
+    DUTY_PREP_DONE: 'duty:prep_done',
+    /** 进入管制岗位 → 值班面板 + 日志 */
+    POSITION_ENTERED: 'position:entered',
+    /** 离开管制岗位 → 值班面板 + 日志 */
+    POSITION_LEFT: 'position:left',
+    /** 进入休息 → 值班面板 */
+    REST_ENTERED: 'rest:entered',
+    /** 休息结束 → 值班面板 */
+    REST_LEFT: 'rest:left',
+    /** 岗位就坐（别名，供日志聚合） */
+    DUTY_POSITION_ENTERED: 'duty:position_entered',
+    /** 离席（别名，供日志聚合） */
+    DUTY_POSITION_LEFT: 'duty:position_left',
+    /** 雷达岗位轮换提醒（连续岗位超时）→ 值班面板 */
+    RADAR_ROTATION_DUE: 'radar:rotation_due',
+    /** 疲劳达阈值 → 值班面板提示 */
+    FATIGUE_THRESHOLD: 'fatigue:threshold',
+    /** 报告不适合执勤（§128 权利）→ 值班面板 / 评分 */
+    NOT_FIT_FOR_DUTY: 'not_fit_for_duty',
+    /** 不适合执勤（别名，供日志/评分聚合） */
+    DUTY_UNFIT_REPORTED: 'duty:unfit_reported',
+    /** 交接班熟悉期开始（§60 熟悉期）→ 值班面板 */
+    HANDOVER_FAMILIARIZE: 'handover:familiarize',
+    /** 同事提醒（席位/交接事项）→ 值班面板 */
+    COWORKER_REMINDER: 'coworker:reminder',
+    /** 管制工作日志追加一条 → 复盘 / 归档 */
+    LOG_APPENDED: 'log:appended',
+    /** 日志滚动归档 → 复盘 / 归档 */
+    LOG_ROLLED: 'log:rolled',
+    /** 归档打包完成 → 复盘 / 归档 */
+    ARCHIVE_PACKED: 'archive:packed'
 };

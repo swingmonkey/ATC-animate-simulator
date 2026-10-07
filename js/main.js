@@ -21,7 +21,7 @@ import {
     initSessionWiring, currentSession, recordInput,
     startGameSession, endGameSession, isSessionActive, currentDirector, sessionResult
 } from './game/session.js';
-import { scoringSummary, scoreTimeline, runwayPlan, gradeFor, GRADES } from './game/scoring.js';
+import { scoringSummary, scoreTimeline, runwayPlan, gradeFor, GRADES, SCORE_WEIGHTS } from './game/scoring.js';
 import { scenarioSummary, scenarioFromLocation, defaultScenario, buildTimeline } from './game/scenario.js';
 import { evaluateObjectives, defaultObjectives, OBJECTIVE_KINDS } from './game/objectives.js';
 import { scenarioList, getBuiltinScenario } from './data/scenarios.js';
@@ -31,13 +31,20 @@ import {
     CRITICAL_RUNWAY, CRITICAL_ALT, CRITICAL_ROUTE, READBACK_GROUP_WEIGHTS, criticalGroupOf, actionTextOf, pickMissedItem
 } from './domain/readback.js';
 import { parseLocationFile } from './domain/locationFile.js';
+import {
+    planSeats, THRESHOLD_GND, THRESHOLD_CD, THRESHOLD_APP, THRESHOLD_APP_SPLIT
+} from './domain/seats.js';
+import { prepChecklist, canReportUnfit } from './domain/roster.js';
+import { ROSTER } from './data/roster.js';
+import { HANDOVER_CHECKLIST, FAMILIARIZE_SEC } from './data/handoverChecklist.js';
+import { LOG_FIELDS } from './data/logFields.js';
 import { locationToScene, importLocationText } from './domain/locations.js';
 import { sampleLocationText } from './data/locationSamples.js';
 import { getAirport } from './data/airports.js';
 import { drawRadar } from './render/index.js';
 import { initSubscriptions, refreshAll } from './ui/subscriptions.js';
 import { initFormBindings } from './ui/formBindings.js';
-import { initSessionPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
+import { initSessionPanel, initRosterPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
 import { hudModel } from './render/hud.js';
 import { tickKeyboard } from './interaction/index.js';
 
@@ -78,6 +85,7 @@ initSubscriptions();
 initFormBindings();
 initSessionPanel();                // 班次面板按钮绑定（开始班次 / 结束并结算）
 initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
+initRosterPanel();                 // 值班面板：申请不参加本次执勤（§128 权利，绑定一次）
 
 if (loadState()) {
     normalizeScene();                 // 领域字段补齐（旧存档 ac.phase → ac.flow）
@@ -116,6 +124,7 @@ window.__ATC__ = {
         runwayPlan,
         gradeFor,
         grades: GRADES,
+        weights: SCORE_WEIGHTS,
         hud: hudModel,
         result: sessionResult,
         scenario: { summary: scenarioSummary, fromLocation: scenarioFromLocation, create: defaultScenario, buildTimeline }
@@ -136,6 +145,18 @@ window.__ATC__ = {
         pickMissed: pickMissedItem
     },
     console: { update: updateConsole },
+    seats: {
+        plan: planSeats,
+        thresholds: { GND: THRESHOLD_GND, CD: THRESHOLD_CD, APP: THRESHOLD_APP, APP_SPLIT: THRESHOLD_APP_SPLIT }
+    },
+    roster: {
+        prep: prepChecklist,
+        unfit: canReportUnfit,
+        constants: ROSTER,
+        handover: HANDOVER_CHECKLIST,
+        familiarizeSec: FAMILIARIZE_SEC
+    },
+    logs: { fields: LOG_FIELDS },
     airports: { get: getAirport },
     session: currentSession,
     recordInput,

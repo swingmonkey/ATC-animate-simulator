@@ -29,6 +29,10 @@ export const SCORE_WEIGHTS = {
     DELAY: -2,
     HANDOFF_TIMEOUT: -2,
     READBACK_MISSED: -3,
+    /* CCAR-93TM-R6 对齐 R1：值班 / 交接 / 休息相关评分项 */
+    HANDOVER_MISSED: -2,
+    REST_IGNORED: -5,
+    NOT_FIT_FOR_DUTY: 2,
     EARLY_BONUS: 5
 };
 
@@ -59,7 +63,7 @@ const ledger = {
     active: false,
     startedAtSim: 0,
     events: [],
-    counts: { separation: 0, mva: 0, goAround: 0, delay: 0, handoff: 0, readback: 0 },
+    counts: { separation: 0, mva: 0, goAround: 0, delay: 0, handoff: 0, readback: 0, handover: 0, notFit: 0, restIgnored: 0 },
     penaltyTotal: 0,
     bonusTotal: 0,
     cooldowns: {},
@@ -84,7 +88,7 @@ export function resetScoring(opts = {}) {
     ledger.active = true;
     ledger.startedAtSim = state.time;
     ledger.events = [];
-    ledger.counts = { separation: 0, mva: 0, goAround: 0, delay: 0, handoff: 0, readback: 0 };
+    ledger.counts = { separation: 0, mva: 0, goAround: 0, delay: 0, handoff: 0, readback: 0, handover: 0, notFit: 0, restIgnored: 0 };
     ledger.penaltyTotal = 0;
     ledger.bonusTotal = 0;
     ledger.cooldowns = {};
@@ -120,6 +124,12 @@ export function scoreEventText(e) {
             return `连击奖励（连续 ${e.detail.streak || 5} 架无延误落地）`;
         case 'HANDOFF_TIMEOUT':
             return `移交超时：${e.detail.callsign || '--'}`;
+        case 'HANDOVER_MISSED':
+            return `交接班漏项：${e.detail.item || e.detail.title || '--'}（${e.detail.callsign || '--'}）`;
+        case 'REST_IGNORED':
+            return `忽视强制休息：${e.detail.reason || '连续执勤超限'}`;
+        case 'NOT_FIT_FOR_DUTY':
+            return `申报不适合执勤：${e.detail.reason || '管制员主动申报（§128 权利）'}`;
         case 'RUNWAY_CHANGE':
             return `跑道构型变更：落地 ${(e.detail.land || []).join('/') || '--'} · 起飞 ${(e.detail.start || []).join('/') || '--'}`;
         case 'LANDED':
@@ -145,10 +155,13 @@ export function addScoreEvent(kind, detail = {}) {
             : kind === 'MVA_BREACH' ? 'mva'
                 : kind === 'GO_AROUND' ? 'goAround'
                     : kind === 'DELAY' ? 'delay'
-                        : kind === 'READBACK_MISSED' ? 'readback' : 'handoff';
+                        : kind === 'READBACK_MISSED' ? 'readback'
+                            : kind === 'HANDOVER_MISSED' ? 'handover'
+                                : kind === 'REST_IGNORED' ? 'restIgnored' : 'handoff';
         ledger.counts[key] = (ledger.counts[key] || 0) + 1;
     } else if (weight > 0) {
         ledger.bonusTotal += weight;
+        if (kind === 'NOT_FIT_FOR_DUTY') ledger.counts.notFit = (ledger.counts.notFit || 0) + 1;
     }
     bus.emit(EV.SCORE_CHANGED, { event: entry });
     requestRedraw();

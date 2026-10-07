@@ -21,6 +21,7 @@ import { appendCommMessage } from './commPanel.js';
 import { updateConsole } from './console.js';
 import { updateSeatPanel } from './seatPanel.js';
 import { updateSessionPanel } from './sessionPanel.js';
+import { updateRosterPanel } from './rosterPanel.js';
 import { showNextWaypointDialog } from './dialogs.js';
 
 /**
@@ -76,13 +77,31 @@ export function initSubscriptions() {
     bus.on(EV.SESSION_STARTED, () => {
         updateSessionPanel();
         updateSeatPanel();
+        updateRosterPanel();
         updateProgressList(true);
     });
     bus.on(EV.SESSION_ENDED, () => {
         updateSessionPanel();
+        updateRosterPanel();
         updateProgressList(true);
     });
     bus.on(EV.SCORE_CHANGED, () => updateSessionPanel());
+
+    /* CCAR-93TM-R6 对齐 R1：席位解算 / 值班 / 交接 / 适勤事件 → 值班面板（含席位面板联动） */
+    const refreshRoster = () => {
+        updateRosterPanel();
+        updateSeatPanel();
+    };
+    [EV.SEATS_PLANNED, EV.SEAT_MERGED, EV.SEAT_SPLIT,
+        EV.DUTY_STARTED, EV.DUTY_ENDED, EV.DUTY_OVERFLOW,
+        EV.DUTY_PREP_STARTED, EV.DUTY_PREP_DONE,
+        EV.POSITION_ENTERED, EV.POSITION_LEFT, EV.REST_ENTERED, EV.REST_LEFT,
+        EV.DUTY_POSITION_ENTERED, EV.DUTY_POSITION_LEFT,
+        EV.RADAR_ROTATION_DUE, EV.FATIGUE_THRESHOLD,
+        EV.NOT_FIT_FOR_DUTY, EV.DUTY_UNFIT_REPORTED,
+        EV.HANDOVER_FAMILIARIZE, EV.COWORKER_REMINDER,
+        EV.LOG_APPENDED, EV.LOG_ROLLED, EV.ARCHIVE_PACKED
+    ].forEach(evt => bus.on(evt, refreshRoster));
 }
 
 /**
@@ -96,6 +115,7 @@ export function refreshAll() {
     updateProgressList(true);
     updateSeatPanel();
     updateSessionPanel();
+    updateRosterPanel();
     updateConsole(true);
     updateModeIndicator();
     updatePlayButton();

@@ -10,7 +10,7 @@
  */
 
 import { app, BrowserWindow, protocol, session } from 'electron';
-import { createReadStream, existsSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -618,6 +618,88 @@ const SCRIPT_L2_VERIFY = `(() => {
     return out;
 })()`;
 
+const SCRIPT_R1_VERIFY = `(() => {
+    const A = window.__ATC__;
+    const S = A.seats;
+    const out = {};
+    const ON = "\u517c\u4efb";
+    const has = (arr, v) => Array.isArray(arr) && arr.indexOf(v) >= 0;
+
+    /* R1-A 席位门槛：严格「超过阈值」才开席（§47-§51） */
+    out.seatGndBoundary = has(S.plan({ annualMovements: 40000 }).tower, 'GND') === false
+        && has(S.plan({ annualMovements: 40001 }).tower, 'GND') === true;
+    out.seatCdBoundary = has(S.plan({ annualMovements: 100000 }).tower, 'CD') === false
+        && has(S.plan({ annualMovements: 100001 }).tower, 'CD') === true;
+    out.seatAppBoundary = has(S.plan({ annualMovements: 36000 }).tower, 'APP') === true
+        && has(S.plan({ annualMovements: 36001 }).approach, 'APP') === true
+        && has(S.plan({ annualMovements: 36001 }).tower, 'APP') === false;
+    out.seatAppSplitBoundary = has(S.plan({ annualMovements: 60000 }).approach, 'APP') === true
+        && has(S.plan({ annualMovements: 60001 }).approach, 'APP-ARR') === true
+        && has(S.plan({ annualMovements: 60001 }).approach, 'APP-DEP') === true;
+    out.seatIlsForcesGnd = has(S.plan({ annualMovements: 0, ilsCat: 2 }).tower, 'GND') === true;
+    out.seatNtz = has(S.plan({ annualMovements: 60000, parallelApproach: 'independent' }).approach, 'NTZ') === true
+        && has(S.plan({ annualMovements: 60000, parallelApproach: 'none' }).approach, 'NTZ') === false;
+    out.seatRadarOff = has(S.plan({ radarControl: false }).area, 'ACC-RDR') === false
+        && has(S.plan({ radarControl: true }).area, 'ACC-RDR') === true;
+    const small = S.plan({ annualMovements: 1000 });
+    out.seatMergeWord = String(small.reasons.GND || '').indexOf(ON) >= 0
+        && String(small.reasons.CD || '').indexOf(ON) >= 0;
+    const ops = { annualMovements: 50000, ilsCat: 1, airspaceComplex: true, parallelApproach: 'independent', radarControl: true };
+    out.seatIdempotent = JSON.stringify(S.plan(ops)) === JSON.stringify(S.plan(ops));
+    out.seatThresholds = S.thresholds.GND === 40000 && S.thresholds.CD === 100000
+        && S.thresholds.APP === 36000 && S.thresholds.APP_SPLIT === 60000;
+
+    /* R1-B 九项工作日志字段（§63） */
+    const fields = A.logs.fields;
+    const needIds = ['seatOpenLog', 'staffLog', 'dutyLog', 'equipmentLog', 'navLog', 'weatherLog', 'serviceLog', 'safetyLog', 'violationLog'];
+    out.logFieldCount = Array.isArray(fields) ? fields.length : -1;
+    out.logFieldIds = Array.isArray(fields) && needIds.every(id => fields.some(f => f.id === id));
+    out.logFieldEvents = Array.isArray(fields) && fields.every(f => Array.isArray(f.events) && f.events.length > 0);
+    out.logFieldTitles = Array.isArray(fields) && fields.every(f => !!f.title);
+
+    /* R1-C 值班 / 岗前准备 / 交接检查单 / 适勤（§56 / §60 / §123-§128） */
+    out.rosterMode = A.roster.constants.mode;
+    const prep = A.roster.prep({});
+    out.prepCount = prep.items.length;
+    out.prepConfirmSec = prep.confirmSec;
+    out.prepAllSec = prep.allSec;
+    out.prepPerItem3s = prep.items.every(it => it.confirmSec === 3);
+    out.familiarizeSec = A.roster.familiarizeSec;
+    const hc = A.roster.handover;
+    out.handoverCount = Array.isArray(hc) ? hc.length : -1;
+    out.handoverWeights = Array.isArray(hc) && hc.every(it => typeof it.weight === 'number' && it.weight > 0);
+    const emergency = Array.isArray(hc) ? hc.find(it => it.id === 'emergency') : null;
+    out.handoverEmergencyWeight = emergency ? emergency.weight : -1;
+    out.handoverMaxIsEmergency = Array.isArray(hc) && hc.every(it => it.weight <= (emergency ? emergency.weight : 0));
+    out.unfitAllowed = A.roster.unfit({ dutySec: 0 }).allowed === true;
+    out.unfitStronglyAdvised = A.roster.unfit({ dutySec: A.roster.constants.dutySecMax + 10 }).stronglyAdvised === true;
+
+    /* R1-D 评分新增权重与计数键 */
+    const w = A.game.weights;
+    out.scoreWeights = w.HANDOVER_MISSED === -2 && w.REST_IGNORED === -5 && w.NOT_FIT_FOR_DUTY === 2;
+    const counts = A.game.scoring().counts;
+    out.scoreCountKeys = Object.prototype.hasOwnProperty.call(counts, 'handover')
+        && Object.prototype.hasOwnProperty.call(counts, 'notFit')
+        && Object.prototype.hasOwnProperty.call(counts, 'restIgnored');
+
+    /* R1-E 值班面板已挂载并渲染；事件联动不抛错 */
+    out.rosterPanelMounted = !!document.getElementById('roster-section') && !!document.getElementById('roster-body');
+    out.rosterPrepRows = document.querySelectorAll('#roster-prep-list .seat-row').length;
+    out.rosterHandoverRows = document.querySelectorAll('#roster-handover-list .seat-row').length;
+    const unfitBtn = document.getElementById('roster-unfit-btn');
+    out.rosterUnfitBtn = !!unfitBtn && !unfitBtn.disabled;
+    try {
+        A.bus.emit(A.EV.NOT_FIT_FOR_DUTY, { source: 'smoke', reason: 'smoke' });
+        A.bus.emit(A.EV.SEATS_PLANNED, { seats: S.plan(ops) });
+        out.rosterPanelRefreshOk = !!document.getElementById('roster-body');
+    } catch (e) {
+        out.rosterPanelRefreshOk = false;
+        out.rosterPanelRefreshError = String((e && e.message) || e);
+    }
+
+    return out;
+})()`;
+
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -651,6 +733,7 @@ async function runSmoke() {
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_CONSOLE_DOM));
         await wait(11000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_L2_VERIFY));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_R1_VERIFY));
         // 离屏渲染下抓取整屏截图，便于人工核验渲染效果
         // （打包后 APP_ROOT 位于 app.asar 内不可写，故写入 userData 目录）
         try {
@@ -667,6 +750,31 @@ async function runSmoke() {
 
     report.consoleErrors = consoleErrors;
     report.pageFailures = pageFailures;
+    /* R1-F：js/** 静态扫描 —— 运行时不得出现网络上报 API（§69 合规边界） */
+    try {
+        const jsRoot = path.join(APP_ROOT, 'js');
+        const netTokens = ['fetch(', 'XMLHttpRequest', 'sendBeacon', 'WebSocket', 'EventSource'];
+        const hits = [];
+        const walkJs = dir => {
+            for (const entry of readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    walkJs(full);
+                } else if (entry.isFile() && full.endsWith('.js')) {
+                    const src = readFileSync(full, 'utf8');
+                    for (const token of netTokens) {
+                        if (src.includes(token)) hits.push(`${path.relative(APP_ROOT, full)}:${token}`);
+                    }
+                }
+            }
+        };
+        walkJs(jsRoot);
+        report.jsNetworkHits = hits;
+        report.jsNetworkFree = hits.length === 0;
+    } catch (e) {
+        report.jsNetworkFree = false;
+        report.jsNetworkScanError = String((e && e.message) || e);
+    }
 
     const checks = [
         ['启动句柄存在', report.bootOk === true],
@@ -815,6 +923,37 @@ async function runSmoke() {
             && report.fallbackNotPicked === true && report.runwayMostPicked === true
             && /^(\d+),(\d+),(\d+)$/.test(String(report.pickCounts || ''))
 && String(report.pickCounts).split(',').every(n => Number(n) > 0)],
+        /* ---- 第二批（CCAR-93TM-R6 R1）：席位门槛 / 值班制度 / 疲劳 / 日志字段 ---- */
+        ['§47 GND 席位门槛：严格超过 40000 才开席', report.seatGndBoundary === true],
+        ['§48 CD 席位门槛：严格超过 100000 才开席', report.seatCdBoundary === true],
+        ['§49 进近单位门槛：>36000 独立、≤36000 并入塔台', report.seatAppBoundary === true],
+        ['§50 进近分席门槛：>60000 拆 APP-ARR/APP-DEP', report.seatAppSplitBoundary === true],
+        ['§47 ILS Ⅱ 类运行强制开放 GND 席', report.seatIlsForcesGnd === true],
+        ['§49 独立平行进近追加 NTZ 席位（否则不设）', report.seatNtz === true],
+        ['§51 雷达管制席随 radarControl 开关', report.seatRadarOff === true],
+        ['席位合并文案含「由 XX 席兼任」', report.seatMergeWord === true],
+        ['planSeats 幂等（同输入两次结果一致）', report.seatIdempotent === true],
+        ['席位门槛常量与规约一致（40000/100000/36000/60000）', report.seatThresholds === true],
+        ['§63 九项工作日志字段齐备', report.logFieldCount === 9 && report.logFieldIds === true],
+        ['§63 每个日志字段绑定事件名', report.logFieldEvents === true],
+        ['§63 每个日志字段含中文标题', report.logFieldTitles === true],
+        ['§123 短班模式为默认回归基线', report.rosterMode === 'short'],
+        ['§56 岗前准备五项、逐项 3s、合计 15s', report.prepCount === 5 && report.prepConfirmSec === 3
+            && report.prepAllSec === 15 && report.prepPerItem3s === true],
+        ['§60 交接班熟悉期 60s', report.familiarizeSec === 60],
+        ['§60 交接班检查单七项且各项有权重', report.handoverCount === 7 && report.handoverWeights === true],
+        ['§60 特情项权重最大（权重 2）', report.handoverEmergencyWeight === 2 && report.handoverMaxIsEmergency === true],
+        ['§128 管制员可随时申报不适合执勤（恒允许）', report.unfitAllowed === true],
+        ['§123 超限执勤时强烈建议申报不适合执勤', report.unfitStronglyAdvised === true],
+        ['评分新增权重：HANDOVER_MISSED −2 / REST_IGNORED −5 / NOT_FIT_FOR_DUTY +2',
+            report.scoreWeights === true],
+        ['评分新增计数键：handover / notFit / restIgnored', report.scoreCountKeys === true],
+        ['值班面板已挂载（#roster-section/#roster-body）', report.rosterPanelMounted === true],
+        ['值班面板渲染岗前准备五项', report.rosterPrepRows === 5],
+        ['值班面板渲染交接检查单七项', report.rosterHandoverRows === 7],
+        ['「申请不参加本次执勤」按钮可用', report.rosterUnfitBtn === true],
+        ['值班面板事件联动刷新不抛错', report.rosterPanelRefreshOk === true],
+        ['js/** 无网络上报 API（fetch/XHR/SendBeacon/WebSocket/EventSource）', report.jsNetworkFree === true],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]
     ];

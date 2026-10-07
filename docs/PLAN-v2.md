@@ -406,7 +406,7 @@ check-imports 增加**循环依赖**与**层级越界**校验；`ac.flow`/`ac.ph
 > **状态：第一批（P1-A）与第二批（P1-B）已交付** —— `game/{scenario,director,objectives,scoring}.js` +
 > `render/hud.js` + `ui/sessionPanel.js`（结算结果页）+ 班次内禁用时间轴回溯（附录 C）；
 > `data/{scenarios,phraseology}.js` + `domain/readback.js` + `ui/console.js`（指令台 2.0：用语模板/灰显/复诵）+
-> `core/random.js`（种子随机收口）（附录 D，`npm run smoke` 95 项断言全绿；含 CCAR-93TM-R6 §118 复诵清单分级 3 项）。
+> `core/random.js`（种子随机收口）（附录 D，`npm run smoke` 123 项断言全绿；含 CCAR-93TM-R6 §118 复诵清单分级 3 项 + R1 席位门槛/值班制度/疲劳参数/日志字段 28 项）。
 > **剩余**：`ui/strips.js`（电子进程单 2.0）、复盘逐帧重放、成绩持久化。
 
 ### P2 · 高度剖面图
