@@ -4,7 +4,8 @@
  * 自动创建 STAR/SID 航线，并使用约束模型模拟下降/爬升。
  */
 
-import { state } from '../core.js';
+import { state } from '../core/store.js';
+import { nextId } from '../core/ids.js';
 import {
     getAirport, distantAirport, airportName, AIRPORTS
 } from '../data/airports.js';
@@ -16,8 +17,8 @@ import {
 } from '../data/aircraft.js';
 import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/motion.js';
 
-let _id = Date.now();
-function genId() { return _id++; }
+/** 统一 ID（core/ids.js）：原 Date.now() 自增在同毫秒多实体时会碰撞 */
+const genId = nextId;
 
 /** 在 a、b 之间插值生成 n 个中间点（带轻微横向偏移，更像航路） */
 function interpolatePoints(a, b, n) {

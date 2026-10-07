@@ -11,3 +11,7 @@ node_modules/
 dist/
 build/
 *.log
+
+# 本地校验/冒烟测试临时产物
+*.done
+smoke-shot.png

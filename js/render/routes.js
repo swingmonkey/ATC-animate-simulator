@@ -1,12 +1,14 @@
 /**
- * render/routes.js — 航线、航路点、连线、测量（绘制层）
+ * render/routes.js — 航线、航路点、连接预览（绘制层）
+ * （原 drawConnections/drawDistanceLines/drawMeasuringPreview 已删除：
+ *   对应数据源 connections/distanceLines/tempMeasureLine 全库只声明无写入，属死代码）
  */
 
 import {
-    state, ctx, kmToPx, pxToKmFixed, viewScale, tempMeasureLine
-} from '../core.js';
+    ctx, viewScale, pxToKmFixed
+} from '../core/viewport.js';
+import { state } from '../core/store.js';
 import { POINT_COLORS, POINT_LABELS } from '../data/waypointTypes.js';
-import { pointOnRoute } from '../simulation/geometry.js';
 
 export function drawRouteSegments() {
     state.routes.forEach(route => {
@@ -101,32 +103,6 @@ export function drawRoutePoints() {
     });
 }
 
-export function drawConnections() {
-    state.connections.forEach(conn => {
-        const ac1 = state.aircraft.find(a => a.id === conn.from);
-        const ac2 = state.aircraft.find(a => a.id === conn.to);
-        if (!ac1 || !ac2) return;
-        if (state.time < (ac1.startTime || 0) || state.time < (ac2.startTime || 0)) return;
-        const x1 = ac1.displayX !== undefined ? ac1.displayX : ac1.x;
-        const y1 = ac1.displayY !== undefined ? ac1.displayY : ac1.y;
-        const x2 = ac2.displayX !== undefined ? ac2.displayX : ac2.x;
-        const y2 = ac2.displayY !== undefined ? ac2.displayY : ac2.y;
-        ctx.strokeStyle = 'rgba(234,179,8,0.5)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 3]);
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
-        const distKm = pxToKmFixed(Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)).toFixed(1);
-        ctx.fillStyle = 'rgba(234,179,8,0.8)';
-        ctx.font = 'bold 9px Consolas';
-        ctx.fillText(distKm + 'km', midX + 3, midY - 3);
-    });
-}
-
 export function drawConnectionPreview() {
     if (!state.routeConnectMode || state.routeConnectPoints.length === 0) return;
     ctx.save();
@@ -145,53 +121,4 @@ export function drawConnectionPreview() {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
-}
-
-export function drawDistanceLines() {
-    state.distanceLines.forEach(line => {
-        ctx.strokeStyle = 'rgba(239,68,68,0.6)';
-        ctx.lineWidth = 1 / viewScale;
-        ctx.setLineDash([5 / viewScale, 3 / viewScale]);
-        ctx.beginPath();
-        ctx.moveTo(line.x1, line.y1);
-        ctx.lineTo(line.x2, line.y2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        const midX = (line.x1 + line.x2) / 2, midY = (line.y1 + line.y2) / 2;
-        const distPx = Math.sqrt((line.x2 - line.x1) ** 2 + (line.y2 - line.y1) ** 2);
-        const distKm = pxToKmFixed(distPx).toFixed(1);
-        ctx.fillStyle = 'rgba(239,68,68,0.9)';
-        ctx.font = `bold ${10 / viewScale}px Consolas`;
-        ctx.fillText(distKm + 'km', midX + 4 / viewScale, midY - 4 / viewScale);
-    });
-}
-
-export function drawMeasuringPreview() {
-    if (!tempMeasureLine) return;
-    ctx.strokeStyle = 'rgba(239,68,68,0.3)';
-    ctx.lineWidth = 1 / viewScale;
-    ctx.setLineDash([3 / viewScale, 3 / viewScale]);
-    ctx.beginPath();
-    ctx.moveTo(tempMeasureLine.x1, tempMeasureLine.y1);
-    ctx.lineTo(tempMeasureLine.x2, tempMeasureLine.y2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    const dx = tempMeasureLine.x2 - tempMeasureLine.x1;
-    const dy = tempMeasureLine.y2 - tempMeasureLine.y1;
-    const distPx = Math.sqrt(dx * dx + dy * dy);
-    const distKm = pxToKmFixed(distPx);
-    const distNm = distKm / 1.852;
-    const bearing = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
-    const midX = (tempMeasureLine.x1 + tempMeasureLine.x2) / 2;
-    const midY = (tempMeasureLine.y1 + tempMeasureLine.y2) / 2;
-    ctx.font = `${9 / viewScale}px Consolas`;
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 0.5 / viewScale;
-    const text = `${distNm.toFixed(1)}nm ${bearing.toFixed(0)}°`;
-    const tw = ctx.measureText(text).width;
-    ctx.fillRect(midX - tw / 2 - 2 / viewScale, midY - 10 / viewScale, tw + 4 / viewScale, 12 / viewScale);
-    ctx.strokeRect(midX - tw / 2 - 2 / viewScale, midY - 10 / viewScale, tw + 4 / viewScale, 12 / viewScale);
-    ctx.fillStyle = '#333';
-    ctx.fillText(text, midX - tw / 2, midY);
 }

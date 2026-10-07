@@ -3,19 +3,11 @@
  */
 
 import {
-    state, ctx, viewScale, kmToPx, pxToKmFixed, getPixelsPerKm
-} from '../core.js';
+    ctx, viewScale, kmToPx, pxToKmFixed, getPixelsPerKm
+} from '../core/viewport.js';
+import { state } from '../core/store.js';
+import { acPos, altOf, hdgOf, posX, posY, spdOf } from '../core/accessors.js';
 import { isAircraftInConflictAt, getConflictPairs } from '../simulation/conflict.js';
-
-function acPos(ac) {
-    return {
-        x: ac.displayX !== undefined ? ac.displayX : ac.x,
-        y: ac.displayY !== undefined ? ac.displayY : ac.y,
-        alt: ac.displayAltitude ?? ac.altitude,
-        spd: ac.displaySpeed ?? ac.speed,
-        hdg: ac.displayHeading ?? (ac.heading || 90)
-    };
-}
 
 export function drawAircraft() {
     state.aircraft.forEach(ac => {

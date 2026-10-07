@@ -3,7 +3,8 @@
  * 管理天气开关、风暴生成、风场（由噪声梯度合成）与危险采样。
  */
 
-import { state } from '../core.js';
+import { state } from '../core/store.js';
+import { posX, posY } from '../core/accessors.js';
 import { octave } from './perlin.js';
 import { generateStorm, sampleStorm, isStormDangerousAt, STORM_LEVELS } from './stormRadar.js';
 
@@ -43,7 +44,5 @@ export function windAt(x, y, scale = 0.01) {
 /** 飞机当前位置是否处于危险天气 */
 export function aircraftInWeatherDanger(ac) {
     if (!state.weatherEnabled || !state.storm) return false;
-    const x = ac.displayX !== undefined ? ac.displayX : ac.x;
-    const y = ac.displayY !== undefined ? ac.displayY : ac.y;
-    return isStormDangerousAt(state.storm, x, y);
+    return isStormDangerousAt(state.storm, posX(ac), posY(ac));
 }

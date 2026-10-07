@@ -7,11 +7,13 @@
  * 运动学：高度/速度/航向向约束目标线性收敛，速率取自机型类别。
  */
 
-import { state, getPixelsPerKm } from '../core.js';
+import { state } from '../core/store.js';
+import { getPixelsPerKm } from '../core/viewport.js';
+import { bus, EV } from '../core/eventBus.js';
+import { KT_TO_KMPS, TRAIL_MAX_PTS } from '../core/constants.js';
+import { posX, posY } from '../core/accessors.js';
 import { getCategory } from '../data/aircraft.js';
 import { pointToSegmentDist, headingBetween } from './geometry.js';
-
-const KT_TO_KMPS = 0.00051444 * 1.852; // 1 kt → km/s
 
 /* ---------- 收敛原语 ---------- */
 
@@ -229,6 +231,31 @@ export function calculateAircraftPositionAtTime(ac, targetTime) {
     return { visible: true, x: currentX + dx * ratio, y: currentY + dy * ratio, heading: heading < 0 ? heading + 360 : heading };
 }
 
+/* ---------- 到达航路点检测（恢复 askNextWaypoint 特性） ---------- */
+
+/** 判定为"已到达目标点"的世界坐标阈值 (px) */
+const WAYPOINT_ARRIVE_PX = 4;
+
+/**
+ * 勾选了"到达目标点后询问下一航路点"的航线飞机抵达目标点时发出事件，
+ * UI 层订阅后暂停播放并弹出选择框。_askedWpIdx 防止同一点重复询问。
+ */
+function checkWaypointArrival(ac) {
+    if (!state.isPlaying || !ac.askNextWaypoint) return;
+    if (ac.navMode !== 'route' || !ac.routeId) return;
+    if (state.time < (ac.startTime || 0)) return;
+    const idx = ac.nextWaypointIdx;
+    if (idx === undefined || idx === null || idx < 0) return;
+    if (ac._askedWpIdx === idx) return;
+    const route = state.routes.find(r => r.id === ac.routeId);
+    const wp = route?.points[idx];
+    if (!wp) return;
+    const dx = posX(ac) - wp.x, dy = posY(ac) - wp.y;
+    if (Math.sqrt(dx * dx + dy * dy) > WAYPOINT_ARRIVE_PX) return;
+    ac._askedWpIdx = idx;
+    bus.emit(EV.WAYPOINT_ARRIVED, { ac, idx });
+}
+
 export function updateAircraftPositionsForTime(targetTime) {
     state.aircraft.forEach(ac => {
         const pos = calculateAircraftPositionAtTime(ac, targetTime);
@@ -237,6 +264,7 @@ export function updateAircraftPositionsForTime(targetTime) {
         ac.displayHeading = pos.heading;
         ac._visible = pos.visible;
         updateAircraftKinematics(ac, targetTime);
+        checkWaypointArrival(ac);
     });
 }
 
@@ -246,13 +274,11 @@ export function updateTrails(dt) {
     state.aircraft.forEach(ac => {
         if (state.time < (ac.startTime || 0)) return;
         if (!ac.trail) ac.trail = [];
-        const x = ac.displayX !== undefined ? ac.displayX : ac.x;
-        const y = ac.displayY !== undefined ? ac.displayY : ac.y;
+        const x = posX(ac), y = posY(ac);
         if (ac.trail.length === 0 ||
             Math.sqrt((x - ac.trail[ac.trail.length - 1].x) ** 2 + (y - ac.trail[ac.trail.length - 1].y) ** 2) > 2) {
             ac.trail.push({ x, y });
         }
-        const maxTrail = 30;
-        if (ac.trail.length > maxTrail) ac.trail.shift();
+        if (ac.trail.length > TRAIL_MAX_PTS) ac.trail.shift();
     });
 }

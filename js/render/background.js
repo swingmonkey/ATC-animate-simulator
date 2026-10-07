@@ -3,8 +3,9 @@
  */
 
 import {
-    state, ctx, canvasWidth, canvasHeight, getPixelsPerKm, viewScale
-} from '../core.js';
+    ctx, canvasHeight, getPixelsPerKm, viewScale
+} from '../core/viewport.js';
+import { state } from '../core/store.js';
 import { windAt } from '../weather/weather.js';
 
 /* 反射率色标：晴空→绿→黄→橙→红（类气象雷达），按噪声值平滑插值 */

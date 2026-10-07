@@ -1,19 +1,18 @@
 /**
  * commands/executor.js — 指令执行（指令层）
  * 将 parser 解析出的结构化指令施加到飞机（约束模型）。不依赖 UI 层，避免循环依赖。
- * 返回受影响飞机数量；通话播报通过 comm.addComm 完成。
+ * 返回受影响飞机数量；通话播报通过 store.addComm（事件驱动，UI 自动追加 DOM）。
  */
 
-import { state } from '../core.js';
-import { addComm } from '../comm.js';
+import { state, addComm } from '../core/store.js';
 import {
     setAltitudeConstraint, setSpeedConstraint, setHeadingConstraint
 } from '../simulation/motion.js';
+import { altOf, spdOf, hdgOf } from '../core/accessors.js';
+import {
+    ALT_MIN, ALT_MAX, SPD_MIN, SPD_MAX, EXPEDITE_BONUS, GOAROUND_ALT
+} from '../core/constants.js';
 import { parseCommand, hasActions } from './parser.js';
-
-function curAlt(ac) { return ac.displayAltitude ?? ac.altitude; }
-function curSpd(ac) { return ac.displaySpeed ?? ac.speed; }
-function curHdg(ac) { return ac.displayHeading ?? (ac.heading || 90); }
 
 function findWaypointByName(name) {
     const n = (name || '').toLowerCase();
@@ -48,10 +47,10 @@ export function executeCommand(text) {
                     setAltitudeConstraint(ac, act.value);
                     break;
                 case 'climb':
-                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.min(15000, curAlt(ac) + act.value));
+                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.min(ALT_MAX, altOf(ac) + act.value));
                     break;
                 case 'descend':
-                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.max(3000, curAlt(ac) - act.value));
+                    setAltitudeConstraint(ac, act.absolute ? act.value : Math.max(ALT_MIN, altOf(ac) - act.value));
                     break;
                 case 'hdg':
                     ac.navMode = 'heading';
@@ -61,38 +60,38 @@ export function executeCommand(text) {
                 case 'turnLeft':
                     ac.navMode = 'heading';
                     ac.routeId = null;
-                    setHeadingConstraint(ac, (curHdg(ac) - act.value + 360) % 360);
+                    setHeadingConstraint(ac, (hdgOf(ac) - act.value + 360) % 360);
                     break;
                 case 'turnRight':
                     ac.navMode = 'heading';
                     ac.routeId = null;
-                    setHeadingConstraint(ac, (curHdg(ac) + act.value) % 360);
+                    setHeadingConstraint(ac, (hdgOf(ac) + act.value) % 360);
                     break;
                 case 'spd':
                     setSpeedConstraint(ac, act.value);
                     break;
                 case 'speedUp':
-                    setSpeedConstraint(ac, Math.min(600, curSpd(ac) + act.value));
+                    setSpeedConstraint(ac, Math.min(SPD_MAX, spdOf(ac) + act.value));
                     break;
                 case 'slowDown':
-                    setSpeedConstraint(ac, Math.max(200, curSpd(ac) - act.value));
+                    setSpeedConstraint(ac, Math.max(SPD_MIN, spdOf(ac) - act.value));
                     break;
                 case 'expedite':
-                    setSpeedConstraint(ac, Math.min(600, curSpd(ac) + 50));
+                    setSpeedConstraint(ac, Math.min(SPD_MAX, spdOf(ac) + EXPEDITE_BONUS));
                     break;
                 case 'level':
-                    setAltitudeConstraint(ac, curAlt(ac));
+                    setAltitudeConstraint(ac, altOf(ac));
                     break;
                 case 'hold':
                     ac.navMode = 'heading';
                     ac.routeId = null;
-                    setHeadingConstraint(ac, curHdg(ac));
+                    setHeadingConstraint(ac, hdgOf(ac));
                     break;
                 case 'goaround':
-                    setAltitudeConstraint(ac, Math.min(15000, curAlt(ac) + 1500));
+                    setAltitudeConstraint(ac, Math.min(ALT_MAX, altOf(ac) + GOAROUND_ALT));
                     ac.navMode = 'heading';
                     ac.routeId = null;
-                    setHeadingConstraint(ac, curHdg(ac));
+                    setHeadingConstraint(ac, hdgOf(ac));
                     break;
                 case 'direct': {
                     const wp = findWaypointByName(act.value);

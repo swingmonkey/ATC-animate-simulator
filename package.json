@@ -1,0 +1,41 @@
+{
+  "name": "atc-animate-simulator",
+  "version": "1.1.0",
+  "private": true,
+  "description": "空管雷达动画模拟器 —— 零构建纯 ES 模块前端 + Electron 桌面打包",
+  "author": "swingmonkey",
+  "type": "module",
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "python -m http.server 8000",
+    "check": "node tools/check-imports.mjs",
+    "smoke": "electron . --smoke",
+    "build:win": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.swingmonkey.atc-animate-simulator",
+    "productName": "ATC-Simulator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "js/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["portable"],
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "ATC-Simulator-${version}.exe"
+    }
+  }
+}

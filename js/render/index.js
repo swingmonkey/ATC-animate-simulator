@@ -1,22 +1,18 @@
 /**
  * render/index.js — 绘制层总调度（分层 Z 序）
- * 背景 → 网格 → 天气 → 航线 → 点 → 连线 → 告警 → 飞机 → 自由目标 → 预览
+ * 背景 → 网格 → 天气 → 航线 → 点 → 告警 → 飞机 → 自由目标 → 预览
+ *
+ * 重绘策略见 main.js：播放中每帧绘制；暂停时仅在 eventBus 脏标记置位后绘制。
  */
 
 import {
     ctx, canvasWidth, canvasHeight, centerX, centerY, viewOffsetX, viewOffsetY, viewScale
-} from '../core.js';
+} from '../core/viewport.js';
 import { drawMapBackground, drawGrid, drawWeather, drawWeatherLegend } from './background.js';
 import {
-    drawRouteSegments, drawRoutePoints, drawConnections, drawConnectionPreview,
-    drawDistanceLines, drawMeasuringPreview
+    drawRouteSegments, drawRoutePoints, drawConnectionPreview
 } from './routes.js';
 import { drawAircraft, drawAircraftWarnings, drawFreeNavTargets } from './aircraft.js';
-
-export { POINT_COLORS, POINT_LABELS } from '../data/waypointTypes.js';
-export * from './aircraft.js';
-export * from './routes.js';
-export * from './background.js';
 
 export function drawRadar() {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -30,16 +26,11 @@ export function drawRadar() {
     drawWeather();
     drawRouteSegments();
     drawRoutePoints();
-    drawConnections();
-    drawDistanceLines();
     drawAircraftWarnings();
     drawAircraft();
     drawFreeNavTargets();
-    drawMeasuringPreview();
     drawConnectionPreview();
 
     ctx.restore();
     drawWeatherLegend();
 }
-
-export function drawModeIndicator() {}
