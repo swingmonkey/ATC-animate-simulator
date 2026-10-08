@@ -146,8 +146,8 @@ export function executeCommand(text) {
                     if (!accepted) rejected = `${ac.flightNo} 尚未完成推出、开车、滑行与进跑道流程`;
                     break;
                 case 'pushback': case 'startup': case 'taxi': case 'lineup':
-                    accepted = issueGroundAction(ac, act.type);
-                    if (!accepted) rejected = `${ac.flightNo} 当前地面阶段不允许${act.type}，请按推出→开车→滑行→进跑道顺序操作`;
+                    accepted = issueGroundAction(ac, act.type, { taxiway: act.taxiway, runway: act.runway });
+                    if (!accepted) rejected = `${ac.flightNo} 地面指令未执行：检查席位、跑道/滑行道和上一段滑行是否完成`;
                     break;
                 case 'arrivalOrder':
                     accepted = setArrivalOrder(ac, act.value);

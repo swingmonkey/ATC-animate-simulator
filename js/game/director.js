@@ -20,6 +20,7 @@ import { kmToPxFixed, pxToKmFixed } from '../core/viewport.js';
 import { KT_TO_KMPS } from '../core/constants.js';
 import { makeRng, pickWeighted, DEFAULT_SEED } from '../core/random.js';
 import { getAirport } from '../data/airports.js';
+import { pickOverflightRoute } from '../data/overflightRoute.js';
 import { AIRCRAFT, COMMON_TYPES } from '../data/aircraft.js';
 import { makeCallsign } from '../data/airlines.js';
 import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/motion.js';
@@ -66,7 +67,7 @@ const director = {
     lastT: 0,
     cursor: 0,
     nextSpawnAt: 0,
-    spawned: { arrival: 0, departure: 0 },
+    spawned: { arrival: 0, departure: 0, overflight: 0 },
     totalSpawned: 0,
     events: [],
     banner: null,
@@ -164,7 +165,7 @@ function makeAutoRoute(label, points) {
         id: nextId(),
         name: `${label}·${director.totalSpawned + 1}`,
         points,
-        color: label === '进港' ? '#0ea5e9' : '#f59e0b',
+        color: label === '进港' ? '#0ea5e9' : label === '飞越' ? '#8274b8' : '#f59e0b',
         auto: true
     };
     state.routes.push(route);
@@ -172,7 +173,7 @@ function makeAutoRoute(label, points) {
 }
 
 function activeAircraftCount() {
-    return state.aircraft.filter(ac => !ac.landed).length;
+    return state.aircraft.filter(ac => !ac.landed && !ac.exited).length;
 }
 
 function landedCount() {
@@ -296,6 +297,43 @@ export function spawnDeparture(spec = {}) {
     return ac;
 }
 
+/** 区域飞越流量：航路穿过 ACC 范围并绕开进近区，带真实机场代码的起终点。 */
+export function spawnOverflight(spec = {}) {
+    const sc = director.scenario;
+    if (!sc) return null;
+    const sector = pickOverflightRoute(sc.airport, director.rng);
+    if (!sector) return null;
+    const acType = resolveAcType(spec.acType);
+    const def = AIRCRAFT[acType] || AIRCRAFT.B738;
+    const speed = Math.round(spec.spd || def.cruiseSpeed);
+    const altitude = Math.round(spec.altM || Math.min(state.defaults.altMaxM || 15000,
+        9000 + Math.floor(director.rng() * 4) * 600));
+    const now = state.time;
+    const entry = { id: nextId(), name: '区域入口', ...sector.entry, type: 'normal' };
+    const exit = { id: nextId(), name: '区域出口', ...sector.exit, type: 'normal' };
+    const route = makeAutoRoute('飞越', [entry, exit]);
+    const ac = {
+        id: nextId(), x: entry.x, y: entry.y,
+        displayX: entry.x, displayY: entry.y,
+        flightNo: spec.callsign || makeTrafficCallsign(),
+        squawk: String(2000 + Math.floor(director.rng() * 7000)),
+        departure: sector.departure, destination: sector.destination,
+        flow: 'overflight', unit: 'ACC', runway: null, sectorAirport: sc.airport,
+        acType, altitude, plannedAltitude: altitude, speed, plannedSpeed: speed,
+        heading: headingBetween(entry, exit),
+        routeId: route.id, routeDistance: 0, navMode: 'route', nextWaypointIdx: 1,
+        startTime: now,
+        spawnedBy: 'director', trail: [], labelOffsetX: 18, labelOffsetY: -14
+    };
+    normalizeAircraft(ac);
+    state.aircraft.push(ac);
+    director.spawned.overflight++;
+    director.totalSpawned++;
+    bus.emit(EV.DIRECTOR_EVENT, { type: 'spawn', flow: 'overflight', callsign: ac.flightNo, t: Math.round(now) });
+    requestRedraw();
+    return ac;
+}
+
 /* ---------------- [scenario] 事件驱动 ---------------- */
 
 /** arr 事件：entrypoint, <beacon>, <planetype>, <altitude>, <targetaltitude>, <speed>, <delaytimer>, <fuel>, <emergency>, <callsign>, ... */
@@ -407,8 +445,9 @@ function spawnInfinite() {
         director.nextSpawnAt = now + dif.spawnIntervalSec;
         return false;
     }
+    const isOverflight = director.totalSpawned >= 2 && director.totalSpawned % 4 === 2;
     const isArrival = director.rng() < dif.arrivalRatio;
-    const ac = isArrival ? spawnArrival({}) : spawnDeparture({});
+    const ac = isOverflight ? spawnOverflight({}) : isArrival ? spawnArrival({}) : spawnDeparture({});
     director.nextSpawnAt = now + dif.spawnIntervalSec * (ac ? 0.7 + 0.6 * director.rng() : 1);
     return !!ac;
 }
@@ -430,7 +469,7 @@ export function startDirector(opts = {}) {
     director.startT = state.time;
     director.lastT = state.time;
     director.cursor = 0;
-    director.spawned = { arrival: 0, departure: 0 };
+    director.spawned = { arrival: 0, departure: 0, overflight: 0 };
     director.totalSpawned = 0;
     director.events = [];
     director.banner = null;

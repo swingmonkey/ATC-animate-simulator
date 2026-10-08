@@ -26,6 +26,7 @@ import { flowOf } from './phases.js';
 /** 参考机场：进港取目的地、离港取起飞机场（都没有时回退场景焦点机场） */
 export function referenceAirportCode(ac) {
     const flow = flowOf(ac);
+    if (flow === 'overflight') return ac.sectorAirport || state.focusAirport;
     const code = flow === 'departure'
         ? (ac.departure || ac.destination)
         : (ac.destination || ac.departure);
@@ -98,7 +99,7 @@ export function unitSummary() {
     const summary = {};
     UNIT_ORDER.forEach(code => { summary[code] = { code, count: 0, pending: 0 }; });
     state.aircraft.forEach(ac => {
-        if (state.time < (ac.startTime || 0) || ac.landed) return;
+        if (state.time < (ac.startTime || 0) || ac.landed || ac.exited) return;
         const code = ac.unit || 'ACC';
         if (!summary[code]) return;
         summary[code].count++;

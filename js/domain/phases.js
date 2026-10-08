@@ -8,7 +8,7 @@
  * 因此时间轴拖动/输入重放后阶段必然一致（可复盘的前提）。
  *
  * 字段迁移：早期版本把 'arrival' | 'departure' 存在 ac.phase；现拆分为
- *   ac.flow   : 'arrival' | 'departure'   进港 / 离港
+ *   ac.flow   : 'arrival' | 'departure' | 'overflight'   进港 / 离港 / 飞越
  *   ac.phase  : PHASE.*                    飞行阶段（本模块维护）
  * flowOf() 兼容旧字段，读档迁移见 core/persistence.js。
  */
@@ -79,7 +79,7 @@ const TERMINAL = new Set([
 
 /** 进港/离港流向（兼容早期把流向写在 ac.phase 的存档） */
 export function flowOf(ac) {
-    if (ac.flow === 'arrival' || ac.flow === 'departure') return ac.flow;
+    if (ac.flow === 'arrival' || ac.flow === 'departure' || ac.flow === 'overflight') return ac.flow;
     if (ac.phase === 'arrival' || ac.phase === 'departure') return ac.phase;
     return ac.destination ? 'arrival' : 'departure';
 }
@@ -102,6 +102,7 @@ export function derivePhase(ac) {
     if (ac.goAround) return PHASE.GO_AROUND;
 
     const alt = altOf(ac);
+    if (flowOf(ac) === 'overflight') return PHASE.CRUISE;
     if (flowOf(ac) === 'departure') {
         if (!ac.clearance) {
             return { parked: PHASE.PARKED, pushed: PHASE.PUSHBACK, started: PHASE.ENGINE_START,
@@ -164,7 +165,8 @@ export function canIssue(ac, type) {
     const rule = ISSUE_RULES[type];
     if (!rule) return true;                     // 未登记的类型不拦截
     const phase = ac.phase || derivePhase(ac);
-    if (type === 'TAKEOFF' && ac.groundStage && ac.groundStage !== 'lineup') return false;
+    if (type === 'TAKEOFF' && ac.groundStage && (ac.groundStage !== 'lineup'
+        || state.time < (ac.groundStageTime || 0) + (ac.groundMoveDuration || 0))) return false;
     if (rule === 'airborne') return isAirborne(phase) && !ac.landed;
     return rule.includes(phase);
 }

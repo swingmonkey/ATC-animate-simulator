@@ -11,10 +11,11 @@ const $ = id => document.getElementById(id);
 let lastRefresh = 0;
 
 export function modeTaskModel(code = state.activeView) {
-    const aircraft = state.aircraft.filter(ac => state.time >= (ac.startTime || 0) && !ac.landed
+    const aircraft = state.aircraft.filter(ac => state.time >= (ac.startTime || 0) && !ac.landed && !ac.exited
         && (unitOfAircraft(ac) === code || unitOfAircraft(ac).startsWith(`${code}-`)));
     const arrivals = aircraft.filter(ac => flowOf(ac) === 'arrival');
     const departures = aircraft.filter(ac => flowOf(ac) === 'departure');
+    const overflights = aircraft.filter(ac => flowOf(ac) === 'overflight');
     if (code === 'TWR') {
         const landing = arrivals.filter(ac => ac.clearance !== 'land');
         const ground = departures.filter(ac => ac.clearance !== 'takeoff');
@@ -45,13 +46,14 @@ export function modeTaskModel(code = state.activeView) {
     }
     const inbound = arrivals.slice().sort((a, b) =>
         distanceToAirportKm(a, state.focusAirport) - distanceToAirportKm(b, state.focusAirport));
-    const target = aircraft.find(ac => !ac.areaAltitudeLimitM || !ac.flowSpeedKt) || inbound[0] || departures[0];
+    const target = overflights.find(ac => !ac.areaAltitudeLimitM || !ac.flowSpeedKt)
+        || aircraft.find(ac => !ac.areaAltitudeLimitM || !ac.flowSpeedKt) || inbound[0] || departures[0];
     const near = inbound.filter(ac => distanceToAirportKm(ac, state.focusAirport) <= 75);
     return {
         count: aircraft.length, targetId: target?.id ?? null,
         title: '区调 · 高度与流量',
         mission: near.length ? `${near.length} 架接近终端区 · 检查高度限制并准备移交` :
-            aircraft.length ? `${aircraft.length} 架在管 · 分配高度层、限高与流控速度` :
+            aircraft.length ? `${aircraft.length} 架在管 · ${overflights.length} 架飞越 · 分配高度层、限高与流控速度` :
                 '等待航班进入区域空域，关注航路与高度层。'
     };
 }

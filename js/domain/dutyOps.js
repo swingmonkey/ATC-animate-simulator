@@ -2,7 +2,8 @@
 import { state, addComm } from '../core/store.js';
 import { bus, EV, requestRedraw } from '../core/eventBus.js';
 import { kmToPxFixed } from '../core/viewport.js';
-import { getAirport } from '../data/airports.js';
+import { getAirport, runwayList } from '../data/airports.js';
+import { groundPath, TAXIWAYS } from '../data/groundLayout.js';
 import { flowOf, syncPhase } from './phases.js';
 import { recordClearance } from './clearances.js';
 import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/constraints.js';
@@ -18,29 +19,51 @@ export function canGroundAction(ac, action) {
     const spec = GROUND_ACTIONS[action];
     return !!spec && flowOf(ac) === 'departure' && !ac.landed && !ac.clearance
         && ac.unit === 'TWR'
-        && groundStageOf(ac) === spec[0];
+        && groundStageOf(ac) === spec[0]
+        && (action !== 'lineup' || state.time >= (ac.groundStageTime || 0) + (ac.groundMoveDuration || 0));
 }
 
 function moveGroundAircraft(ac) {
     const ap = getAirport(ac.departure || state.focusAirport);
     if (!ap) return;
-    const offsetKm = { parked: 2.1, pushed: 1.65, started: 1.65, taxi: 0.85, lineup: 0 }[groundStageOf(ac)] ?? 0;
+    const stage = groundStageOf(ac);
     ac.groundFromX = posX(ac);
     ac.groundFromY = posY(ac);
-    ac.groundMoveDuration = { pushed: 6, started: 0, taxi: 8, lineup: 6 }[groundStageOf(ac)] ?? 0;
+    ac.groundMoveDuration = { pushed: 6, started: 0, taxi: 18, lineup: 6 }[stage] ?? 0;
+    ac.groundRoute = null;
+    if (stage === 'taxi' || stage === 'lineup') {
+        const path = groundPath(ap, ac.departure || state.focusAirport, ac.runway, ac.taxiway || 'A');
+        if (path) {
+            ac.groundRoute = stage === 'taxi'
+                ? [{ x: ac.groundFromX, y: ac.groundFromY }, ...path.points.slice(1)]
+                : [{ x: ac.groundFromX, y: ac.groundFromY }, path.entry];
+            const end = ac.groundRoute.at(-1);
+            ac.x = end.x; ac.y = end.y;
+            return;
+        }
+    }
     ac.x = ap.x;
-    ac.y = ap.y + kmToPxFixed(offsetKm);
+    ac.y = ap.y + kmToPxFixed(stage === 'pushed' || stage === 'started' ? 1.65 : 2.1);
     // displayX/Y 由运动模型按模拟时钟插值，避免地面阶段切换时瞬移。
 }
 
 export function issueGroundAction(ac, action, options = {}) {
     if (!canGroundAction(ac, action)) return false;
+    if (action === 'taxi') {
+        const taxiway = String(options.taxiway || 'A').toUpperCase();
+        const airportCode = ac.departure || state.focusAirport;
+        if (!TAXIWAYS.includes(taxiway)) return false;
+        if (options.runway && !runwayList(airportCode).some(pair => pair.split('/').includes(options.runway))) return false;
+        if (options.runway) ac.runway = options.runway;
+        ac.taxiway = taxiway;
+    }
     const [, next, label] = GROUND_ACTIONS[action];
     ac.groundStage = next;
     ac.groundStageTime = state.time;
     moveGroundAircraft(ac);
-    recordClearance(ac, action.toUpperCase(), { runway: ac.runway || null, auto: !!options.auto });
-    addComm('twr', `${ac.flightNo}，${label}${ac.runway && action === 'taxi' ? `前往跑道 ${ac.runway}` : ''}许可。`);
+    recordClearance(ac, action.toUpperCase(), { runway: ac.runway || null,
+        taxiway: ac.taxiway || null, auto: !!options.auto });
+    addComm('twr', `${ac.flightNo}，${action === 'taxi' ? `经 ${ac.taxiway} 滑行道前往跑道 ${ac.runway} 等待点` : label}许可。`);
     syncPhase(ac);
     bus.emit(EV.UNIT_CHANGED, { ac, groundStage: next });
     requestRedraw();

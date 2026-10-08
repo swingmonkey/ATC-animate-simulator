@@ -217,6 +217,8 @@ const SCRIPT_BOOT = `(async () => {
     st.aircraft.forEach(ac => { ac.startTime = 0; });
     out.aircraft = st.aircraft.length;
     out.routes = st.routes.length;
+    out.sandboxOverflight = st.aircraft.some(ac => ac.flow === 'overflight' && ac.unit === 'ACC'
+        && !!ac.departure && !!ac.destination && !ac.runway);
     out.pointItems = document.querySelectorAll('#route-points-list .panel-item').length;
     out.routeItems = document.querySelectorAll('#route-list .panel-item').length;
     out.aircraftItems = document.querySelectorAll('#aircraft-list .panel-item').length;
@@ -357,7 +359,9 @@ const SCRIPT_RADAR_MODES = `(async () => {
     const st = A.state;
     const vp = await import('./js/core/viewport.js');
     const motion = await import('./js/simulation/motion.js');
-    const saved = { aircraft: st.aircraft, selected: st.selectedItem, view: st.activeView,
+    const quick = await import('./js/ui/quickControl.js');
+    const airports = await import('./js/data/airports.js');
+    const saved = { aircraft: st.aircraft, selected: st.selectedItem, view: st.activeView, time: st.time,
         commCount: st.commMessages.length, commDomCount: document.querySelectorAll('#comm-messages .comm-msg').length,
         inputCount: A.session()?.inputs.length || 0 };
     const make = (id, flightNo, unit, flow, phase, altitude) => ({
@@ -367,6 +371,11 @@ const SCRIPT_RADAR_MODES = `(async () => {
     });
     const twr = make(-991, 'RTWR991', 'TWR', 'departure', 'HOLD_SHORT', 0);
     twr.groundStage = 'parked';
+    twr.departure = st.focusAirport;
+    twr.runway = airports.runwayEnd(airports.runwayList(st.focusAirport)[0], 0);
+    const twrAirport = airports.getAirport(st.focusAirport);
+    twr.x = twr.displayX = twrAirport.x;
+    twr.y = twr.displayY = twrAirport.y + vp.kmToPxFixed(2.1);
     const app = make(-992, 'RAPP992', 'APP', 'arrival', 'VECTOR', 3200);
     const acc = make(-993, 'RACC993', 'ACC', 'arrival', 'CRUISE', 10000);
     const result = {};
@@ -384,6 +393,8 @@ const SCRIPT_RADAR_MODES = `(async () => {
         const twrScale = switchTo('TWR');
         const twrPosition = motion.calculateAircraftPositionAtTime(probe, 100);
         select(twr);
+        document.getElementById('quick-taxiway').value = 'B';
+        document.getElementById('quick-taxiway').dispatchEvent(new Event('change'));
         result.twrBrief = document.getElementById('mode-title').textContent.includes('地面')
             && document.getElementById('mode-count').textContent.includes('1 架');
         result.twrControls = !document.getElementById('quick-takeoff').hidden
@@ -391,8 +402,20 @@ const SCRIPT_RADAR_MODES = `(async () => {
         result.twrTakeoffBlockedOnStand = document.getElementById('quick-takeoff').disabled;
         for (const [action, stage] of [['pushback', 'pushed'], ['startup', 'started'],
             ['taxi', 'taxi'], ['lineup', 'lineup']]) {
+            if (action === 'lineup') {
+                result.groundHoldRequired = document.querySelector('#quick-ground button[data-ground="lineup"]').disabled;
+                st.time = twr.groundStageTime + twr.groundMoveDuration;
+                quick.updateQuickControl(true);
+            }
             document.querySelector('#quick-ground button[data-ground="' + action + '"]').click();
             result['ground' + action] = twr.groundStage === stage;
+            if (action === 'taxi') {
+                result.groundTaxiwaySelected = twr.taxiway === 'B' && twr.groundRoute?.length > 3;
+                const mid = motion.calculateAircraftPositionAtTime(twr, st.time + twr.groundMoveDuration / 2);
+                result.groundTaxiwayAnimated = Number.isFinite(mid.x) && Number.isFinite(mid.y)
+                    && Math.hypot(mid.x - twr.groundFromX, mid.y - twr.groundFromY) > 0
+                    && Math.hypot(mid.x - twr.x, mid.y - twr.y) > 0;
+            }
             if (action === 'pushback') {
                 const mid = motion.calculateAircraftPositionAtTime(twr, st.time + 3);
                 const full = Math.hypot(twr.x - twr.groundFromX, twr.y - twr.groundFromY);
@@ -400,6 +423,8 @@ const SCRIPT_RADAR_MODES = `(async () => {
                 result.groundAnimated = full > 0 && partial > 0 && partial < full;
             }
         }
+        st.time = twr.groundStageTime + twr.groundMoveDuration;
+        quick.updateQuickControl(true);
         document.getElementById('quick-takeoff').click();
         result.twrTakeoff = twr.clearance === 'takeoff';
         const appScale = switchTo('APP');
@@ -453,7 +478,7 @@ const SCRIPT_RADAR_MODES = `(async () => {
             && Math.abs(twrPosition.y - appPosition.y) < 1e-9
             && Math.abs(appPosition.y - accPosition.y) < 1e-9;
     } finally {
-        st.aircraft = saved.aircraft; st.selectedItem = saved.selected;
+        st.aircraft = saved.aircraft; st.selectedItem = saved.selected; st.time = saved.time;
         st.commMessages.length = saved.commCount;
         [...document.querySelectorAll('#comm-messages .comm-msg')].slice(saved.commDomCount).forEach(node => node.remove());
         const inputLog = A.session()?.inputs;
@@ -650,7 +675,7 @@ const SCRIPT_AUTO_VERIFY = `(async () => {
             return ac ? { unit: ac.unit, clearance: ac.clearance, startTime: ac.startTime,
                 x: ac.displayX, y: ac.displayY, records: ac.clearances?.map(item => item.type),
                 autoClearance: st.autoClearance } : null; })(),
-        runwayAssigned: st.aircraft.every(ac => !!ac.runway),
+        runwayAssigned: st.aircraft.filter(ac => ac.flow !== 'overflight').every(ac => !!ac.runway),
         departureAutoHandoff: st.aircraft.some(
             ac => ac.flow === 'departure' && ac.handoffTime !== undefined && ac.unit === 'ACC'
         ),
@@ -765,7 +790,12 @@ const SCRIPT_GAME_VERIFY = `(() => {
         gameSpawnedDeparture: dir.spawned.departure,
         gameTotalSpawned: dir.totalSpawned,
         gameDirectorAircraft: st.aircraft.filter(ac => ac.spawnedBy === 'director').length,
-        gameRunwayAssigned: st.aircraft.filter(ac => ac.spawnedBy === 'director').every(ac => !!ac.runway),
+        gameRunwayAssigned: st.aircraft.filter(ac => ac.spawnedBy === 'director' && ac.flow !== 'overflight').every(ac => !!ac.runway),
+        gameSpawnedOverflight: dir.spawned.overflight,
+        gameOverflightRoute: st.aircraft.filter(ac => ac.flow === 'overflight' && ac.spawnedBy === 'director')
+            .every(ac => !!ac.departure && !!ac.destination && ac.departure !== ac.destination && ac.unit === 'ACC'),
+        gameOverflightMoving: st.aircraft.some(ac => ac.flow === 'overflight' && ac.spawnedBy === 'director'
+            && !ac.exited && Math.hypot((ac.displayX ?? ac.x) - ac.x, (ac.displayY ?? ac.y) - ac.y) > 1),
         gameRunwayLand: sc.runway.land.join('/'),
         gameProgress: sc.progress,
         gameScore: sc.score,
@@ -830,7 +860,7 @@ const SCRIPT_GAME_DEFAULT_VERIFY = `(() => {
         defaultSpawned: dir.totalSpawned,
         defaultSpawnedArrival: dir.spawned.arrival,
         defaultSpawnedDeparture: dir.spawned.departure,
-        defaultRunwayAssigned: st.aircraft.filter(ac => ac.spawnedBy === 'director').every(ac => !!ac.runway),
+        defaultRunwayAssigned: st.aircraft.filter(ac => ac.spawnedBy === 'director' && ac.flow !== 'overflight').every(ac => !!ac.runway),
         defaultMvaSilent: A.game.scoring().counts.mva === 0
     };
     document.getElementById('session-end-btn').click();
@@ -1607,6 +1637,8 @@ async function runSmoke() {
         ['塔台：推出→开车→滑行→进跑道→起飞按顺序执行', report.twrTakeoffBlockedOnStand === true
             && report.groundpushback === true && report.groundstartup === true
             && report.groundtaxi === true && report.groundlineup === true && report.groundAnimated === true],
+        ['塔台：可选滑行道，飞机沿路线到等待点后才能进跑道', report.groundTaxiwaySelected === true
+            && report.groundTaxiwayAnimated === true && report.groundHoldRequired === true],
         ['进近：排序与进离港过点高度约束可下达', report.appOrder === true
             && report.appCrossing === true && report.appDepartureCrossing === true],
         ['区域：高度限制和流控速度可下达', report.accAltitudeLimit === true && report.accFlowControl === true],
@@ -1734,6 +1766,9 @@ async function runSmoke() {
         ['导演无限流量注入（进港 + 离港）', (report.gameTotalSpawned ?? 0) >= 3
             && (report.gameSpawnedArrival ?? 0) >= 1 && (report.gameSpawnedDeparture ?? 0) >= 1
             && (report.gameDirectorAircraft ?? 0) >= 3],
+        ['区域：沙盒和导演均生成带起终点的飞越航班', report.sandboxOverflight === true
+            && (report.gameSpawnedOverflight ?? 0) >= 1 && report.gameOverflightRoute === true
+            && report.gameOverflightMoving === true],
         ['[scenario] 时间轴执行完毕（elapse 已并入时间轴）', report.gameTimelineDone === true
             && (report.gameCursor ?? 0) === 8 && String(report.sceneEventTypes || '').includes('arr')
             && String(report.sceneEventTypes || '').includes('dep')],

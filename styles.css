@@ -1742,6 +1742,7 @@ body {
 .quick-special { display: grid; gap: 7px; padding: 8px; border: 1.5px solid #aec6ba; border-radius: 7px; background: #f5f6e9; }
 .quick-special-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 11px; color: #28445a; }
 .quick-special-head span { color: #805b47; font-size: 10px; }
+.quick-ground-route { padding: 6px 8px; border: 1px dashed #98afa3; border-radius: 5px; background: #fffdf2; color: #486566; font-size: 10px; font-weight: 700; }
 .quick-special-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .quick-order-grid { grid-template-columns: repeat(3, 1fr); }
 .quick-special button { min-height: 32px; padding: 4px 5px; border: 1px solid #547a78; border-radius: 5px; background: #fff7e4; color: #28445a; font: 800 10px 'Microsoft YaHei', sans-serif; cursor: pointer; }

@@ -2,6 +2,7 @@
 import { ctx, kmToPxFixed, viewScale } from '../core/viewport.js';
 import { state } from '../core/store.js';
 import { getAirport, runwayList, runwayEnd, runwayHeading } from '../data/airports.js';
+import { groundPath, TAXIWAYS } from '../data/groundLayout.js';
 
 function ring(airport, km, color, label) {
     const r = kmToPxFixed(km);
@@ -20,6 +21,11 @@ function ring(airport, km, color, label) {
 function towerChart(airport) {
     const s = kmToPxFixed(1);
     const pairs = runwayList(state.focusAirport);
+    ctx.save();
+    ctx.font = `bold ${12 / viewScale}px 'Microsoft YaHei', sans-serif`;
+    ctx.fillStyle = '#385e59';
+    ctx.fillText(`${airport.name} ${state.focusAirport} · 场面滑行图`, airport.x - 2.2 * s, airport.y - 2.65 * s);
+    ctx.restore();
     ctx.save();
     ctx.fillStyle = 'rgba(100,152,112,0.10)';
     ctx.beginPath(); ctx.arc(airport.x, airport.y, kmToPxFixed(11), 0, Math.PI * 2); ctx.fill();
@@ -76,6 +82,41 @@ function towerChart(airport) {
     ctx.fillStyle = '#735e56';
     ctx.fillText('停机坪 / APRON', -1.5 * s, 1.15 * s);
     ctx.restore();
+
+    const selected = state.aircraft.find(ac => ac.id === state.selectedItem?.id && ac.flow === 'departure');
+    const runway = selected?.runway || runwayEnd(pairs[0], 0);
+    TAXIWAYS.forEach(taxiway => {
+        const path = groundPath(airport, state.focusAirport, runway, taxiway);
+        if (!path) return;
+        const active = (selected?.taxiway || selected?.taxiwayPreview || 'A') === taxiway;
+        ctx.save();
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = active ? '#1b8f88' : '#c59466';
+        ctx.lineWidth = (active ? 4 : 2.2) / viewScale;
+        ctx.beginPath();
+        path.points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+        ctx.stroke();
+        ctx.fillStyle = active ? '#d7f3e5' : '#fff1d3';
+        ctx.strokeStyle = active ? '#1b8f88' : '#a2704d';
+        ctx.lineWidth = 1 / viewScale;
+        ctx.beginPath(); ctx.arc(path.marker.x, path.marker.y, 9 / viewScale, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.font = `bold ${10 / viewScale}px Consolas, monospace`;
+        ctx.fillStyle = '#28445a';
+        ctx.textAlign = 'center';
+        ctx.fillText(taxiway, path.marker.x, path.marker.y + 3.2 / viewScale);
+        ctx.restore();
+    });
+    const hold = groundPath(airport, state.focusAirport, runway, 'B')?.hold;
+    if (hold) {
+        ctx.save();
+        ctx.strokeStyle = '#d75f4e'; ctx.lineWidth = 3 / viewScale;
+        ctx.beginPath(); ctx.arc(hold.x, hold.y, 5 / viewScale, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#9a4337';
+        ctx.font = `bold ${9 / viewScale}px 'Microsoft YaHei', sans-serif`;
+        ctx.fillText(`${runway} 等待点`, hold.x + 8 / viewScale, hold.y - 8 / viewScale);
+        ctx.restore();
+    }
     ring(airport, 5, 'rgba(166,111,68,0.55)', '5 KM');
     ring(airport, 15, 'rgba(166,111,68,0.42)', 'TWR 15 KM');
 }

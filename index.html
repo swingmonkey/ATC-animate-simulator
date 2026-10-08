@@ -137,7 +137,10 @@
                     </div>
                     <div class="quick-special" id="quick-ground" hidden>
                         <div class="quick-special-head"><strong>地面放行流程</strong><span id="quick-ground-stage">停机位</span></div>
-                        <div class="quick-special-grid"><button type="button" data-ground="pushback">1 推出</button><button type="button" data-ground="startup">2 开车</button><button type="button" data-ground="taxi">3 滑行</button><button type="button" data-ground="lineup">4 进跑道</button></div>
+                        <label for="quick-taxiway">选择滑行道 · 下达滑行后沿路线到等待点</label>
+                        <select id="quick-taxiway" aria-label="选择滑行道"><option value="A">A 滑行道 · 西侧</option><option value="B">B 滑行道 · 中线</option><option value="C">C 滑行道 · 东侧</option></select>
+                        <div id="quick-ground-route" class="quick-ground-route">选择离港航班和滑行道</div>
+                        <div class="quick-special-grid"><button type="button" data-ground="pushback">1 推出</button><button type="button" data-ground="startup">2 开车</button><button type="button" data-ground="taxi">3 滑行至等待点</button><button type="button" data-ground="lineup">4 进跑道</button></div>
                         <label class="quick-auto"><input type="checkbox" id="quick-auto-clearance" checked> 自动许可流程</label>
                     </div>
                     <div class="quick-special" id="quick-approach-plan" hidden>

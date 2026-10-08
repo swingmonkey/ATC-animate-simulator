@@ -12,7 +12,8 @@
 
 import { state, addComm } from '../core/store.js';
 import { bus, EV, requestRedraw } from '../core/eventBus.js';
-import { altOf, spdOf, hdgOf } from '../core/accessors.js';
+import { altOf, spdOf, hdgOf, posX, posY } from '../core/accessors.js';
+import { kmToPxFixed } from '../core/viewport.js';
 import { AUTO_TAKEOFF_DELAY, LANDING_ARRIVE_KM, LANDING_ARRIVE_ALT } from '../core/constants.js';
 import { derivePhase, flowOf, syncPhase } from './phases.js';
 import {
@@ -64,6 +65,7 @@ export function normalizeAircraft(ac) {
  * 关闭后全部改为手动下发，「塔台 · 进近 · 区调」流程仍随距离自动移交。
  */
 function applyAutoClearance(ac) {
+    if (flowOf(ac) === 'overflight') return;
     if (flowOf(ac) === 'departure') {
         const elapsed = state.time - (ac.startTime || 0);
         if (ac.unit === 'TWR' && ac.groundStage && !ac.clearance) {
@@ -106,8 +108,26 @@ function checkLanding(ac) {
  * 非播放（暂停/回放跳转）时不产生通话，只静默同步席位与阶段。
  */
 export function syncAircraftState(ac) {
-    if (ac.landed) { ac._visible = false; return; }
+    if (ac.exited && flowOf(ac) === 'overflight' && state.time < (ac.exitedAt ?? Infinity)) {
+        ac.exited = false;
+        ac._visible = true;
+    }
+    if (ac.landed || ac.exited) { ac._visible = false; return; }
     if (state.time < (ac.startTime || 0)) return;
+    const route = ac.routeId ? state.routes.find(item => item.id === ac.routeId) : null;
+    const exit = route?.points.at(-1);
+    const reachedExit = exit && state.time > (ac.startTime || 0) + 1
+        && Math.hypot(posX(ac) - exit.x, posY(ac) - exit.y) <= kmToPxFixed(1);
+    const leftSector = flowOf(ac) === 'overflight'
+        && distanceToAirportKm(ac, ac.sectorAirport || state.focusAirport) > 220;
+    if (state.isPlaying && flowOf(ac) === 'overflight' && (reachedExit || leftSector)) {
+        ac.exited = true;
+        ac.exitedAt = state.time;
+        ac._visible = false;
+        addComm('acc', `${ac.flightNo} 飞越区域结束，离开本扇区。`);
+        bus.emit(EV.UNIT_CHANGED, { ac, exited: true });
+        return;
+    }
 
     if (!ac.wake) ac.wake = wakeOf(ac.acType);
 

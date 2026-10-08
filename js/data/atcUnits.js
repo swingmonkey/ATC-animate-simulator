@@ -76,6 +76,7 @@ export function unitFrequency(code, airportCode) {
  * @returns {string|null} 无下一席位时返回 null（已到最内/最外）
  */
 export function nextUnit(code, phase = 'arrival') {
+    if (phase === 'overflight') return null;
     const chain = phase === 'departure' ? ['TWR', 'APP', 'ACC'] : ['ACC', 'APP', 'TWR'];
     const idx = chain.indexOf(code);
     if (idx < 0 || idx >= chain.length - 1) return null;
@@ -84,6 +85,7 @@ export function nextUnit(code, phase = 'arrival') {
 
 /** 上一管制席位（用于显示「由 ×× 移交」） */
 export function prevUnit(code, phase = 'arrival') {
+    if (phase === 'overflight') return null;
     const chain = phase === 'departure' ? ['TWR', 'APP', 'ACC'] : ['ACC', 'APP', 'TWR'];
     const idx = chain.indexOf(code);
     if (idx <= 0) return null;

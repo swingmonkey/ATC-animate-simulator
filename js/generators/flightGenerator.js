@@ -7,6 +7,7 @@
 import { state, setFocusAirport } from '../core/store.js';
 import { nextId } from '../core/ids.js';
 import { kmToPxFixed } from '../core/viewport.js';
+import { pickOverflightRoute } from '../data/overflightRoute.js';
 import {
     getAirport, distantAirport, airportName, AIRPORTS
 } from '../data/airports.js';
@@ -139,6 +140,35 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
     return ac;
 }
 
+/** 自由场景也加入一架立即可见的区域飞越航班。 */
+export function createOverflight(focusCode = 'ZUUU', startTime = 0) {
+    const sector = pickOverflightRoute(focusCode);
+    if (!sector) return null;
+    const fromPt = { id: genId(), name: '区域入口', ...sector.entry, type: 'normal' };
+    const toPt = { id: genId(), name: '区域出口', ...sector.exit, type: 'normal' };
+    const route = makeRoute(fromPt, toPt, 0);
+    route.name = `飞越航路 ${sector.departure}-${sector.destination}`;
+    route.color = '#8274b8';
+    const acType = randomType();
+    const def = getAircraft(acType);
+    const ac = {
+        id: genId(), x: fromPt.x, y: fromPt.y,
+        displayX: fromPt.x, displayY: fromPt.y,
+        flightNo: makeCallsign(airlineForHub(sector.departure), randomFlightNumber()),
+        squawk: String(Math.floor(Math.random() * 7000) + 2000),
+        departure: sector.departure, destination: sector.destination,
+        flow: 'overflight', unit: 'ACC', runway: null, sectorAirport: focusCode,
+        acType, altitude: def.cruiseAlt, speed: def.cruiseSpeed,
+        plannedAltitude: def.cruiseAlt, plannedSpeed: def.cruiseSpeed,
+        heading: 90, routeId: route.id, routeDistance: 0,
+        navMode: 'route', nextWaypointIdx: 1, startTime,
+        trail: [], labelOffsetX: 18, labelOffsetY: -14
+    };
+    normalizeAircraft(ac);
+    state.aircraft.push(ac);
+    return ac;
+}
+
 /**
  * 生成一整套场景：若干进港 + 离港，可选焦点机场。
  * 直接写入全局 state，返回统计信息。
@@ -153,10 +183,11 @@ export function generateScenario(focusCode = 'ZUUU', arrivals = 4, departures = 
     for (let i = 0; i < departures; i++) {
         createDeparture(focusCode, Math.floor(Math.random() * tMax * 0.25));
     }
+    const overflights = createOverflight(focusCode, 0) ? 1 : 0;
     return {
         focus: airportName(focusCode),
         added: state.aircraft.length - before,
-        arrivals, departures
+        arrivals, departures, overflights
     };
 }
 

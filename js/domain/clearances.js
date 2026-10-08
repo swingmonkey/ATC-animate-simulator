@@ -43,6 +43,7 @@ export function lastClearanceOf(ac, type) {
 /** 进程单 / 对话框用的管制状态文本 */
 export function clearanceText(ac) {
     if (ac.landed) return '已落地';
+    if (flowOf(ac) === 'overflight') return '区域飞越中';
     if (ac.clearance === 'land') return '已发落地许可';
     if (ac.flow === 'departure' || ac.clearance === 'takeoff') {
         return ac.clearance === 'takeoff' ? '已放行起飞' : '待起飞放行';
@@ -54,7 +55,8 @@ export function clearanceText(ac) {
 /** 起飞许可（塔台）：按计划高度/速度放行离港航班 */
 export function issueTakeoffClearance(ac, options = {}) {
     if (ac.landed || flowOf(ac) !== 'departure' || ac.clearance === 'takeoff'
-        || (ac.groundStage && ac.groundStage !== 'lineup')) return false;
+        || (ac.groundStage && ac.groundStage !== 'lineup')
+        || (ac.groundStage === 'lineup' && state.time < (ac.groundStageTime || 0) + (ac.groundMoveDuration || 0))) return false;
     if (!ac.flow) ac.flow = 'departure';
     ac.clearance = 'takeoff';
     ac.groundStage = 'takeoff';

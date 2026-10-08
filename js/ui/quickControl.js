@@ -1,5 +1,6 @@
 /** 雷达值班的常用指令入口。所有操作仍走文字指令通道，以保留复诵、记录和评分。 */
 import { state, isEditMode } from '../core/store.js';
+import { requestRedraw } from '../core/eventBus.js';
 import { altOf, hdgOf } from '../core/accessors.js';
 import { canIssue, issueHint, phaseLabel } from '../domain/phases.js';
 import { submitAtcText } from './commPanel.js';
@@ -10,7 +11,7 @@ import { canGroundAction, groundStageOf } from '../domain/dutyOps.js';
 
 const $ = id => document.getElementById(id);
 const HINTS = {
-    TWR: '塔台：离港按推出→开车→滑行→进跑道→起飞操作；进港确认跑道与落地许可。',
+    TWR: '塔台：先选跑道和 A/B/C 滑行道，再按推出→开车→滑行至等待点→进跑道→起飞操作。',
     APP: '进近：安排进港顺位、过点高度，拖动飞机引导航向与直飞。',
     ACC: '区调：安排高度层、设置高度上限与流控速度，接近终端区时移交。'
 };
@@ -23,7 +24,7 @@ let lastRefresh = 0;
 function selectedAircraft() {
     const item = state.selectedItem;
     if (item?.type !== 'aircraft') return null;
-    return state.aircraft.find(ac => ac.id === item.id && state.time >= (ac.startTime || 0)
+    return state.aircraft.find(ac => ac.id === item.id && !ac.exited && state.time >= (ac.startTime || 0)
         && (unitOfAircraft(ac) === state.activeView || unitOfAircraft(ac).startsWith(`${state.activeView}-`))) || null;
 }
 
@@ -118,9 +119,17 @@ export function updateQuickControl(force = false) {
     if (selectedChanged && ac?.runway && [...($('quick-runway')?.options || [])].some(option => option.value === ac.runway)) {
         $('quick-runway').value = ac.runway;
     }
+    if (selectedChanged) $('quick-taxiway').value = ac?.taxiway || ac?.taxiwayPreview || 'A';
     $('quick-ground-stage').textContent = ac && flowOf(ac) === 'departure'
         ? ({ parked: '停机位', pushed: '已推出', started: '已开车', taxi: '滑行中', lineup: '跑道等待', takeoff: '已起飞' }[groundStageOf(ac)] || '待命')
         : '选中离港航班';
+    const groundRemain = ac?.groundMoveDuration
+        ? Math.max(0, Math.ceil(ac.groundStageTime + ac.groundMoveDuration - state.time)) : 0;
+    $('quick-ground-route').textContent = ac && flowOf(ac) === 'departure'
+        ? `${ac.taxiway || $('quick-taxiway').value} 滑行道 → 跑道 ${ac.runway || '--'}${groundStageOf(ac) === 'taxi' ? ` 等待点 · ${groundRemain ? `滑行剩余 ${groundRemain} 秒` : '已到达'}` : groundStageOf(ac) === 'lineup' ? ` · ${groundRemain ? `入跑道剩余 ${groundRemain} 秒` : '可起飞'}` : ' · 待下达滑行'}`
+        : '选择离港航班和滑行道';
+    $('quick-taxiway').disabled = !ac || isEditMode() || flowOf(ac) !== 'departure'
+        || ['taxi', 'lineup', 'takeoff'].includes(groundStageOf(ac));
     $('quick-auto-clearance').checked = !!state.autoClearance;
     document.querySelectorAll('#quick-ground button[data-ground]').forEach(button => {
         button.disabled = !ac || isEditMode() || !canGroundAction(ac, button.dataset.ground);
@@ -175,6 +184,13 @@ export function updateQuickControl(force = false) {
 
 export function initQuickControl() {
     $('quick-waypoint')?.addEventListener('change', () => updateQuickControl(true));
+    $('quick-taxiway')?.addEventListener('change', event => {
+        const ac = selectedAircraft();
+        if (ac && flowOf(ac) === 'departure') ac.taxiwayPreview = event.target.value;
+        requestRedraw();
+        updateQuickControl(true);
+    });
+    $('quick-runway')?.addEventListener('change', () => updateQuickControl(true));
     $('quick-auto-clearance')?.addEventListener('change', event => {
         const source = $('auto-clearance-toggle');
         source.checked = event.target.checked;
@@ -185,7 +201,10 @@ export function initQuickControl() {
         const action = event.target.closest('button[data-ground]')?.dataset.ground;
         const ac = selectedAircraft();
         if (!ac || !action || !canGroundAction(ac, action)) return;
-        issue(ac, { pushback: '推出', startup: '开车', taxi: '滑行', lineup: '进跑道' }[action]);
+        const runway = $('quick-runway')?.value || ac.runway;
+        issue(ac, action === 'taxi'
+            ? `经 ${$('quick-taxiway').value} 滑行 跑道 ${runway}`
+            : { pushback: '推出', startup: '开车', lineup: '进跑道' }[action]);
     });
     $('quick-approach-plan')?.addEventListener('click', event => {
         const button = event.target.closest('button[data-order]');

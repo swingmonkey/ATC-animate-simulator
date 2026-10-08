@@ -96,6 +96,23 @@ export function calculateAircraftPositionAtTime(ac, targetTime) {
         const duration = ac.groundMoveDuration || 0;
         const progress = duration > 0 ? Math.max(0, Math.min(1,
             (targetTime - (ac.groundStageTime ?? targetTime)) / duration)) : 1;
+        if (ac.groundRoute?.length > 1 && duration > 0) {
+            const route = ac.groundRoute;
+            const lengths = route.slice(1).map((pt, index) => Math.hypot(pt.x - route[index].x, pt.y - route[index].y));
+            const total = lengths.reduce((sum, length) => sum + length, 0);
+            let travelled = total * progress;
+            for (let index = 0; index < lengths.length; index++) {
+                const length = lengths[index];
+                if (travelled <= length || index === lengths.length - 1) {
+                    const start = route[index], end = route[index + 1];
+                    const ratio = length > 0 ? Math.min(1, travelled / length) : 1;
+                    return { visible: true, x: start.x + (end.x - start.x) * ratio,
+                        y: start.y + (end.y - start.y) * ratio,
+                        heading: length > 0 ? headingBetween(start, end) : ac.heading || 90 };
+                }
+                travelled -= length;
+            }
+        }
         return { visible: true, x: fromX + (ac.x - fromX) * progress,
             y: fromY + (ac.y - fromY) * progress,
             heading: duration > 0 && Math.hypot(ac.x - fromX, ac.y - fromY) > 0.01

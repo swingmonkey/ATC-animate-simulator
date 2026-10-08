@@ -216,6 +216,6 @@ export function drawAirports(profile) {
         ctx.lineWidth = 1.2 / viewScale;
         ctx.stroke();
         ctx.restore();
-        if (isFocus && profile?.layers.runwayDetail) drawFocusAirportDetails(code, ap);
+        if (isFocus && profile?.layers.runwayDetail && profile.code !== 'TWR') drawFocusAirportDetails(code, ap);
     });
 }

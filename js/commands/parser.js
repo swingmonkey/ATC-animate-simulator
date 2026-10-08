@@ -94,7 +94,10 @@ export function parseCommand(text, knownCallsigns = []) {
         return { target: callsign, actions };
     }
     if (/滑行|taxi/.test(lower)) {
-        actions.push({ type: 'taxi', raw: 'taxi' });
+        const via = raw.match(/(?:经|via|滑行道)\s*([A-Z])\b/i);
+        const runway = raw.match(/(?:跑道|rwy|runway)\s*([0-9]{1,2})([LRC]?)/i);
+        actions.push({ type: 'taxi', taxiway: via?.[1]?.toUpperCase() || 'A',
+            runway: runway ? runway[1].padStart(2, '0') + runway[2].toUpperCase() : null, raw: 'taxi' });
         return { target: callsign, actions };
     }
     if (/进跑道|lineup|line up/.test(lower)) {

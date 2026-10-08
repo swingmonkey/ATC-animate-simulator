@@ -107,7 +107,7 @@ export function predictMinSeparation(a, b, horizonSec = 120, stepSec = 10) {
 export function predictedConflicts(horizonSec = 120) {
     const standardKm = horizontalStandardKm();
     const list = [];
-    const acs = state.aircraft.filter(a => state.time >= (a.startTime || 0) && !a.landed);
+    const acs = state.aircraft.filter(a => state.time >= (a.startTime || 0) && !a.landed && !a.exited);
     for (let i = 0; i < acs.length; i++) {
         for (let j = i + 1; j < acs.length; j++) {
             const a = acs[i], b = acs[j];
