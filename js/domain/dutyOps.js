@@ -6,7 +6,7 @@ import { getAirport } from '../data/airports.js';
 import { flowOf, syncPhase } from './phases.js';
 import { recordClearance } from './clearances.js';
 import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/constraints.js';
-import { altOf } from '../core/accessors.js';
+import { altOf, posX, posY } from '../core/accessors.js';
 
 const GROUND_CHAIN = ['parked', 'pushed', 'started', 'taxi', 'lineup'];
 const GROUND_ACTIONS = { pushback: ['parked', 'pushed', '推出'], startup: ['pushed', 'started', '开车'],
@@ -25,10 +25,12 @@ function moveGroundAircraft(ac) {
     const ap = getAirport(ac.departure || state.focusAirport);
     if (!ap) return;
     const offsetKm = { parked: 2.1, pushed: 1.65, started: 1.65, taxi: 0.85, lineup: 0 }[groundStageOf(ac)] ?? 0;
+    ac.groundFromX = posX(ac);
+    ac.groundFromY = posY(ac);
+    ac.groundMoveDuration = { pushed: 6, started: 0, taxi: 8, lineup: 6 }[groundStageOf(ac)] ?? 0;
     ac.x = ap.x;
     ac.y = ap.y + kmToPxFixed(offsetKm);
-    ac.displayX = ac.x;
-    ac.displayY = ac.y;
+    // displayX/Y 由运动模型按模拟时钟插值，避免地面阶段切换时瞬移。
 }
 
 export function issueGroundAction(ac, action, options = {}) {

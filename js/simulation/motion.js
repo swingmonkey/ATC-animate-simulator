@@ -91,6 +91,18 @@ export function calculateAircraftPositionAtTime(ac, targetTime) {
         return { visible: false, x: ac.x, y: ac.y, heading: ac.heading || 90 };
     }
 
+    if (ac.groundStage && ac.clearance !== 'takeoff') {
+        const fromX = ac.groundFromX ?? ac.x, fromY = ac.groundFromY ?? ac.y;
+        const duration = ac.groundMoveDuration || 0;
+        const progress = duration > 0 ? Math.max(0, Math.min(1,
+            (targetTime - (ac.groundStageTime ?? targetTime)) / duration)) : 1;
+        return { visible: true, x: fromX + (ac.x - fromX) * progress,
+            y: fromY + (ac.y - fromY) * progress,
+            heading: duration > 0 && Math.hypot(ac.x - fromX, ac.y - fromY) > 0.01
+                ? headingBetween({ x: fromX, y: fromY }, { x: ac.x, y: ac.y })
+                : ac.heading || 90 };
+    }
+
     const speedKmPerSec = ((ac.displaySpeed ?? ac.speed ?? state.defaults.speed) * KT_TO_KMPS);
     // 世界坐标中的距离固定；用户切换塔台/进近/区域地图不应改变飞行速度。
     const pixelsPerKm = kmToPxFixed(1);

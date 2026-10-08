@@ -393,6 +393,12 @@ const SCRIPT_RADAR_MODES = `(async () => {
             ['taxi', 'taxi'], ['lineup', 'lineup']]) {
             document.querySelector('#quick-ground button[data-ground="' + action + '"]').click();
             result['ground' + action] = twr.groundStage === stage;
+            if (action === 'pushback') {
+                const mid = motion.calculateAircraftPositionAtTime(twr, st.time + 3);
+                const full = Math.hypot(twr.x - twr.groundFromX, twr.y - twr.groundFromY);
+                const partial = Math.hypot(mid.x - twr.groundFromX, mid.y - twr.groundFromY);
+                result.groundAnimated = full > 0 && partial > 0 && partial < full;
+            }
         }
         document.getElementById('quick-takeoff').click();
         result.twrTakeoff = twr.clearance === 'takeoff';
@@ -1589,7 +1595,7 @@ async function runSmoke() {
             && report.appApproach === true && report.accFlightLevel === true && report.accHandoff === true],
         ['塔台：推出→开车→滑行→进跑道→起飞按顺序执行', report.twrTakeoffBlockedOnStand === true
             && report.groundpushback === true && report.groundstartup === true
-            && report.groundtaxi === true && report.groundlineup === true],
+            && report.groundtaxi === true && report.groundlineup === true && report.groundAnimated === true],
         ['进近：排序与过点高度约束可下达', report.appOrder === true && report.appCrossing === true],
         ['区域：高度限制和流控速度可下达', report.accAltitudeLimit === true && report.accFlowControl === true],
         ['三席位：每张地图均可渲染截图', !!report.radarTWRScreenshot && !!report.radarAPPScreenshot
