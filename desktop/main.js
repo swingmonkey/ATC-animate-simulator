@@ -420,6 +420,17 @@ const SCRIPT_RADAR_MODES = `(async () => {
         result.appCrossing = !!app.crossingFix && app.crossingAltM === 4200;
         document.getElementById('quick-approach').click();
         result.appApproach = app.approachType === 'ILS';
+        const appDeparture = make(-994, 'RDEP994', 'APP', 'departure', 'CLIMB', 1800);
+        st.aircraft.push(appDeparture);
+        select(appDeparture);
+        const departurePoint = document.querySelector('#quick-waypoint option[value]:not([value=""])');
+        if (departurePoint) {
+            document.getElementById('quick-waypoint').value = departurePoint.value;
+            document.getElementById('quick-waypoint').dispatchEvent(new Event('change'));
+            document.getElementById('quick-crossing-alt').value = '3000';
+            document.getElementById('quick-crossing-apply').click();
+        }
+        result.appDepartureCrossing = !!appDeparture.crossingFix && appDeparture.crossingAltM === 3000;
         const accScale = switchTo('ACC');
         const accPosition = motion.calculateAircraftPositionAtTime(probe, 100);
         select(acc);
@@ -1596,7 +1607,8 @@ async function runSmoke() {
         ['塔台：推出→开车→滑行→进跑道→起飞按顺序执行', report.twrTakeoffBlockedOnStand === true
             && report.groundpushback === true && report.groundstartup === true
             && report.groundtaxi === true && report.groundlineup === true && report.groundAnimated === true],
-        ['进近：排序与过点高度约束可下达', report.appOrder === true && report.appCrossing === true],
+        ['进近：排序与进离港过点高度约束可下达', report.appOrder === true
+            && report.appCrossing === true && report.appDepartureCrossing === true],
         ['区域：高度限制和流控速度可下达', report.accAltitudeLimit === true && report.accFlowControl === true],
         ['三席位：每张地图均可渲染截图', !!report.radarTWRScreenshot && !!report.radarAPPScreenshot
             && !!report.radarACCScreenshot],

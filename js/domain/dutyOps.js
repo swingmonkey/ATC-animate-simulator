@@ -63,7 +63,7 @@ export function setArrivalOrder(ac, order) {
 }
 
 export function setCrossingAltitude(ac, fix, altitude) {
-    if (flowOf(ac) !== 'arrival' || !String(ac.unit || '').startsWith('APP') || ac.landed) return false;
+    if (!String(ac.unit || '').startsWith('APP') || ac.landed) return false;
     ac.crossingFix = fix;
     ac.crossingAltM = Math.round(altitude);
     ac.crossingChecked = false;

@@ -32,11 +32,13 @@ export function modeTaskModel(code = state.activeView) {
             (a.arrivalOrder || 99) - (b.arrivalOrder || 99)
             || distanceToAirportKm(a, state.focusAirport) - distanceToAirportKm(b, state.focusAirport));
         const needsPlan = queue.filter(ac => !ac.arrivalOrder || !ac.crossingFix);
-        const target = needsPlan[0] || queue[0] || departures[0];
+        const needsDepartureCrossing = departures.filter(ac => !ac.crossingFix);
+        const target = needsPlan[0] || needsDepartureCrossing[0] || queue[0] || departures[0];
         return {
             count: aircraft.length, targetId: target?.id ?? null,
             title: '进近 · 排序与过点高度',
             mission: needsPlan.length ? `${needsPlan.length} 架待排序或过点高度 · 安排起降顺序` :
+                needsDepartureCrossing.length ? `${needsDepartureCrossing.length} 架离港待爬升过点高度` :
                 arrivals.length ? `${arrivals.length} 架进港 · 监视穿越高度与终端间隔` :
                     '等待航班进入终端区，准备排序与过点高度。'
         };

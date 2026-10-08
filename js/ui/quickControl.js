@@ -130,7 +130,7 @@ export function updateQuickControl(force = false) {
         button.disabled = !ac || isEditMode() || flowOf(ac) !== 'arrival';
         button.classList.toggle('active', Number(button.dataset.order) === ac?.arrivalOrder);
     });
-    $('quick-crossing-apply').disabled = !ac || isEditMode() || flowOf(ac) !== 'arrival' || !$('quick-waypoint')?.value;
+    $('quick-crossing-apply').disabled = !ac || isEditMode() || !$('quick-waypoint')?.value;
     $('quick-area-readout').textContent = ac
         ? `${ac.areaAltitudeLimitM ? `上限 ${ac.areaAltitudeLimitM}m` : '无限高'} · ${ac.flowSpeedKt ? `${ac.flowSpeedKt}kt 流控` : '无流控'}`
         : '无限高 · 无流控';
