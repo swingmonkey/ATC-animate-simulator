@@ -52,6 +52,7 @@ export const state = {
     autoHandoff: true,      // 跨界自动移交：关闭后需手动下发「移交」指令
     autoClearance: true,    // 自动许可：离港放行 / 进近许可 / 落地许可
     seatFilter: null,       // 进程单席位过滤：null = 显示全部
+    gameSessionActive: false, // 运行期编辑锁；不写入场景存档
 
     /* 席位视图（v1.7：ACC/APP/TWR 三张独立管制地图，档案见 data/viewProfiles.js） */
     activeView: 'APP',      // 当前地图（比例尺/平移记忆在 core/viewport.js，切换入口 render/views.js）
@@ -82,7 +83,7 @@ state.defaults = {
     altMinM: 3000, altMaxM: 15000
 };
 
-export function isEditMode() { return !state.isPlaying; }
+export function isEditMode() { return !state.isPlaying && !state.gameSessionActive; }
 
 /* ---------------- 动作（Action） ---------------- */
 

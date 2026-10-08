@@ -40,6 +40,7 @@ let lastResult = null;
  * @param {object} [meta] 班次元信息（场景 id / 难度 / 焦点机场等）
  */
 export function startSession(meta = {}) {
+    state.gameSessionActive = meta.kind === 'game';
     session = {
         id: `s${Date.now()}`,
         startedAtReal: Date.now(),
@@ -53,7 +54,9 @@ export function startSession(meta = {}) {
 
 export function currentSession() { return session; }
 
-export function isSessionActive() { return !!session && !session.ended; }
+export function isSessionActive() {
+    return !!session && !session.ended && session.meta.kind === 'game';
+}
 
 /**
  * 记录一条管制员输入（由通讯面板/指令台调用）。
@@ -76,6 +79,7 @@ export function recordInput(text, source = 'console') {
 export function endSession() {
     if (!session) return null;
     session.ended = true;
+    state.gameSessionActive = false;
     return {
         id: session.id,
         simDuration: state.time - session.startedAtSim,

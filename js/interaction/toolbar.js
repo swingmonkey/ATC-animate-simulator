@@ -112,6 +112,7 @@ $('settings-btn')?.addEventListener('click', () => {
 /* ---------------- 场景生成 ---------------- */
 
 $('generate-scenario-btn')?.addEventListener('click', () => {
+    if (!isEditMode()) return;
     const focus = $('scenario-focus')?.value || 'ZUUU';
     const summary = generateScenario(focus, 4, 3);
     // 视图聚焦焦点机场：塔台区（15km）与进近区（60km）圆环、跑道与航道一目了然

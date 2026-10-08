@@ -122,6 +122,14 @@ const SCRIPT_BOOT = `(() => {
         canvasSized: !!c && c.width > 0 && c.height > 0,
         bootCommMessages: document.querySelectorAll('#comm-messages .comm-msg').length
     };
+    const sandboxSlider = document.getElementById('time-slider');
+    sandboxSlider.value = '30';
+    sandboxSlider.dispatchEvent(new Event('input'));
+    out.phase1SandboxUsable = A.game.active() === false
+        && document.getElementById('session-scenario').disabled === false
+        && Math.round(st.time) === 30;
+    st.time = 0;
+    sandboxSlider.value = '0';
     document.getElementById('generate-scenario-btn').click();
     st.aircraft.forEach(ac => { ac.startTime = 0; });
     out.aircraft = st.aircraft.length;
@@ -334,6 +342,15 @@ const SCRIPT_GAME = `(() => {
     out.gameAirlines = dir.airlines;
     out.gameTimeline = dir.timeline;
     out.clearedSandboxTraffic = st.aircraft.every(ac => ac.spawnedBy === 'director');
+    const endButton = document.getElementById('session-end-btn');
+    out.phase1EndAvailableWhilePlaying = !endButton.disabled
+        && getComputedStyle(endButton).pointerEvents !== 'none';
+
+    document.getElementById('play-pause-btn').click();
+    const pointsBeforePauseEdit = st.routePoints.length;
+    document.getElementById('add-point-btn').click();
+    out.phase1PausedGameLocked = st.routePoints.length === pointsBeforePauseEdit;
+    document.getElementById('play-pause-btn').click();
 
     /* 班次内实时不可回溯：拖动时间轴应被拦截 */
     const beforeTime = Math.round(st.time);
@@ -936,6 +953,7 @@ async function runSmoke() {
         ['启动句柄存在', report.bootOk === true],
         ['画布已按容器尺寸初始化', report.canvasSized === true],
         ['启动通话消息已渲染', (report.bootCommMessages ?? 0) >= 4],
+        ['第一阶段：沙盒启动可选关并可拖动时间轴', report.phase1SandboxUsable === true],
         ['随机场景生成航班', (report.aircraft ?? 0) >= 7],
         ['随机场景生成航线', (report.routes ?? 0) >= 7],
         ['航路点面板已重建', (report.pointItems ?? 0) > 0],
@@ -1004,6 +1022,8 @@ async function runSmoke() {
         ['导演消费 entrypoints/airlines/[scenario]（4 入口 · ≥5 航司 · 8 事件）',
             (report.gameEntrypoints ?? 0) >= 4 && (report.gameAirlines ?? 0) >= 5 && (report.gameTimeline ?? 0) === 8],
         ['班次内时间轴不可回溯（拖动被拦截）', report.timeLocked === true],
+        ['第一阶段：播放中可直接结束班次', report.phase1EndAvailableWhilePlaying === true],
+        ['第一阶段：班次暂停后场景仍锁定', report.phase1PausedGameLocked === true],
         ['[configurations] 分数门槛解锁跑道（5→02L，6→02L/02R）',
             report.planAt5 === '02L' && report.planAt6 === '02L/02R'],
         ['[areaN] 最低高度区判定（重叠取更高者：机场中心 3500ft ≈ 1067m）',
@@ -1197,4 +1217,3 @@ if (!app.requestSingleInstanceLock() && !SMOKE) {
         if (process.platform !== 'darwin') app.quit();
     });
 }
-

@@ -23,17 +23,22 @@ let _lastProgressRender = 0;
 
 export function updateEditModeUI() {
     const playIndicator = document.getElementById('play-indicator');
-    const addBtns = document.querySelectorAll('.add-btn, .edit-btn, .route-btn, .settings-btn, #tool-delete');
+    const addBtns = document.querySelectorAll(
+        '#add-point-btn, #edit-point-btn, #add-route-btn, #add-aircraft-btn, '
+        + '#tool-delete, #settings-btn, #generate-scenario-btn, #weather-regen-btn, '
+        + '#location-sample-btn, #location-import-btn'
+    );
     const paletteItems = document.querySelectorAll('.draggable-item');
-    if (state.isPlaying) {
-        playIndicator?.classList.remove('hidden');
-        addBtns.forEach(btn => { btn.classList.add('edit-disabled'); btn.style.pointerEvents = 'none'; });
-        paletteItems.forEach(item => { item.classList.add('edit-disabled'); item.style.pointerEvents = 'none'; });
-    } else {
-        playIndicator?.classList.add('hidden');
-        addBtns.forEach(btn => { btn.classList.remove('edit-disabled'); btn.style.pointerEvents = ''; });
-        paletteItems.forEach(item => { item.classList.remove('edit-disabled'); item.style.pointerEvents = ''; });
-    }
+    playIndicator?.classList.toggle('hidden', !state.isPlaying);
+    const locked = !isEditMode();
+    addBtns.forEach(btn => {
+        btn.classList.toggle('edit-disabled', locked);
+        btn.disabled = locked;
+    });
+    paletteItems.forEach(item => {
+        item.classList.toggle('edit-disabled', locked);
+        item.draggable = !locked;
+    });
 }
 
 /** 播放按钮文字（由 playback:changed 触发） */
