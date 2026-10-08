@@ -476,14 +476,14 @@ export function tickDirector() {
  */
 export function directorGoal() {
     const sc = director.scenario;
-    if (!sc || !sc.finish) return { met: false, reason: null };
+    if (!sc || !sc.finish) return { met: false, reason: null, outcome: null };
     if (sc.finish.count && landedCount() >= sc.finish.count) {
-        return { met: true, reason: `落地 ${landedCount()} 架 / 目标 ${sc.finish.count} 架` };
+        return { met: true, reason: `落地 ${landedCount()} 架 / 目标 ${sc.finish.count} 架`, outcome: 'completed' };
     }
     if (sc.finish.timeLimit && (state.time - director.startT) >= sc.finish.timeLimit) {
-        return { met: true, reason: `班次时限 ${sc.finish.timeLimit}s 已到` };
+        return { met: true, reason: `班次时限 ${sc.finish.timeLimit}s 已到`, outcome: 'failed' };
     }
-    return { met: false, reason: null };
+    return { met: false, reason: null, outcome: null };
 }
 
 /** 导演状态快照（HUD / 班次面板 / 冒烟断言） */

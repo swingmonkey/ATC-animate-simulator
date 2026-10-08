@@ -118,6 +118,8 @@ function renderResult(box, result) {
         </div>
         <div class="result-line">${escapeHtml(result.scenarioName || '--')} · 用时 ${result.simDuration}s · `
         + `落地 ${result.landed} 架 · 平均延误 ${result.avgDelaySec}s · 指令 ${result.inputs} 条</div>
+        <div class="result-line">结算状态：${escapeHtml(result.outcomeLabel || '--')}`
+        + `${result.performanceScore !== result.score ? ` · 原始绩效 ${result.performanceScore} 分` : ''}</div>
         <div class="result-line">得分构成：安全/效率扣分 ${result.penaltyTotal} · 奖励 +${result.bonusTotal} · `
         + `连击 ${result.streak} · 未复诵 ${result.counts.readback}</div>
         <div class="result-line">结束原因：${escapeHtml(result.reason)} · 跑道 落 `

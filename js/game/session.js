@@ -19,7 +19,7 @@ import { syncAircraftState, sampleAllAircraftHistory } from '../domain/aircraft.
 import {
     startDirector, stopDirector, tickDirector, directorGoal, directorSummary
 } from './director.js';
-import { resetScoring, tickScoring, scoringSummary, scoreTimeline, setScoringScenario } from './scoring.js';
+import { resetScoring, tickScoring, scoringSummary, scoreTimeline, setScoringScenario, gradeFor } from './scoring.js';
 import {
     startEvents, stopEvents, tickEvents, resolveEvents
 } from './events.js';
@@ -175,14 +175,20 @@ export function endGameSession(opts = {}) {
 
     const sc = scoringSummary();
     const objectives = evaluateObjectives(currentObjectives(), { scoring: sc, session: summary });
+    const outcome = opts.outcome || (opts.auto ? 'failed' : 'abandoned');
+    const finalScore = outcome === 'completed' ? sc.score : Math.min(sc.score, 59);
+    const finalGrade = gradeFor(finalScore);
     const result = {
         sessionId: summary ? summary.id : null,
         scenarioName: session && session.meta ? session.meta.scenarioName : null,
         difficulty: session && session.meta ? session.meta.difficulty : null,
         simDuration: summary ? Math.round(summary.simDuration) : 0,
-        score: sc.score,
-        grade: sc.grade,
-        gradeLabel: sc.gradeLabel,
+        outcome,
+        outcomeLabel: outcome === 'completed' ? '目标达成' : (outcome === 'failed' ? '时限未达标' : '提前结束'),
+        performanceScore: sc.score,
+        score: finalScore,
+        grade: finalGrade.key,
+        gradeLabel: finalGrade.label,
         progress: sc.progress,
         landed: sc.landed,
         streak: sc.streak,
@@ -216,7 +222,7 @@ export function tickSession() {
     tickEvents();          // 随机特情抽检/推进
     resolveEvents();       // 特情消解/到期释放
     const goal = directorGoal();
-    if (goal.met) endGameSession({ reason: goal.reason, auto: true });
+    if (goal.met) endGameSession({ reason: goal.reason, outcome: goal.outcome, auto: true });
 }
 
 /**

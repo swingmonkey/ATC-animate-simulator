@@ -923,6 +923,37 @@ const SCRIPT_M2 = `(() => {
 
     return out;
 })()`;
+
+const SCRIPT_PHASE1_RESULTS = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const out = {};
+    A.game.start({ scenarioId: 'l1-approach-basic' });
+    const abandoned = A.game.end({ reason: '试玩提前结束' });
+    out.phase1AbandonFair = abandoned.outcome === 'abandoned'
+        && abandoned.performanceScore === 100
+        && abandoned.score <= 59 && abandoned.grade !== 'S';
+
+    const base = A.scenarios.get('l1-approach-basic');
+    A.game.start({ scenario: { ...base, id: 'phase1-timeout', finish: { count: 4, timeLimit: 1 } } });
+    st.time = 2;
+    A.bus.emit(A.EV.CLOCK_TICK, { time: 2, steps: 1, dt: 2 });
+    const failed = A.game.result();
+    out.phase1TimeoutFair = !!failed && failed.outcome === 'failed'
+        && failed.landed === 0 && failed.score <= 59 && failed.grade !== 'S';
+
+    const sep = await import('./js/domain/separation.js');
+    const oldAircraft = st.aircraft;
+    st.aircraft = [
+        { id: -901, flightNo: 'TST901', x: 0, y: 0, displayX: 0, displayY: 0, altitude: 3000, displayAltitude: 3000, startTime: 0, landed: false },
+        { id: -902, flightNo: 'TST902', x: 0, y: 0, displayX: 0, displayY: 0, altitude: 3000, displayAltitude: 3000, startTime: 0, landed: false }
+    ];
+    const pairBefore = sep.getConflictPairs().length;
+    st.aircraft[1].landed = true;
+    out.phase1LandedNoConflict = pairBefore === 1 && sep.getConflictPairs().length === 0;
+    st.aircraft = oldAircraft;
+    return out;
+})()`;
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -971,6 +1002,7 @@ async function runSmoke() {
         } catch (e) {
             consoleErrors.push('截图失败: ' + String(e && e.message || e));
         }
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE1_RESULTS));
     } catch (e) {
         pageFailures.push(String((e && e.message) || e));
     }
@@ -1012,6 +1044,9 @@ async function runSmoke() {
         ['第一阶段：画布外松开结束首次拖拽', report.phase1DragEndsOutside === true],
         ['第一阶段：反复点击后双击只触发一次', report.phase1DblClickOnce === true],
         ['第一阶段：未知呼号零影响且输入保留并提示', report.phase1UnknownTargetRejected === true],
+        ['第一阶段：零落地提前结束不得获 S', report.phase1AbandonFair === true],
+        ['第一阶段：超时未达标不得获 S', report.phase1TimeoutFair === true],
+        ['第一阶段：落地机不参与冲突配对', report.phase1LandedNoConflict === true],
         ['随机场景生成航班', (report.aircraft ?? 0) >= 7],
         ['随机场景生成航线', (report.routes ?? 0) >= 7],
         ['航路点面板已重建', (report.pointItems ?? 0) > 0],

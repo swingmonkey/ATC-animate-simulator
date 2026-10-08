@@ -42,6 +42,7 @@ export function isAircraftInConflictAt(x, y, altitude, acId) {
     const thresholdPx = kmToPx(state.defaults.minSeparationNm);
     for (const other of state.aircraft) {
         if (other.id === acId) continue;
+        if (other.landed || other._visible === false) continue;
         if (state.time < (other.startTime || 0)) continue;
         if (Math.abs(altOf(other) - altitude) > CONFLICT_ALT_M) continue;
         const ox = posX(other), oy = posY(other);
@@ -51,6 +52,7 @@ export function isAircraftInConflictAt(x, y, altitude, acId) {
 }
 
 export function isAircraftInConflict(ac) {
+    if (ac.landed || ac._visible === false) return false;
     return isAircraftInConflictAt(posX(ac), posY(ac), altOf(ac), ac.id);
 }
 
@@ -58,7 +60,8 @@ export function isAircraftInConflict(ac) {
 export function getConflictPairs() {
     const thresholdPx = kmToPx(state.defaults.minSeparationNm);
     const pairs = [];
-    const acs = state.aircraft.filter(a => state.time >= (a.startTime || 0));
+    const acs = state.aircraft.filter(a => !a.landed && a._visible !== false
+        && state.time >= (a.startTime || 0));
     for (let i = 0; i < acs.length; i++) {
         for (let j = i + 1; j < acs.length; j++) {
             const a = acs[i], b = acs[j];
