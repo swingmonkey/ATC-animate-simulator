@@ -38,45 +38,58 @@ export function sceneModel(summary, key) {
 }
 
 function runwayWindow() {
-    return `<rect x="52" y="43" width="896" height="109" rx="8" fill="#91bbc2"/>
-        <path d="M52 120 L948 120" stroke="#d2e5dc" stroke-width="16"/>
-        <path d="M52 128 L948 128" stroke="#667f83" stroke-width="5" stroke-dasharray="48 22"/>
-        <path d="M190 64 L810 64" stroke="#344b56" stroke-width="34" stroke-linecap="round"/>
-        <path d="M202 64 L798 64" stroke="#eef2eb" stroke-width="2" stroke-dasharray="27 21"/>
-        <path d="M92 99 L304 99 M696 99 L908 99" stroke="#d4d9c5" stroke-width="3" stroke-dasharray="14 12"/>
-        <path d="M296 43 V152 M500 43 V152 M704 43 V152" stroke="#cde4e2" stroke-width="9" opacity=".8"/>
-        <text x="73" y="150" class="scene-svg-small">跑道 / 滑行道目视窗口</text>`;
+    return `<g class="scene-window">
+        <rect x="59" y="45" width="882" height="111" rx="8" fill="#344b62"/>
+        <rect x="68" y="53" width="864" height="94" rx="3" fill="#9edbf0"/>
+        <path d="M68 110 Q210 91 360 109 T660 108 T932 110 V147 H68Z" fill="#a9d790"/>
+        <path d="M88 79 h65 m-29-9 h55 M810 78 h72 m-31-10 h35" stroke="#f7ffff" stroke-width="9" stroke-linecap="round" opacity=".9"/>
+        <rect x="218" y="93" width="564" height="40" rx="2" fill="#596b76" stroke="#384f60" stroke-width="4"/>
+        <path d="M240 113 H760" stroke="#fff8da" stroke-width="3" stroke-dasharray="24 17"/>
+        <path d="M106 132 H204 M796 132 H902" stroke="#e6e1ad" stroke-width="4" stroke-dasharray="15 10"/>
+        <path d="M296 48 V150 M500 48 V150 M704 48 V150" stroke="#f8f0d9" stroke-width="9"/>
+        <path d="M59 151 H941" stroke="#32475d" stroke-width="10"/>
+        <text x="76" y="144" class="scene-svg-window-label">跑道观察窗</text>
+    </g>`;
 }
 
 function statusBoard(site) {
     const marks = site.id === 'area' ? '跨区移交  ·  高度层  ·  航路流量'
         : '进场排序  ·  进离场协调  ·  天气监视';
-    return `<rect x="72" y="54" width="856" height="89" rx="10" fill="#142d39" stroke="#648188" stroke-width="5"/>
-        <path d="M104 111 L178 89 L230 100 L295 76 L365 92 L445 67 L520 92 L590 78 L674 103 L748 70 L835 98" fill="none" stroke="#55beb5" stroke-width="2" opacity=".75"/>
-        <circle class="scene-pulse" cx="445" cy="67" r="4" fill="#a8f1d5"/>
-        <text x="95" y="134" class="scene-svg-small">${marks}</text>`;
+    return `<g class="scene-wall-map">
+        <rect x="66" y="47" width="868" height="108" rx="7" fill="#40536a"/>
+        <rect x="76" y="55" width="848" height="87" rx="3" fill="#d0e8d5"/>
+        <path d="M78 76 H922 M78 99 H922 M78 121 H922 M180 56 V142 M284 56 V142 M388 56 V142 M492 56 V142 M596 56 V142 M700 56 V142 M804 56 V142" stroke="#9ac9c9" stroke-width="2" opacity=".55"/>
+        <path d="M110 119 L205 90 L275 108 L352 76 L441 90 L506 70 L590 106 L670 83 L760 111 L840 79" fill="none" stroke="#e57f71" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M110 119 L205 90 L275 108 L352 76 L441 90 L506 70 L590 106 L670 83 L760 111 L840 79" fill="none" stroke="#fff6dc" stroke-width="2" stroke-dasharray="12 12"/>
+        <circle class="scene-pulse" cx="506" cy="70" r="8" fill="#ffc76b" stroke="#fff9df" stroke-width="3"/>
+        <circle cx="205" cy="90" r="5" fill="#5db0bd"/><circle cx="670" cy="83" r="5" fill="#5db0bd"/>
+        <rect x="77" y="126" width="405" height="20" fill="#40536a"/>
+        <text x="90" y="140" class="scene-svg-window-label">${marks}</text>
+    </g>`;
+}
+
+/** 原创 Q 版俯视人物；玩家、同事和主管共用轮廓，靠制服色识别。 */
+function chibiFigure(x, y, label, variant, className = '', id = '') {
+    return `<g ${id ? `id="${id}"` : ''} class="scene-person scene-chibi scene-chibi-${variant} ${className}" transform="translate(${x} ${y})">
+        <ellipse cy="14" rx="16" ry="6" fill="#34465b" opacity=".2"/>
+        <path class="scene-player-step scene-player-step-left" d="M-7 3 V13" stroke="#39475b" stroke-width="7" stroke-linecap="round"/>
+        <path class="scene-player-step scene-player-step-right" d="M7 3 V13" stroke="#39475b" stroke-width="7" stroke-linecap="round"/>
+        <rect x="-16" y="-12" width="32" height="24" rx="8" class="scene-chibi-coat"/>
+        <path d="M-8 -8 L0 -2 L8 -8" fill="none" stroke="#fff7d9" stroke-width="3" stroke-linecap="round"/>
+        <circle cy="-20" r="12" class="scene-chibi-face"/>
+        <path d="M-12 -24 Q-9 -37 1 -35 Q12 -34 13 -22 Q6 -26 1 -25 Q-5 -24 -12 -20Z" class="scene-chibi-hair"/>
+        <circle cx="-5" cy="-18" r="1.6" fill="#38465a"/><circle cx="5" cy="-18" r="1.6" fill="#38465a"/>
+        <path d="M-13 -22 V-11 M13 -22 V-11" stroke="#eef3df" stroke-width="3" stroke-linecap="round"/>
+        ${label ? `<text y="34" text-anchor="middle" class="scene-svg-person-label">${escapeHtml(label)}</text>` : ''}
+    </g>`;
 }
 
 function staffFigure(x, y, label, className = '') {
-    return `<g class="scene-person ${className}" transform="translate(${x} ${y})">
-        <ellipse cy="8" rx="15" ry="7" fill="#071e28" opacity=".28"/>
-        <path d="M-12 3 Q-15 -14 -7 -21 L7 -21 Q15 -14 12 3Z" fill="#557a82" stroke="#b9d5d2" stroke-width="2"/>
-        <circle cy="-17" r="8" fill="#d7b89b"/>
-        <path d="M-8 -20 Q0 -31 8 -20" fill="none" stroke="#243946" stroke-width="5" stroke-linecap="round"/>
-        ${label ? `<text y="31" text-anchor="middle" class="scene-svg-person-label">${escapeHtml(label)}</text>` : ''}
-    </g>`;
+    return chibiFigure(x, y, label, className === 'scene-supervisor' ? 'supervisor' : 'staff', className);
 }
 
 function playerFigure() {
-    return `<g id="scene-player" class="scene-player" transform="translate(${state.avatar.x} ${state.avatar.y})">
-        <ellipse cy="9" rx="17" ry="8" fill="#071e28" opacity=".35"/>
-        <path class="scene-player-step scene-player-step-left" d="M-8 2V13" stroke="#1b3940" stroke-width="7" stroke-linecap="round"/>
-        <path class="scene-player-step scene-player-step-right" d="M8 2V13" stroke="#1b3940" stroke-width="7" stroke-linecap="round"/>
-        <path d="M-13 4 Q-16 -15 -7 -23 L7 -23 Q16 -15 13 4Z" fill="#e2b84e" stroke="#fff1b8" stroke-width="2"/>
-        <circle cy="-18" r="9" fill="#efc7a1" stroke="#fff1b8" stroke-width="1"/>
-        <path d="M-8 -22 Q0 -33 8 -22" fill="none" stroke="#273e45" stroke-width="6" stroke-linecap="round"/>
-        <text y="34" text-anchor="middle" class="scene-svg-player-label">你</text>
-    </g>`;
+    return chibiFigure(state.avatar.x, state.avatar.y, '你', 'player', 'scene-player', 'scene-player');
 }
 
 function seatSvg(seat) {
@@ -85,57 +98,83 @@ function seatSvg(seat) {
     const code = escapeHtml(seat.code);
     const status = seat.status;
     return `<g class="scene-desk ${status}" data-seat="${code}" role="button" tabindex="0" aria-label="${code}，${statusText[status]}${name ? `，${escapeHtml(name)}` : ''}">
-        <rect x="${x - 74}" y="${y - 51}" width="148" height="81" rx="10" class="scene-desk-top"/>
-        <rect x="${x - 60}" y="${y - 43}" width="120" height="52" rx="5" class="scene-monitor-frame"/>
-        <rect x="${x - 53}" y="${y - 37}" width="106" height="40" rx="2" class="scene-monitor-glass"/>
-        <rect x="${x - 52}" y="${y - 36}" width="13" height="38" rx="2" class="scene-monitor-scan"/>
-        <circle cx="${x}" cy="${y - 17}" r="14" fill="none" stroke="#56b9b5" opacity=".5" stroke-width="1"/>
-        <path d="M${x - 38} ${y - 20} L${x + 34} ${y - 20} M${x} ${y - 36} V${y + 1}" stroke="#81c5bf" opacity=".34" stroke-width="1"/>
-        <circle class="scene-screen-dot" cx="${x + 25}" cy="${y - 18}" r="3" fill="#a6f7d6"/>
-        <rect x="${x - 29}" y="${y + 10}" width="58" height="8" rx="3" fill="#304d53"/>
-        <rect x="${x - 30}" y="${y + 34}" width="60" height="36" rx="14" class="scene-chair"/>
+        <rect x="${x - 72}" y="${y - 48}" width="148" height="85" rx="6" fill="#48556a" opacity=".24"/>
+        <rect x="${x - 76}" y="${y - 56}" width="152" height="88" rx="7" class="scene-desk-top"/>
+        <rect x="${x - 68}" y="${y - 49}" width="136" height="68" rx="3" class="scene-desk-surface"/>
+        <rect x="${x - 59}" y="${y - 45}" width="118" height="50" rx="5" class="scene-monitor-frame"/>
+        <rect x="${x - 52}" y="${y - 39}" width="104" height="37" rx="2" class="scene-monitor-glass"/>
+        <path d="M${x - 43} ${y - 15} Q${x - 21} ${y - 31} ${x - 4} ${y - 23} T${x + 34} ${y - 27}" fill="none" stroke="#72cfca" stroke-width="2"/>
+        <path d="M${x - 37} ${y - 35} V${y - 6} M${x - 10} ${y - 35} V${y - 6} M${x + 18} ${y - 35} V${y - 6}" stroke="#79bcb8" stroke-width="1" opacity=".45"/>
+        <rect x="${x - 51}" y="${y - 38}" width="12" height="34" class="scene-monitor-scan"/>
+        <circle class="scene-screen-dot" cx="${x + 37}" cy="${y - 29}" r="4" fill="#fff2a6"/>
+        <rect x="${x - 32}" y="${y + 10}" width="64" height="8" rx="2" class="scene-keyboard"/>
+        <path d="M${x - 25} ${y + 14} H${x + 25}" stroke="#fff3da" stroke-width="1" stroke-dasharray="3 3"/>
+        <rect x="${x + 39}" y="${y + 8}" width="18" height="14" rx="2" fill="#fff5df" stroke="#46556a" stroke-width="2"/>
+        <path d="M${x + 43} ${y + 12} H${x + 53} M${x + 43} ${y + 16} H${x + 50}" stroke="#82a8b3" stroke-width="1"/>
+        <rect x="${x - 30}" y="${y + 34}" width="60" height="36" rx="10" class="scene-chair"/>
         ${seat.occupant && !(state.avatar?.mode === 'SEATED' && state.avatar.site === siteId && state.avatar.seat === seat.code)
             ? staffFigure(x, y + 55, '', 'scene-seated') : ''}
-        <rect x="${x - 46}" y="${y + 73}" width="92" height="24" rx="12" class="scene-seat-tag"/>
+        <rect x="${x - 46}" y="${y + 73}" width="92" height="24" rx="4" class="scene-seat-tag"/>
         <text x="${x}" y="${y + 89}" text-anchor="middle" class="scene-svg-tag">${code}</text>
-        <circle cx="${x + 57}" cy="${y - 39}" r="6" class="scene-status-light"/>
+        <circle cx="${x + 63}" cy="${y - 43}" r="8" class="scene-status-light" stroke="#fff8e5" stroke-width="3"/>
+        <g class="scene-interact-marker" aria-hidden="true">
+            <rect x="${x - 12}" y="${y - 90}" width="24" height="24" rx="4" fill="#fff6db" stroke="#445a70" stroke-width="3"/>
+            <text x="${x}" y="${y - 72}" text-anchor="middle" fill="#e47a6d" font-size="20" font-weight="900">!</text>
+        </g>
+    </g>`;
+}
+
+function roomDecor(site) {
+    const compactRest = site.id === 'approach';
+    const restX = compactRest ? 758 : 691;
+    const restWidth = compactRest ? 169 : 236;
+    const doorX = site.entry.x;
+    return `<g class="scene-room-decor" pointer-events="none">
+        <path d="M248 374 H676" stroke="#e9d4ad" stroke-width="5" stroke-dasharray="8 12" opacity=".8"/>
+        <rect x="68" y="403" width="156" height="88" rx="5" class="scene-side-table"/>
+        <rect x="83" y="415" width="126" height="43" rx="3" fill="#fff7e7" stroke="#46556a" stroke-width="3"/>
+        <path d="M96 427 H190 M96 435 H172 M96 443 H182" stroke="#8ab7b7" stroke-width="2"/>
+        <text x="146" y="479" text-anchor="middle" class="scene-svg-furniture">值班记录</text>
+        <rect x="${restX}" y="407" width="${restWidth}" height="88" rx="6" class="scene-rest-area"/>
+        <rect x="${restX + 17}" y="430" width="${restWidth - 34}" height="47" rx="5" fill="#c8dfd1" stroke="#526178" stroke-width="3"/>
+        <path d="M${restX + 19} 449 H${restX + restWidth - 20}" stroke="#86b7a7" stroke-width="3"/>
+        <text x="${restX + restWidth / 2}" y="425" text-anchor="middle" class="scene-svg-furniture">交接休息区</text>
+        <g transform="translate(91 331)"><rect x="-14" y="0" width="28" height="24" rx="3" fill="#d08464" stroke="#43546b" stroke-width="3"/><path d="M0 2 Q-30 -13 -16 -31 M0 1 Q30 -18 15 -34 M0 -2 V-42" fill="none" stroke="#4d997b" stroke-width="10" stroke-linecap="round"/></g>
+        <g transform="translate(909 331)"><rect x="-14" y="0" width="28" height="24" rx="3" fill="#d08464" stroke="#43546b" stroke-width="3"/><path d="M0 2 Q-28 -12 -16 -30 M0 1 Q28 -18 15 -34 M0 -2 V-42" fill="none" stroke="#4d997b" stroke-width="10" stroke-linecap="round"/></g>
+        <circle cx="916" cy="190" r="20" fill="#fff9e8" stroke="#43546b" stroke-width="5"/><path d="M916 178 V190 L925 196" fill="none" stroke="#43546b" stroke-width="3" stroke-linecap="round"/>
+        <rect x="${doorX - 44}" y="510" width="88" height="25" rx="2" fill="#d49c7c" stroke="#45566c" stroke-width="4"/>
+        <path d="M${doorX - 29} 523 H${doorX + 25} M${doorX + 15} 517 L${doorX + 25} 523 L${doorX + 15} 529" stroke="#fff9e8" stroke-width="3" fill="none"/>
     </g>`;
 }
 
 function roomSvg(model) {
     const { site, built, seats, standby, supervisor } = model;
     const windowContent = site.id === 'tower' ? runwayWindow() : statusBoard(site);
-    const standbyFigures = standby.slice(0, 3).map((person, i) => staffFigure(740 + i * 48, 472, person.name)).join('');
-    return `<svg class="scene-map" viewBox="0 0 1000 560" role="img" aria-label="${site.name}二维俯视图">
+    const standbyFigures = standby.slice(0, 3).map((person, i) => staffFigure(750 + i * 52, 470, person.name)).join('');
+    return `<svg class="scene-map scene-map-${site.id}" viewBox="0 0 1000 560" role="img" aria-label="${site.name}二维俯视图">
         <defs>
-            <pattern id="floor-grid" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M26 0H0V26" fill="none" stroke="#9db3b5" stroke-width=".7" opacity=".13"/></pattern>
-            <pattern id="noise-lines" width="9" height="9" patternUnits="userSpaceOnUse"><path d="M0 9L9 0" stroke="#cde6df" stroke-width=".45" opacity=".1"/></pattern>
-            <linearGradient id="scene-floor-gradient" x2="1" y2="1"><stop stop-color="#28424b"/><stop offset="1" stop-color="#183038"/></linearGradient>
+            <pattern id="scene-floor-tiles" width="48" height="48" patternUnits="userSpaceOnUse">
+                <rect width="48" height="48" fill="var(--scene-floor)"/>
+                <rect x="2" y="2" width="44" height="44" fill="var(--scene-tile)"/>
+                <path d="M7 9 H19 M31 37 H41" stroke="var(--scene-tile-mark)" stroke-width="2" opacity=".5"/>
+            </pattern>
         </defs>
-        <rect width="1000" height="560" fill="#0c242b"/>
-        <rect x="35" y="30" width="930" height="500" rx="12" fill="url(#scene-floor-gradient)" stroke="#748f91" stroke-width="11"/>
-        <rect x="44" y="38" width="912" height="484" rx="8" fill="url(#floor-grid)"/>
-        <rect x="44" y="38" width="912" height="484" rx="8" fill="url(#noise-lines)"/>
+        <rect width="1000" height="560" fill="#d4b894"/>
+        <rect x="29" y="20" width="942" height="516" rx="8" class="scene-room-wall"/>
+        <rect x="43" y="34" width="914" height="489" fill="url(#scene-floor-tiles)"/>
+        <path d="M46 169 H954" stroke="#46566b" stroke-width="8"/>
         ${windowContent}
-        <path d="M64 171 H936" stroke="#9db8b6" stroke-width="6" opacity=".5"/>
-        <path d="M75 374 H925" stroke="#799599" stroke-width="2" stroke-dasharray="8 8" opacity=".43"/>
-        <rect x="65" y="402" width="158" height="90" rx="10" fill="#314c51" stroke="#6a8c88" stroke-width="2"/>
-        <rect x="84" y="420" width="120" height="30" rx="3" fill="#132f39"/>
-        <path d="M101 438 H185" stroke="#7bd5c9" stroke-width="2" opacity=".7"/>
-        <text x="144" y="478" text-anchor="middle" class="scene-svg-small">值班记录 / 通报台</text>
-        <rect x="685" y="400" width="250" height="103" rx="12" fill="#2c464d" stroke="#648783" stroke-width="2"/>
-        <text x="706" y="424" class="scene-svg-small">待命与交接区</text>
+        ${roomDecor(site)}
         ${standbyFigures}
         ${supervisor ? `<g id="scene-patrol">${staffFigure(0, 0, supervisor.name, 'scene-supervisor')}</g>` : ''}
         ${seats.map(seatSvg).join('')}
         ${built && state.avatar?.site === site.id ? playerFigure() : ''}
         ${built && state.avatar?.site === site.id && state.avatar.destination
             ? `<circle cx="${state.avatar.destination.x}" cy="${state.avatar.destination.y}" r="20" class="scene-destination"/>` : ''}
-        <rect x="452" y="510" width="96" height="28" rx="4" fill="#172f36" stroke="#829b97" stroke-width="2"/>
-        <path d="M468 524 H532 M519 516 L532 524 L519 532" stroke="#b1d3ca" stroke-width="2" fill="none"/>
-        ${built ? '' : `<rect x="39" y="34" width="922" height="493" rx="10" fill="#091921" opacity=".73" pointer-events="none"/>
-            <text x="500" y="276" text-anchor="middle" class="scene-svg-unbuilt">现场尚未建设</text>
-            <text x="500" y="313" text-anchor="middle" class="scene-svg-unbuilt-sub">在经营指挥台建设${site.name}后，席位和人员会显示在此</text>`}
+        ${built ? '' : `<rect x="41" y="35" width="918" height="486" fill="#304559" opacity=".72" pointer-events="none"/>
+            <rect x="264" y="229" width="472" height="105" rx="7" fill="#fff6df" stroke="#46566b" stroke-width="7" pointer-events="none"/>
+            <text x="500" y="273" text-anchor="middle" class="scene-svg-unbuilt">现场尚未建设</text>
+            <text x="500" y="309" text-anchor="middle" class="scene-svg-unbuilt-sub">在经营指挥台建设${site.name}后开放</text>`}
     </svg>`;
 }
 

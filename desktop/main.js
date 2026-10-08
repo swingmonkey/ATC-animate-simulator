@@ -150,10 +150,12 @@ const SCRIPT_SCENE_VIEW = `(async () => {
         && document.querySelectorAll('.scene-seat-chip').length === 5;
     document.querySelector('.scene-site-tabs button[data-site="approach"]').click();
     const approach = document.getElementById('scene-room-name').textContent === '进近现场'
-        && document.querySelectorAll('.scene-desk').length === 6;
+        && document.querySelectorAll('.scene-desk').length === 6
+        && document.querySelector('.scene-map')?.classList.contains('scene-map-approach');
     document.querySelector('.scene-site-tabs button[data-site="area"]').click();
     const area = document.getElementById('scene-room-name').textContent === '区域现场'
-        && document.querySelectorAll('.scene-desk').length === 4;
+        && document.querySelectorAll('.scene-desk').length === 4
+        && document.querySelector('.scene-map')?.classList.contains('scene-map-area');
     document.querySelector('.scene-site-tabs button[data-site="tower"]').click();
     const staffedSeat = m.staff.find(staff => staff.seat && m.sectorPlan.tower.includes(staff.seat))?.seat;
     document.querySelector('#scene-seat-list button[data-seat="' + staffedSeat + '"]')?.click();
@@ -1242,6 +1244,16 @@ async function runSmoke() {
         await win.webContents.executeJavaScript("document.querySelector('[data-platform-view=scene]').click()");
         await wait(180);
         try {
+            for (const [site, field] of [['approach', 'approachScreenshot'], ['area', 'areaScreenshot']]) {
+                await win.webContents.executeJavaScript(`document.querySelector('.scene-site-tabs button[data-site="${site}"]').click()`);
+                await wait(100);
+                const siteImage = await win.webContents.capturePage();
+                const sitePath = path.join(app.getPath('userData'), `${site}-shot.png`);
+                writeFileSync(sitePath, siteImage.toPNG());
+                report[field] = sitePath;
+            }
+            await win.webContents.executeJavaScript("document.querySelector('.scene-site-tabs button[data-site=tower]').click()");
+            await wait(100);
             const image = await win.webContents.capturePage();
             const shotPath = path.join(app.getPath('userData'), 'scene-shot.png');
             writeFileSync(shotPath, image.toPNG());

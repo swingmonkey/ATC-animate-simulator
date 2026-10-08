@@ -2,6 +2,7 @@
 export const WORKSPACES = Object.freeze({
     tower: {
         id: 'tower', name: '塔台现场', short: 'TWR', view: 'TWR',
+        entry: { x: 500, y: 478 },
         brief: '目视观察跑道与机坪，协调起飞、落地和地面活动。',
         seats: [
             { code: 'TWR', x: 220, y: 285 }, { code: 'GND', x: 410, y: 285 },
@@ -11,6 +12,7 @@ export const WORKSPACES = Object.freeze({
     },
     approach: {
         id: 'approach', name: '进近现场', short: 'APP', view: 'APP',
+        entry: { x: 500, y: 478 },
         brief: '监视进离场流量，完成排序、引导与进近协调。',
         seats: [
             { code: 'APP', x: 210, y: 255 }, { code: 'APP-W', x: 400, y: 255 },
@@ -20,6 +22,7 @@ export const WORKSPACES = Object.freeze({
     },
     area: {
         id: 'area', name: '区域现场', short: 'ACC', view: 'ACC',
+        entry: { x: 320, y: 478 },
         brief: '处理航路飞行、高度层配备和相邻管制单位移交。',
         seats: [
             { code: 'ACC', x: 245, y: 255 }, { code: 'ACC-N', x: 500, y: 255 },

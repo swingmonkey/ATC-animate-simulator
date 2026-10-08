@@ -1560,6 +1560,85 @@ body {
 @keyframes scene-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .scene-monitor-scan, .scene-seated circle, .scene-screen-dot, .scene-pulse, .scene-destination, .scene-player-step { animation: none; opacity: .75; } }
 
+/* 原创掌机 RPG 式现场：分层地砖、暖色设备与清晰的状态轮廓。 */
+.scene-view { background: #f4ead4; color: #34485c; }
+.scene-intro h1 { color: #34485c; }
+.scene-intro p, .scene-inspector > p, .scene-seat-detail p { color: #687987; }
+.scene-live { border: 2px solid #4d667a; border-radius: 5px; background: #fff8e8; color: #405b6f; box-shadow: 3px 3px 0 #d9c4a2; }
+.scene-live-dot { border-radius: 2px; background: #69b99a; box-shadow: 0 0 0 3px #d5ead7; }
+.scene-site-tabs button { border: 2px solid #4e6578; border-radius: 5px; background: #fff9e9; color: #40586a; box-shadow: 3px 3px 0 #d9c4a2; }
+.scene-site-tabs button span { color: #d96f66; }
+.scene-site-tabs button small { color: #758790; }
+.scene-site-tabs button[aria-pressed="true"] { border-color: #445a6f; background: #5f9aab; color: #fffdf0; box-shadow: 3px 3px 0 #8eb5b2; }
+.scene-site-tabs button[aria-pressed="true"] span { color: #fff3ba; }
+.scene-site-tabs button[aria-pressed="true"] small { color: #e7f5e6; }
+.scene-stage { border: 3px solid #40556c; border-radius: 6px; background: #e9d1ae; box-shadow: 6px 6px 0 #d3bc9a; }
+.scene-stage-top, .scene-stage-bottom { background: #4d7080; color: #fff8e8; }
+.scene-stage-top span:last-child { color: #ffe4a7; }
+.scene-viewport { padding: 8px; background: #e2c9a5; }
+.scene-legend-dot.player { background: #ec766c; box-shadow: 0 0 0 2px #fff1c8; }
+.scene-legend-dot.staffed { background: #68c4a1; }
+.scene-legend-dot.vacant { background: #ffc96b; }
+.scene-legend-dot.locked { background: #a8afb8; }
+.scene-inspector { border: 3px solid #4b6175; border-radius: 6px; background: #fff9ea; box-shadow: 5px 5px 0 #d3bc9a; }
+.scene-inspector-head { color: #7e8a91; }
+.scene-inspector-head strong { color: #278776; }
+.scene-metrics div { border: 2px solid #c8d6cc; border-radius: 4px; background: #eaf2df; }
+.scene-metrics strong { color: #34677a; }
+.scene-metrics span { color: #637985; }
+.scene-seat-chip { border: 2px solid #c8d4cf; border-radius: 4px; background: #fffdf4; color: #45616b; }
+.scene-seat-chip[aria-pressed="true"] { border-color: #e17970; background: #ffebd6; color: #9c4f56; }
+.scene-inspector-divider { height: 2px; background: #e5d7ba; }
+.scene-player-status { border: 2px solid #e4c994; border-radius: 4px; background: #fff0c9; color: #67502e; }
+.scene-primary-btn, .scene-secondary-btn { border-radius: 4px; }
+.scene-primary-btn { border: 2px solid #4b5e72; background: #e8756b; color: #fffdf2; box-shadow: 2px 2px 0 #d3b591; }
+.scene-primary-btn:hover:not(:disabled) { background: #d76563; }
+.scene-primary-btn:disabled { border-color: #bdc8c5; background: #e2e8dd; color: #7c9290; box-shadow: none; }
+.scene-secondary-btn { border: 2px solid #aabec1; background: #fffdf4; color: #3e6773; }
+.scene-secondary-btn:hover { background: #e8f0e6; }
+.scene-footnote { color: #687c82; }
+.scene-site-tabs button:focus-visible, .scene-desk:focus-visible, .scene-seat-chip:focus-visible, .scene-primary-btn:focus-visible, .scene-secondary-btn:focus-visible { outline-color: #ed786e; }
+
+.scene-map { --scene-floor: #dcc49f; --scene-tile: #f7e8c9; --scene-tile-mark: #d6b993; --scene-wall: #ecb98e; }
+.scene-map-approach { --scene-floor: #b7d6c8; --scene-tile: #e6f2df; --scene-tile-mark: #9fcabc; --scene-wall: #aad4bf; }
+.scene-map-area { --scene-floor: #c8c8d6; --scene-tile: #e9e6e9; --scene-tile-mark: #bab6cf; --scene-wall: #b9b6d1; }
+.scene-room-wall { fill: var(--scene-wall); stroke: #43566b; stroke-width: 8px; }
+.scene-svg-window-label { fill: #fff9e8; font: 700 11px 'Microsoft YaHei', sans-serif; paint-order: stroke; stroke: #3c5369; stroke-width: 3px; }
+.scene-svg-furniture { fill: #405469; font: 700 13px 'Microsoft YaHei', sans-serif; }
+.scene-svg-person-label { fill: #fffaf0; font: 700 11px 'Microsoft YaHei', sans-serif; paint-order: stroke; stroke: #3c5369; stroke-width: 4px; }
+.scene-svg-tag { fill: #3c5369; }
+.scene-svg-unbuilt { fill: #3d5368; font-size: 34px; }
+.scene-svg-unbuilt-sub { fill: #71828a; font-size: 15px; }
+.scene-side-table { fill: #d9a579; stroke: #475a6e; stroke-width: 4px; }
+.scene-rest-area { fill: #e9c99e; stroke: #526178; stroke-width: 4px; }
+.scene-desk-top { fill: #b78162; stroke: #43566b; stroke-width: 4px; }
+.scene-desk-surface { fill: #f3d5a8; }
+.scene-monitor-frame { fill: #edf1d8; stroke: #465b70; stroke-width: 3px; }
+.scene-monitor-glass { fill: #244c63; }
+.scene-monitor-scan { fill: #8ee3d1; opacity: .22; }
+.scene-keyboard { fill: #6f8d91; stroke: #455a6c; stroke-width: 2px; }
+.scene-chair { fill: #6fa8b5; stroke: #475b70; stroke-width: 4px; }
+.scene-seat-tag { fill: #fff8e2; stroke: #465a70; stroke-width: 3px; }
+.scene-status-light { fill: #f9c46d; }
+.scene-desk.staffed .scene-status-light { fill: #66c4a0; filter: drop-shadow(0 0 3px #66c4a0); }
+.scene-desk.locked { opacity: .43; }
+.scene-desk.locked .scene-status-light { fill: #929eaa; }
+.scene-desk.selected .scene-desk-top { stroke: #e9776e; stroke-width: 6px; }
+.scene-desk:hover .scene-desk-top { stroke: #f5aa7f; }
+.scene-interact-marker { opacity: 0; pointer-events: none; }
+.scene-desk.selected .scene-interact-marker { opacity: 1; animation: scene-marker-bob .8s ease-in-out infinite alternate; }
+@keyframes scene-marker-bob { to { transform: translateY(-5px); } }
+.scene-chibi { --scene-coat: #669ab1; --scene-hair: #3f5068; }
+.scene-chibi-supervisor { --scene-coat: #9b83b0; --scene-hair: #435067; }
+.scene-chibi-player { --scene-coat: #ec776b; --scene-hair: #34475d; }
+.scene-chibi-coat { fill: var(--scene-coat); stroke: #46576d; stroke-width: 3px; }
+.scene-chibi-face { fill: #f6c9a7; stroke: #46576d; stroke-width: 2px; }
+.scene-chibi-hair { fill: var(--scene-hair); }
+.scene-player { filter: drop-shadow(0 0 5px rgba(255, 247, 197, .95)); }
+.scene-destination { stroke: #e8766d; stroke-width: 4px; }
+.scene-seated circle { animation: none; }
+@media (prefers-reduced-motion: reduce) { .scene-desk.selected .scene-interact-marker { animation: none; } }
+
 @media (max-width: 1000px) {
     .scene-layout { grid-template-columns: 1fr; }
     .scene-inspector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }

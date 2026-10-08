@@ -38,7 +38,7 @@ export function createAvatarState(summary) {
     if (first) return { site: first.site, x: first.seat.x, y: first.seat.y + 55,
         mode: 'SEATED', seat: first.seat.code, targetSeat: first.seat.code, destination: null };
     const site = WORKSPACE_ORDER.find(key => summary?.roomCounts?.[key]) || 'tower';
-    return { site, x: 500, y: 478, mode: 'IDLE', seat: null, targetSeat: null, destination: null };
+    return { site, ...WORKSPACES[site].entry, mode: 'IDLE', seat: null, targetSeat: null, destination: null };
 }
 
 /** 旧档无 avatar 时按当前经营状态初始化；无效旧座位安全退回门口。 */
@@ -61,8 +61,7 @@ export function initAvatar() {
         avatar.destination = null;
         if (!summary.roomCounts[avatar.site]) {
             avatar.site = WORKSPACE_ORDER.find(key => summary.roomCounts[key]) || 'tower';
-            avatar.x = 500;
-            avatar.y = 478;
+            Object.assign(avatar, WORKSPACES[avatar.site].entry);
             avatar.targetSeat = null;
         }
     }
@@ -78,11 +77,11 @@ export function reconcileAvatar() {
     let changed = false;
     if (!summary.roomCounts?.[avatar.site]) {
         avatar.site = WORKSPACE_ORDER.find(key => summary.roomCounts?.[key]) || 'tower';
-        Object.assign(avatar, { x: 500, y: 478, mode: 'IDLE', seat: null,
+        Object.assign(avatar, { ...WORKSPACES[avatar.site].entry, mode: 'IDLE', seat: null,
             targetSeat: null, destination: null });
         changed = true;
     } else if (avatar.mode === 'SEATED' && !playableSeat(summary, avatar.site, avatar.seat)) {
-        Object.assign(avatar, { x: 500, y: 478, mode: 'IDLE', seat: null, destination: null });
+        Object.assign(avatar, { ...WORKSPACES[avatar.site].entry, mode: 'IDLE', seat: null, destination: null });
         changed = true;
     } else if (avatar.mode === 'WALKING' && !playableSeat(summary, avatar.site, avatar.targetSeat)) {
         Object.assign(avatar, { mode: 'IDLE', destination: null });
@@ -105,7 +104,7 @@ export function visitWorkspace(site) {
     const summary = managementSummary();
     if (!state.avatar || !WORKSPACES[site] || !summary?.roomCounts?.[site]) return false;
     if (state.avatar.site === site) return true;
-    state.avatar = { site, x: 500, y: 478, mode: 'IDLE', seat: null,
+    state.avatar = { site, ...WORKSPACES[site].entry, mode: 'IDLE', seat: null,
         targetSeat: null, destination: null };
     bus.emit(EV.AVATAR_CHANGED, { avatar: { ...state.avatar }, action: 'visit' });
     return true;
