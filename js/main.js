@@ -56,6 +56,10 @@ import { initPlatformView, showPlatformView } from './ui/platformView.js';
 import { initWorkplaceScene } from './ui/workplaceScene.js';
 import { focusRadarView } from './render/views.js';
 import { tickKeyboard } from './interaction/index.js';
+import {
+    initAvatar, reconcileAvatar, tickAvatar, visitWorkspace, cycleWorkspace, walkToSeat,
+    fastTravelToSeat, sitAvatar, leaveAvatarSeat
+} from './game/avatar.js';
 
 let _lastTime = performance.now();
 const stats = { frames: 0 };
@@ -78,6 +82,7 @@ function animate(currentTime) {
     }
 
     tickKeyboard(frameDt);
+    if (document.body.dataset.platformView === 'scene') tickAvatar(frameDt);
 
     if (state.isPlaying || consumeRedraw()) drawRadar();
     requestAnimationFrame(animate);
@@ -97,17 +102,21 @@ initTutorialPanel();               // L1 教学卡片的复诵核对按钮
 initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
 initRosterPanel();                 // 值班面板：申请不参加本次执勤（§128 权利，绑定一次）
 initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 合同 / 局方审批（事件委托，绑定一次）
-initWorkplaceScene({ openRadar: (view) => {
+initWorkplaceScene();
+initPlatformView();                 // 网页经营首页 / 现场俯视 / 雷达值班
+bus.on(EV.AVATAR_SEATED, ({ view }) => {
     showPlatformView('radar');
     focusRadarView(view);
-} });
-initPlatformView();                 // 网页经营首页 / 现场俯视 / 雷达值班
+});
+bus.on(EV.AVATAR_LEFT, () => showPlatformView('scene'));
+bus.on(EV.MANAGEMENT_CHANGED, reconcileAvatar);
 
 if (loadState()) {
     normalizeScene();                 // 领域字段补齐（旧存档 ac.phase → ac.flow）
     bus.emit(EV.SCENE_CHANGED);       // 重建面板 + 落盘（幂等）
 }
 startManagement();                    // 经营层：恢复已有存档或按默认值初始化（normalize + 补全）
+initAvatar();
 refreshAll();
 
 addComm('atc', '空管雷达模拟器已启动（领域层分层版 v2 · P1 班次/评分）');
@@ -188,6 +197,11 @@ window.__ATC__ = {
         sign: signContract,
         trial: requestTrialRun,
         endDay
+    },
+    avatar: {
+        snapshot: () => state.avatar && { ...state.avatar },
+        visit: visitWorkspace, cycle: cycleWorkspace, walk: walkToSeat,
+        fast: fastTravelToSeat, sit: sitAvatar, leave: leaveAvatarSeat
     },
     /* M2 T11：把 M2 能力暴露给冒烟脚本（只读句柄，业务层不得依赖） */
     events: {

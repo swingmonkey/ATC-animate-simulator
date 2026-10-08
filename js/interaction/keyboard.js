@@ -8,11 +8,22 @@
 import { state, select, cancelRouteConnect, isEditMode } from '../core/store.js';
 import { moveView } from '../core/viewport.js';
 import { PAN_SPEED } from '../core/constants.js';
+import { moveAvatar, commitAvatarPosition, sitAvatar, leaveAvatarSeat,
+    fastTravelToSeat, cycleWorkspace } from '../game/avatar.js';
 
 const keysPressed = {};
 
 /** 由 main.js 动画循环按帧调用：按 dt 平移视图 */
 export function tickKeyboard(dt) {
+    if (document.body.dataset.platformView === 'scene') {
+        let dx = 0, dy = 0;
+        if (keysPressed['w'] || keysPressed['arrowup']) dy--;
+        if (keysPressed['s'] || keysPressed['arrowdown']) dy++;
+        if (keysPressed['a'] || keysPressed['arrowleft']) dx--;
+        if (keysPressed['d'] || keysPressed['arrowright']) dx++;
+        moveAvatar(dx, dy, dt, keysPressed['shift']);
+        return;
+    }
     const step = PAN_SPEED * dt;
     let dx = 0, dy = 0;
     if (keysPressed['w'] || keysPressed['arrowup']) dy += step;
@@ -23,8 +34,22 @@ export function tickKeyboard(dt) {
 }
 
 document.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable) return;
+    const scene = document.body.dataset.platformView === 'scene';
+    if (scene && e.target.closest?.('button, [role="button"]') && e.key !== 'Escape') return;
     keysPressed[e.key.toLowerCase()] = true;
+
+    if (scene) {
+        if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
+        if (e.repeat) return;
+        if (e.key.toLowerCase() === 'e') sitAvatar();
+        if (e.key.toLowerCase() === 'q') leaveAvatarSeat();
+        if (e.key.toLowerCase() === 'f') fastTravelToSeat();
+        if (e.key === 'Tab') { e.preventDefault(); cycleWorkspace(); }
+        if (e.key === ' ') return;
+    } else if (document.body.dataset.platformView === 'radar' && e.key.toLowerCase() === 'q') {
+        leaveAvatarSeat();
+    }
 
     if (e.key === 'Escape') {
         document.querySelectorAll('.dialog:not(.hidden)').forEach(d => d.classList.add('hidden'));
@@ -49,4 +74,8 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('keyup', e => {
     keysPressed[e.key.toLowerCase()] = false;
+    if (document.body.dataset.platformView === 'scene'
+        && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
+        commitAvatarPosition();
+    }
 });

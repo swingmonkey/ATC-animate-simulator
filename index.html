@@ -47,7 +47,7 @@
             <div class="scene-shell">
                 <div class="scene-intro">
                     <div><span class="operations-eyebrow">ATC · 现场俯视</span><h1>看见每一个管制席位</h1>
-                        <p>房间建设、席位开放和人员排班与经营指挥台实时同步。选择席位查看现场，再进入对应的雷达视角。</p></div>
+                        <p>在管制室里走向席位、就座值班，再离席前往另一现场。房间和排班与经营指挥台同步。</p></div>
                     <div class="scene-live"><span class="scene-live-dot" aria-hidden="true"></span><span id="scene-live-label">读取现场状态…</span></div>
                 </div>
                 <div id="scene-site-tabs" class="scene-site-tabs" role="group" aria-label="选择管制现场"></div>
@@ -55,7 +55,7 @@
                     <section class="scene-stage" aria-label="二维俯视现场">
                         <div class="scene-stage-top"><span id="scene-stage-title">现场加载中</span><span>2D · TOP VIEW</span></div>
                         <div id="scene-viewport" class="scene-viewport"></div>
-                        <div class="scene-stage-bottom"><span><i class="scene-legend-dot staffed"></i>人员值守</span><span><i class="scene-legend-dot vacant"></i>席位空缺</span><span><i class="scene-legend-dot locked"></i>未开放</span></div>
+                        <div class="scene-stage-bottom"><span><i class="scene-legend-dot player"></i>你的位置</span><span><i class="scene-legend-dot staffed"></i>人员值守</span><span><i class="scene-legend-dot vacant"></i>席位空缺</span><span><i class="scene-legend-dot locked"></i>未开放</span></div>
                     </section>
                     <aside class="scene-inspector" aria-label="现场状态与席位详情">
                         <div class="scene-inspector-head"><span>现场档案</span><strong id="scene-room-state">--</strong></div>
@@ -65,11 +65,14 @@
                         <div class="scene-inspector-divider"></div>
                         <span class="scene-inspector-caption">当前席位</span>
                         <div id="scene-seat-detail" class="scene-seat-detail" aria-live="polite">点击平面图中的席位查看详情。</div>
+                        <div id="scene-player-status" class="scene-player-status" aria-live="polite">角色载入中</div>
                         <button id="scene-enter-radar" class="scene-primary-btn" type="button" disabled>进入雷达值班 →</button>
+                        <button id="scene-fast-travel" class="scene-secondary-btn" type="button" disabled>快速前往所选席位 · F</button>
+                        <button id="scene-leave-seat" class="scene-secondary-btn hidden" type="button">离席返回现场 · Q</button>
                         <button id="scene-open-operations" class="scene-secondary-btn" type="button">前往经营指挥台</button>
                     </aside>
                 </div>
-                <p class="scene-footnote">俯视布局为模拟示意，展示当前存档的设施和排班；现场动画不推进班次时钟。</p>
+                <p class="scene-footnote">WASD / 方向键走动，E 就座，Q 离席，F 快速前往，Tab 切换已建设现场。现场走动时班次时钟暂停。</p>
             </div>
         </main>
         <div id="main-content">

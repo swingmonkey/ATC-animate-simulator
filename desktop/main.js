@@ -137,7 +137,7 @@ const SCRIPT_PLATFORM_VIEW = `(() => {
 })()`;
 
 /** 现场俯视与经营快照、席位进入雷达的接线回归。 */
-const SCRIPT_SCENE_VIEW = `(() => {
+const SCRIPT_SCENE_VIEW = `(async () => {
     const A = window.__ATC__;
     const m = A.management.summary();
     document.querySelector('[data-platform-view="scene"]').click();
@@ -155,12 +155,42 @@ const SCRIPT_SCENE_VIEW = `(() => {
     const area = document.getElementById('scene-room-name').textContent === '区域现场'
         && document.querySelectorAll('.scene-desk').length === 4;
     document.querySelector('.scene-site-tabs button[data-site="tower"]').click();
+    const staffedSeat = m.staff.find(staff => staff.seat && m.sectorPlan.tower.includes(staff.seat))?.seat;
+    document.querySelector('#scene-seat-list button[data-seat="' + staffedSeat + '"]')?.click();
     const canEnter = document.getElementById('scene-enter-radar').disabled === false;
+    const beforeManual = A.avatar.snapshot();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 150));
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'd', bubbles: true }));
+    const sceneKeyboardMove = A.avatar.snapshot()?.x > beforeManual.x;
+    const beforeWalk = A.avatar.snapshot();
     document.getElementById('scene-enter-radar').click();
+    await new Promise(resolve => setTimeout(resolve, 180));
+    const walking = A.avatar.snapshot();
+    const sceneAvatarWalks = walking?.mode === 'WALKING'
+        && Math.hypot(walking.x - beforeWalk.x, walking.y - beforeWalk.y) > 0;
+    document.getElementById('scene-fast-travel').click();
+    const sceneFastTravel = A.avatar.snapshot()?.mode === 'IDLE'
+        && !document.getElementById('scene-enter-radar').disabled
+        && document.getElementById('scene-enter-radar').textContent.includes('就座');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }));
+    const sceneSeatRadarEntry = document.body.dataset.platformView === 'radar'
+        && A.state.activeView === 'TWR' && A.avatar.snapshot()?.mode === 'SEATED';
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true }));
+    const sceneLeaveSeat = document.body.dataset.platformView === 'scene'
+        && A.avatar.snapshot()?.mode === 'IDLE' && !A.avatar.snapshot()?.seat;
+    document.getElementById('scene-enter-radar').click();
+    const sceneButtonSit = document.body.dataset.platformView === 'radar'
+        && A.avatar.snapshot()?.mode === 'SEATED';
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    const sceneSwitchOnTab = A.avatar.snapshot()?.site === 'approach'
+        && document.getElementById('scene-room-name').textContent === '进近现场';
+    document.querySelector('.scene-site-tabs button[data-site="tower"]').click();
     return { sceneViewSwitch: visible && approach && area && towerSeats,
         sceneSnapshotLinked: countMatches && canEnter,
-        sceneSeatRadarEntry: document.body.dataset.platformView === 'radar'
-            && A.state.activeView === 'TWR' };
+        sceneKeyboardMove, sceneAvatarWalks, sceneFastTravel, sceneSeatRadarEntry,
+        sceneLeaveSeat, sceneButtonSit, sceneSwitchOnTab };
 })()`;
 
 /** 阶段一：启动自检 + 生成场景 + 开始播放 */
@@ -1234,7 +1264,7 @@ async function runSmoke() {
             const m = A.management.summary();
             return { day: m.day, cash: m.cash, staffCount: m.staffCount,
                 roomCount: m.roomCount, contractCount: m.contractCount, tech: m.tech,
-                routePoints: A.state.routePoints.length };
+                routePoints: A.state.routePoints.length, avatar: A.avatar.snapshot() };
         })()`);
         const restoredWin = createWindow({ show: false, headless: true });
         try {
@@ -1248,7 +1278,7 @@ async function runSmoke() {
                 const m = A.management.summary();
                 return { day: m.day, cash: m.cash, staffCount: m.staffCount,
                     roomCount: m.roomCount, contractCount: m.contractCount, tech: m.tech,
-                    routePoints: A.state.routePoints.length };
+                    routePoints: A.state.routePoints.length, avatar: A.avatar.snapshot() };
             })()`);
             report.managementReloadRestored = JSON.stringify(restoredManagement) === JSON.stringify(expectedManagement);
         } finally {
@@ -1321,6 +1351,12 @@ async function runSmoke() {
         ['现场：塔台/进近/区调二维俯视可切换', report.sceneViewSwitch === true],
         ['现场：值守席位与经营快照一致', report.sceneSnapshotLinked === true],
         ['现场：席位进入对应雷达视角', report.sceneSeatRadarEntry === true],
+        ['现场：角色按席位目标行走', report.sceneAvatarWalks === true],
+        ['现场：键盘移动角色', report.sceneKeyboardMove === true],
+        ['现场：快速前往席位并就座', report.sceneFastTravel === true],
+        ['现场：雷达值班离席返回现场', report.sceneLeaveSeat === true],
+        ['现场：按钮就座进入雷达', report.sceneButtonSit === true],
+        ['现场：Tab 切换已建设现场', report.sceneSwitchOnTab === true],
         ['启动句柄存在', report.bootOk === true],
         ['画布已按容器尺寸初始化', report.canvasSized === true],
         ['启动通话消息已渲染', (report.bootCommMessages ?? 0) >= 4],

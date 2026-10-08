@@ -1494,6 +1494,7 @@ body {
 .scene-stage-bottom { justify-content: flex-start; gap: 21px; color: #9dbbb8; }
 .scene-stage-bottom span { display: inline-flex; align-items: center; gap: 6px; }
 .scene-legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.scene-legend-dot.player { background: #e2b84e; box-shadow: 0 0 0 2px #fff1b8; }
 .scene-legend-dot.staffed { background: #76ddb7; }.scene-legend-dot.vacant { background: #f7c976; }.scene-legend-dot.locked { background: #84969a; }
 .scene-inspector { display: flex; flex-direction: column; min-height: 0; padding: 21px; border: 1px solid #d1dedb; border-radius: 10px; background: #f9fcfb; box-shadow: 0 5px 20px rgba(27, 62, 67, .06); }
 .scene-inspector-head { display: flex; justify-content: space-between; align-items: center; color: #74908f; font-size: 11px; }
@@ -1512,6 +1513,7 @@ body {
 .scene-inspector-divider { height: 1px; margin: 3px 0 18px; background: #dce9e5; }
 .scene-inspector-caption { font-size: 11px; color: #77918d; }
 .scene-seat-detail { flex: 1; min-height: 110px; padding: 10px 0 16px; }
+.scene-player-status { margin: 0 0 10px; padding: 10px 11px; border: 1px solid #e9d79d; border-radius: 6px; background: #fff8e3; color: #6b5421; font-size: 11px; font-weight: 700; }
 .scene-seat-detail strong { display: block; margin-bottom: 7px; font-size: 18px; color: #213e42; }
 .scene-seat-detail p { margin-top: 9px; font-size: 12px; line-height: 1.6; color: #617b7d; }
 .scene-detail-status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
@@ -1545,11 +1547,18 @@ body {
 .scene-screen-dot { animation: scene-blink 2.3s ease-in-out infinite; }
 .scene-pulse { animation: scene-blink 3s ease-in-out infinite; }
 .scene-person { transition: opacity .2s; }
+.scene-svg-player-label { fill: #fff1b8; font: 700 13px 'Microsoft YaHei', sans-serif; paint-order: stroke; stroke: #17333a; stroke-width: 4px; }
+.scene-player { filter: drop-shadow(0 0 7px rgba(251, 217, 116, .5)); }
+.scene-player.moving .scene-player-step-left { animation: scene-walk-step .28s ease-in-out infinite alternate; }
+.scene-player.moving .scene-player-step-right { animation: scene-walk-step .28s ease-in-out infinite alternate-reverse; }
+@keyframes scene-walk-step { from { transform: translateY(-3px); } to { transform: translateY(3px); } }
+.scene-destination { fill: none; stroke: #f1d27c; stroke-width: 3px; stroke-dasharray: 5 5; animation: scene-target 1.8s linear infinite; }
+@keyframes scene-target { to { stroke-dashoffset: -20; } }
 .scene-seated circle { animation: scene-nod 3.2s ease-in-out infinite; }
 @keyframes scene-scan { from { transform: translateX(0); } to { transform: translateX(92px); } }
 @keyframes scene-nod { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
 @keyframes scene-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .scene-monitor-scan, .scene-seated circle, .scene-screen-dot, .scene-pulse { animation: none; opacity: .75; } }
+@media (prefers-reduced-motion: reduce) { .scene-monitor-scan, .scene-seated circle, .scene-screen-dot, .scene-pulse, .scene-destination, .scene-player-step { animation: none; opacity: .75; } }
 
 @media (max-width: 1000px) {
     .scene-layout { grid-template-columns: 1fr; }

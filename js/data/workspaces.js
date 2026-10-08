@@ -29,3 +29,8 @@ export const WORKSPACES = Object.freeze({
 });
 
 export const WORKSPACE_ORDER = ['tower', 'approach', 'area'];
+
+/** 席位前的通道点；人物走到这里才能就座。 */
+export function seatApproachPoint(seat) {
+    return { x: seat.x, y: seat.y > 350 ? 382 : seat.y + 98 };
+}

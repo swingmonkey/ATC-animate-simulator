@@ -73,6 +73,10 @@ export const EV = {
     DIRECTOR_EVENT: 'director:event',
     /** 席位视图切换（ACC/APP/TWR 三张地图）→ 席位面板 / HUD / 进程单 / 重绘 */
     VIEW_CHANGED: 'view:changed',
+    /** 玩家在现场移动、到达目标、就座或换岗。 */
+    AVATAR_CHANGED: 'avatar:changed',
+    AVATAR_SEATED: 'avatar:seated',
+    AVATAR_LEFT: 'avatar:left',
 
     /* ---- CCAR-93TM-R6 对齐 R1：席位 / 值班 / 日志 / 归档事件 ---- */
     /** 席位设置解算完成（按门槛开合/合并席位）→ 席位面板 / 值班面板 */

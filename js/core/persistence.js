@@ -85,6 +85,7 @@ export function saveState() {
             focusAirport: state.focusAirport,
             autoHandoff: state.autoHandoff,
             autoClearance: state.autoClearance,
+            avatar: state.avatar,
             management: state.management,
             /* M2 持久字段 */
             eventLog: Array.isArray(state.eventLog) ? state.eventLog.slice(-120) : [],
@@ -123,6 +124,7 @@ export function loadState() {
         if (data.focusAirport) state.focusAirport = data.focusAirport;
         if (typeof data.autoHandoff === 'boolean') state.autoHandoff = data.autoHandoff;
         if (typeof data.autoClearance === 'boolean') state.autoClearance = data.autoClearance;
+        if (data.avatar && typeof data.avatar === 'object') state.avatar = data.avatar;
         if (data.management) state.management = data.management;
         if (Array.isArray(data.eventLog)) state.eventLog = data.eventLog;
         if (data.difficultyCurve && typeof data.difficultyCurve === 'object') state.difficultyCurve = data.difficultyCurve;

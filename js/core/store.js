@@ -57,6 +57,9 @@ export const state = {
     /* 席位视图（v1.7：ACC/APP/TWR 三张独立管制地图，档案见 data/viewProfiles.js） */
     activeView: 'APP',      // 当前地图（比例尺/平移记忆在 core/viewport.js，切换入口 render/views.js）
 
+    /* 现场玩家位置（可选玩法；旧存档缺失时由 game/avatar.js 初始化） */
+    avatar: null,
+
     /* Endless ATC 位置文件（domain/locations.js 导入，几何已换算为世界坐标） */
     location: null,
 

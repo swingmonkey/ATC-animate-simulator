@@ -2,13 +2,15 @@
 import { bus, EV } from '../core/eventBus.js';
 import { state } from '../core/store.js';
 import { escapeHtml } from '../core/dom.js';
-import { WORKSPACES, WORKSPACE_ORDER } from '../data/workspaces.js';
+import { WORKSPACES, WORKSPACE_ORDER, seatApproachPoint } from '../data/workspaces.js';
 import { managementSummary } from '../game/management.js';
+import { setAvatarTarget, visitWorkspace, walkToSeat, fastTravelToSeat,
+    sitAvatar, leaveAvatarSeat } from '../game/avatar.js';
 
 let siteId = 'tower';
 let selectedSeat = 'TWR';
-let openRadar = null;
 let currentModel = null;
+let lastPlayerPosition = null;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 const placeLabel = seat => seat.replace('APP-', '进近·').replace('ACC-', '区调·');
@@ -65,6 +67,18 @@ function staffFigure(x, y, label, className = '') {
     </g>`;
 }
 
+function playerFigure() {
+    return `<g id="scene-player" class="scene-player" transform="translate(${state.avatar.x} ${state.avatar.y})">
+        <ellipse cy="9" rx="17" ry="8" fill="#071e28" opacity=".35"/>
+        <path class="scene-player-step scene-player-step-left" d="M-8 2V13" stroke="#1b3940" stroke-width="7" stroke-linecap="round"/>
+        <path class="scene-player-step scene-player-step-right" d="M8 2V13" stroke="#1b3940" stroke-width="7" stroke-linecap="round"/>
+        <path d="M-13 4 Q-16 -15 -7 -23 L7 -23 Q16 -15 13 4Z" fill="#e2b84e" stroke="#fff1b8" stroke-width="2"/>
+        <circle cy="-18" r="9" fill="#efc7a1" stroke="#fff1b8" stroke-width="1"/>
+        <path d="M-8 -22 Q0 -33 8 -22" fill="none" stroke="#273e45" stroke-width="6" stroke-linecap="round"/>
+        <text y="34" text-anchor="middle" class="scene-svg-player-label">你</text>
+    </g>`;
+}
+
 function seatSvg(seat) {
     const { x, y } = seat;
     const name = seat.occupant?.name || '';
@@ -80,7 +94,8 @@ function seatSvg(seat) {
         <circle class="scene-screen-dot" cx="${x + 25}" cy="${y - 18}" r="3" fill="#a6f7d6"/>
         <rect x="${x - 29}" y="${y + 10}" width="58" height="8" rx="3" fill="#304d53"/>
         <rect x="${x - 30}" y="${y + 34}" width="60" height="36" rx="14" class="scene-chair"/>
-        ${seat.occupant ? staffFigure(x, y + 55, '', 'scene-seated') : ''}
+        ${seat.occupant && !(state.avatar?.mode === 'SEATED' && state.avatar.site === siteId && state.avatar.seat === seat.code)
+            ? staffFigure(x, y + 55, '', 'scene-seated') : ''}
         <rect x="${x - 46}" y="${y + 73}" width="92" height="24" rx="12" class="scene-seat-tag"/>
         <text x="${x}" y="${y + 89}" text-anchor="middle" class="scene-svg-tag">${code}</text>
         <circle cx="${x + 57}" cy="${y - 39}" r="6" class="scene-status-light"/>
@@ -113,6 +128,9 @@ function roomSvg(model) {
         ${standbyFigures}
         ${supervisor ? `<g id="scene-patrol">${staffFigure(0, 0, supervisor.name, 'scene-supervisor')}</g>` : ''}
         ${seats.map(seatSvg).join('')}
+        ${built && state.avatar?.site === site.id ? playerFigure() : ''}
+        ${built && state.avatar?.site === site.id && state.avatar.destination
+            ? `<circle cx="${state.avatar.destination.x}" cy="${state.avatar.destination.y}" r="20" class="scene-destination"/>` : ''}
         <rect x="452" y="510" width="96" height="28" rx="4" fill="#172f36" stroke="#829b97" stroke-width="2"/>
         <path d="M468 524 H532 M519 516 L532 524 L519 532" stroke="#b1d3ca" stroke-width="2" fill="none"/>
         ${built ? '' : `<rect x="39" y="34" width="922" height="493" rx="10" fill="#091921" opacity=".73" pointer-events="none"/>
@@ -150,6 +168,13 @@ export function updateWorkplaceScene() {
     writeText('scene-room-brief', model.site.brief);
     writeText('scene-room-state', model.built ? '已投入使用' : '待建设');
     writeText('scene-live-label', `第 ${summary.day} 日 · ${state.isPlaying ? '班次运行中' : '班次已暂停'}`);
+    const avatar = state.avatar;
+    const playerSite = avatar && WORKSPACES[avatar.site];
+    const playerStatus = !avatar ? '角色载入中'
+        : avatar.mode === 'SEATED' ? `你正在 ${playerSite.name} · ${avatar.seat} 值守`
+            : avatar.mode === 'WALKING' ? `你正走向 ${playerSite.name} · ${avatar.targetSeat}`
+                : `你在 ${playerSite.name}，可选择席位前往`;
+    writeText('scene-player-status', playerStatus);
     document.getElementById('scene-metrics').innerHTML = `
         <div><strong>${model.open}</strong><span>开放席位</span></div>
         <div><strong>${model.staffed}</strong><span>人员值守</span></div>
@@ -172,18 +197,31 @@ function updateSeatDetail() {
     });
     const detail = document.getElementById('scene-seat-detail');
     const button = document.getElementById('scene-enter-radar');
+    const fastButton = document.getElementById('scene-fast-travel');
+    const leaveButton = document.getElementById('scene-leave-seat');
+    const avatar = state.avatar;
+    const playerHere = avatar?.site === siteId;
+    const sameSeat = playerHere && avatar.mode === 'SEATED' && avatar.seat === seat.code;
+    const point = seatApproachPoint(seat);
+    const near = playerHere && Math.hypot(avatar.x - point.x, avatar.y - point.y) <= 46;
     const message = seat.status === 'staffed' ? `${seat.occupant.name} · 已安排值守`
         : seat.status === 'vacant' ? '席位已开放，尚未安排管制员。'
             : currentModel.built ? '当前合同流量或技术条件尚未开放该席位。' : '先建设此现场，再安排管制员。';
     detail.innerHTML = `<strong>${escapeHtml(placeLabel(seat.code))}</strong><span class="scene-detail-status ${seat.status}">${statusText[seat.status]}</span><p>${escapeHtml(message)}</p>`;
-    button.disabled = seat.status !== 'staffed';
-    button.textContent = seat.status === 'staffed' ? `进入 ${currentModel.site.short} 雷达视角 →` : '安排值守后可进入席位';
+    button.disabled = seat.status !== 'staffed' || !playerHere;
+    button.textContent = seat.status !== 'staffed' ? '安排值守后可进入席位'
+        : !playerHere ? '先进入该现场'
+            : sameSeat ? `进入 ${currentModel.site.short} 雷达视角 →`
+                : near ? '就座并进入雷达 →' : '步行前往席位 →';
+    fastButton.disabled = seat.status !== 'staffed' || !playerHere || sameSeat;
+    leaveButton.classList.toggle('hidden', avatar?.mode !== 'SEATED');
 }
 
 function selectSeat(code) {
     if (!currentModel?.seats.some(seat => seat.code === code)) return;
     selectedSeat = code;
-    updateSeatDetail();
+    if (state.avatar?.site === siteId) setAvatarTarget(code);
+    else updateSeatDetail();
 }
 
 function animatePatrol(time) {
@@ -198,16 +236,27 @@ function animatePatrol(time) {
         const y = path[index][1] + (path[next][1] - path[index][1]) * t;
         actor.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
     }
+    const player = document.getElementById('scene-player');
+    if (player && state.avatar?.site === siteId && document.body.dataset.platformView === 'scene') {
+        player.setAttribute('transform', `translate(${state.avatar.x.toFixed(1)} ${state.avatar.y.toFixed(1)})`);
+        const moving = lastPlayerPosition && Math.hypot(
+            state.avatar.x - lastPlayerPosition.x, state.avatar.y - lastPlayerPosition.y
+        ) > 0.1;
+        player.classList.toggle('moving', !!moving);
+        lastPlayerPosition = { x: state.avatar.x, y: state.avatar.y };
+    } else {
+        lastPlayerPosition = null;
+    }
     requestAnimationFrame(animatePatrol);
 }
 
-export function initWorkplaceScene({ openRadar: onOpenRadar } = {}) {
-    openRadar = onOpenRadar;
+export function initWorkplaceScene() {
     document.getElementById('scene-site-tabs')?.addEventListener('click', event => {
         const button = event.target.closest('button[data-site]');
         if (!button) return;
         siteId = button.dataset.site;
         selectedSeat = WORKSPACES[siteId].seats[0].code;
+        visitWorkspace(siteId);
         updateWorkplaceScene();
     });
     document.getElementById('scene-viewport')?.addEventListener('click', event => {
@@ -226,12 +275,28 @@ export function initWorkplaceScene({ openRadar: onOpenRadar } = {}) {
         if (button) selectSeat(button.dataset.seat);
     });
     document.getElementById('scene-enter-radar')?.addEventListener('click', () => {
-        if (selectedFrom(currentModel)?.status === 'staffed') openRadar?.(currentModel.site.view);
+        if (selectedFrom(currentModel)?.status !== 'staffed') return;
+        const avatar = state.avatar;
+        const seat = selectedFrom(currentModel);
+        const point = seatApproachPoint(seat);
+        if (avatar?.mode === 'SEATED' && avatar.seat === seat.code
+            || avatar?.site === siteId && Math.hypot(avatar.x - point.x, avatar.y - point.y) <= 46) {
+            sitAvatar(seat.code);
+        } else walkToSeat(seat.code);
     });
+    document.getElementById('scene-fast-travel')?.addEventListener('click', () => fastTravelToSeat(selectedSeat));
+    document.getElementById('scene-leave-seat')?.addEventListener('click', leaveAvatarSeat);
     document.getElementById('scene-open-operations')?.addEventListener('click', () => {
         document.querySelector('[data-platform-view="operations"]')?.click();
     });
     [EV.MANAGEMENT_CHANGED, EV.SESSION_STARTED, EV.SESSION_ENDED, EV.PLAYBACK_CHANGED]
         .forEach(event => bus.on(event, updateWorkplaceScene));
+    bus.on(EV.AVATAR_CHANGED, ({ action } = {}) => {
+        if (['visit', 'init', 'left', 'reconcile'].includes(action)) {
+            siteId = state.avatar.site;
+            selectedSeat = state.avatar.targetSeat || WORKSPACES[siteId].seats[0].code;
+        }
+        updateWorkplaceScene();
+    });
     requestAnimationFrame(animatePatrol);
 }
