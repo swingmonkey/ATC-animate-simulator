@@ -174,9 +174,31 @@ canvas.addEventListener('mousedown', e => {
         const labelOffsetX = ac.labelOffsetX !== undefined ? ac.labelOffsetX : 50;
         const labelOffsetY = ac.labelOffsetY !== undefined ? ac.labelOffsetY : -30;
 
+        const labelScreenX = toScreenX(ac.x + labelOffsetX);
+        const labelScreenY = toScreenY(ac.y + labelOffsetY);
+        if (coords.x >= labelScreenX && coords.x <= labelScreenX + HIT.LABEL_W &&
+            coords.y >= labelScreenY && coords.y <= labelScreenY + HIT.LABEL_H) hitLabel = ac;
+    });
+    if (hitLabel) {
+        select({ type: 'aircraft', id: hitLabel.id });
+        state.draggingLabelAc = hitLabel;
+        return;
+    }
+
+    /* 航线 */
+    let hitRoute = null;
+    state.routes.forEach(route => { if (pointOnRoute(mx, my, route) < HIT.ROUTE) hitRoute = route; });
+    if (hitRoute) {
+        select({ type: 'route', id: hitRoute.id });
+        return;
+    }
+
+    select(null);
+});
+
 /* ---------------- 鼠标抬起（飞机贴航线 / 航路点落位） ---------------- */
 
-canvas.addEventListener('mouseup', e => {
+window.addEventListener('mouseup', e => {
     if (state.draggingLabelAc) {
         state.draggingLabelAc = null;
         requestRedraw();
@@ -259,26 +281,4 @@ canvas.addEventListener('dblclick', e => {
         select({ type: 'route', id: hitRoute.id });
         openRouteDialog(hitRoute.id);
     }
-});
-
-        const labelScreenX = toScreenX(ac.x + labelOffsetX);
-        const labelScreenY = toScreenY(ac.y + labelOffsetY);
-        if (coords.x >= labelScreenX && coords.x <= labelScreenX + HIT.LABEL_W &&
-            coords.y >= labelScreenY && coords.y <= labelScreenY + HIT.LABEL_H) hitLabel = ac;
-    });
-    if (hitLabel) {
-        select({ type: 'aircraft', id: hitLabel.id });
-        state.draggingLabelAc = hitLabel;
-        return;
-    }
-
-    /* 航线 */
-    let hitRoute = null;
-    state.routes.forEach(route => { if (pointOnRoute(mx, my, route) < HIT.ROUTE) hitRoute = route; });
-    if (hitRoute) {
-        select({ type: 'route', id: hitRoute.id });
-        return;
-    }
-
-    select(null);
 });

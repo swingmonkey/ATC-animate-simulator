@@ -113,7 +113,7 @@ function attachDiagnostics(win) {
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 /** 阶段一：启动自检 + 生成场景 + 开始播放 */
-const SCRIPT_BOOT = `(() => {
+const SCRIPT_BOOT = `(async () => {
     const A = window.__ATC__;
     const st = A && A.state;
     const c = document.getElementById('radar-canvas');
@@ -143,6 +143,50 @@ const SCRIPT_BOOT = `(() => {
     out.autoClearanceDefault = st.autoClearance === true;
     out.phasesAssigned = st.aircraft.filter(ac => !!ac.phase && !!ac.flow && !!ac.wake).length;
     out.clearanceArrays = st.aircraft.every(ac => Array.isArray(ac.clearances));
+    const vp = await import('./js/core/viewport.js');
+    const rect = c.getBoundingClientRect();
+    const mouse = (type, x, y, target = c) => target.dispatchEvent(new MouseEvent(type, {
+        bubbles: true, button: 0, clientX: rect.left + x, clientY: rect.top + y
+    }));
+    const savedAircraft = st.aircraft;
+    const savedPoints = st.routePoints;
+    const savedRoutes = st.routes;
+    const testPoint = { id: -918, name: 'TEST', type: 'normal', x: vp.toWorldX(220), y: vp.toWorldY(220) };
+    st.aircraft = [];
+    st.routePoints = [testPoint];
+    st.routes = [];
+    mouse('dblclick', 220, 220);
+    out.phase1FirstDblClick = !document.getElementById('point-edit-dialog').classList.contains('hidden');
+    document.querySelector('#point-edit-dialog .dialog-close').click();
+
+    const dragAc = savedAircraft[0];
+    const old = { x: dragAc.x, y: dragAc.y, displayX: dragAc.displayX, displayY: dragAc.displayY, routeId: dragAc.routeId };
+    dragAc.x = vp.toWorldX(400); dragAc.y = vp.toWorldY(400);
+    dragAc.displayX = dragAc.x; dragAc.displayY = dragAc.y;
+    st.aircraft = [dragAc];
+    st.routePoints = [];
+    mouse('mousedown', 400, 400);
+    mouse('mousemove', 430, 420);
+    mouse('mouseup', -10, -10, window);
+    const releasedX = dragAc.x, releasedY = dragAc.y;
+    mouse('mousemove', 450, 430);
+    out.phase1DragEndsOutside = dragAc.x === releasedX && dragAc.y === releasedY;
+
+    st.routePoints = [testPoint];
+    mouse('mousedown', 10, 10);
+    mouse('mousedown', 10, 10);
+    let selections = 0;
+    const offSelection = A.bus.on(A.EV.SELECTION_CHANGED, () => { selections++; });
+    mouse('dblclick', 220, 220);
+    offSelection();
+    out.phase1DblClickOnce = selections === 1;
+    document.querySelector('#point-edit-dialog .dialog-close').click();
+    Object.assign(dragAc, old);
+    st.aircraft = savedAircraft;
+    st.routePoints = savedPoints;
+    st.routes = savedRoutes;
+    st.selectedItem = null;
+    st.editingPointId = null;
     const speed = document.getElementById('speed-select');
     speed.value = '5';
     speed.dispatchEvent(new Event('change'));
@@ -954,6 +998,9 @@ async function runSmoke() {
         ['画布已按容器尺寸初始化', report.canvasSized === true],
         ['启动通话消息已渲染', (report.bootCommMessages ?? 0) >= 4],
         ['第一阶段：沙盒启动可选关并可拖动时间轴', report.phase1SandboxUsable === true],
+        ['第一阶段：空机时首次双击航路点有效', report.phase1FirstDblClick === true],
+        ['第一阶段：画布外松开结束首次拖拽', report.phase1DragEndsOutside === true],
+        ['第一阶段：反复点击后双击只触发一次', report.phase1DblClickOnce === true],
         ['随机场景生成航班', (report.aircraft ?? 0) >= 7],
         ['随机场景生成航线', (report.routes ?? 0) >= 7],
         ['航路点面板已重建', (report.pointItems ?? 0) > 0],
