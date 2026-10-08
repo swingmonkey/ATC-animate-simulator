@@ -3,12 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>空管雷达动画模拟器</title>
+    <title>空管模拟运营平台 · ATC Simulator</title>
     <link rel="icon" href="build/icon.ico">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="app">
+        <header class="platform-header">
+            <div class="platform-brand"><span class="platform-mark">ATC</span><span>空管模拟运营<small>经营决策 × 雷达值班</small></span></div>
+            <nav class="platform-nav" aria-label="平台视图">
+                <button type="button" data-platform-view="operations" aria-current="false">经营指挥台</button>
+                <button type="button" data-platform-view="radar" aria-current="false">雷达值班</button>
+            </nav>
+            <span class="platform-save-note">进度保存在当前浏览器</span>
+        </header>
+
+        <main id="operations-view" class="operations-view hidden" aria-label="经营指挥台">
+            <div class="operations-shell">
+                <div class="operations-intro">
+                    <div><span class="operations-eyebrow">ATC · 经营指挥台</span><h1>经营你的空管单位</h1>
+                        <p>签下航班合同，配置人员与设施；每个经营日的表现都由你的值班成绩决定。</p>
+                        <p id="operations-paused-note" class="operations-paused-note hidden">雷达已暂停。返回值班后，点击“播放”继续。</p></div>
+                    <button id="operations-duty-btn" type="button" class="operations-duty-btn">进入雷达值班 →</button>
+                </div>
+                <div class="operations-next" role="status" aria-live="polite"><strong>下一步</strong><span id="operations-next-text">正在读取经营状态…</span>
+                    <button id="operations-next-action" type="button">查看操作 ↓</button></div>
+                <section class="panel-section operations-management" id="management-section" aria-label="单位经营操作">
+                    <div class="operations-block operations-overview"><h2>经营总览</h2><div id="management-body" class="session-hud">--</div></div>
+                    <div class="operations-block"><h2>人员与排班</h2><div id="management-staff-list" class="seat-list"></div></div>
+                    <div class="operations-block"><h2>设施建设</h2><div id="management-room-list" class="seat-list"></div></div>
+                    <div class="operations-block"><h2>航班合同</h2><div id="management-contract-list" class="seat-list"></div></div>
+                    <div class="operations-block"><h2>技术升级</h2><div id="management-tech-list" class="seat-list"></div></div>
+                    <div class="operations-block"><h2>席位规划</h2><div id="management-seat-list" class="seat-list"></div></div>
+                    <div class="operations-block"><h2>实验运行</h2><div id="management-trial-list" class="seat-list"></div>
+                        <button id="management-trial-btn" class="route-btn" type="button">申请实验运行</button></div>
+                    <div class="operations-block operations-settlement"><h2>日结算</h2><p>结束今日会结算合同收入、薪酬与设施维护，并推进培训及审批。</p>
+                        <button id="management-day-btn" class="add-btn" type="button">结束今日并结算</button></div>
+                </section>
+            </div>
+        </main>
         <div id="main-content">
             <div id="radar-container">
                 <canvas id="radar-canvas"></canvas>
@@ -139,18 +172,6 @@
                     <div id="comm-feedback" class="comm-feedback" role="status" aria-live="polite"></div>
                 </div>
 
-                <div class="panel-section" id="management-section">
-                    <h3 class="section-title">🏢 单位经营</h3>
-                    <div id="management-body" class="session-hud">--</div>
-                    <div id="management-staff-list" class="seat-list"></div>
-                    <div id="management-room-list" class="seat-list"></div>
-                    <div id="management-tech-list" class="seat-list"></div>
-                    <div id="management-contract-list" class="seat-list"></div>
-                    <div id="management-seat-list" class="seat-list"></div>
-                    <div id="management-trial-list" class="seat-list"></div>
-                    <button id="management-trial-btn" class="route-btn" style="width:100%;margin-top:6px;">📝 申请实验运行</button>
-                    <button id="management-day-btn" class="add-btn" style="width:100%;margin-top:4px;">⏭ 结束今日并结算</button>
-                </div>
                 <div class="panel-section" id="session-section">
                     <h3 class="section-title">🎯 班次与评分</h3>
                     <div style="display:flex;gap:4px;margin-bottom:6px;">

@@ -1390,3 +1390,96 @@ body {
     color: #475569;
     flex: 1 1 auto;
 }
+
+/* ---------------- 模拟运营平台：经营指挥台 / 雷达值班 ---------------- */
+
+.platform-header {
+    min-height: 62px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 24px;
+    color: #e2e8f0;
+    background: #111c2d;
+    border-bottom: 1px solid #334155;
+}
+
+.platform-brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.platform-brand small { display: block; margin-top: 2px; color: #94a3b8; font-size: 10px; font-weight: 400; letter-spacing: .06em; }
+.platform-mark { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #5eead4; border-radius: 7px; color: #5eead4; font: 700 13px Consolas, monospace; }
+.platform-nav { display: flex; gap: 4px; padding: 4px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; }
+.platform-nav button { border: 0; border-radius: 5px; padding: 8px 16px; color: #cbd5e1; background: transparent; font: 600 12px 'Microsoft YaHei', sans-serif; cursor: pointer; }
+.platform-nav button[aria-current="page"] { color: #0f172a; background: #5eead4; }
+.platform-nav button:hover:not([aria-current="page"]) { color: #fff; background: #334155; }
+.platform-nav button:focus-visible, .operations-duty-btn:focus-visible, .operations-management button:focus-visible,
+.operations-management select:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 2px; }
+.platform-save-note { margin-left: auto; color: #94a3b8; font-size: 11px; white-space: nowrap; }
+
+.operations-view { flex: 1; min-height: 0; overflow-y: auto; background: #eef2f4; color: #1e293b; }
+.operations-shell { max-width: 1260px; margin: 0 auto; padding: 28px 28px 44px; }
+.operations-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 0 0 24px; border-bottom: 1px solid #cbd5e1; }
+.operations-eyebrow { color: #0f766e; font: 700 11px Consolas, monospace; letter-spacing: .12em; }
+.operations-intro h1 { margin: 8px 0; font-size: clamp(24px, 3vw, 34px); line-height: 1.2; color: #0f172a; }
+.operations-intro p { max-width: 630px; color: #64748b; font-size: 13px; line-height: 1.6; }
+.operations-intro .operations-paused-note { margin-top: 8px; color: #b45309; font-weight: 700; }
+.operations-duty-btn { flex: 0 0 auto; border: 1px solid #0f766e; border-radius: 6px; padding: 11px 18px; background: #0f766e; color: #fff; font: 700 13px 'Microsoft YaHei', sans-serif; cursor: pointer; }
+.operations-duty-btn:hover { background: #115e59; }
+.operations-next { display: flex; gap: 14px; align-items: baseline; margin: 20px 0; padding: 14px 18px; border-left: 3px solid #0f766e; background: #e1f3ee; color: #134e4a; font-size: 13px; line-height: 1.5; }
+.operations-next strong { flex: 0 0 auto; }
+.operations-next button { flex: 0 0 auto; margin-left: auto; padding: 3px 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: #0f766e; font-weight: 700; cursor: pointer; }
+.operations-management.panel-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; padding: 0; border: 0; box-shadow: none; background: transparent; }
+.operations-block { min-width: 0; padding: 18px; border: 1px solid #d8e1e8; border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.operations-block h2 { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 15px; }
+.operations-overview { grid-column: 1 / -1; }
+.operations-overview #management-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.operations-overview .session-row { display: block; min-width: 0; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
+.operations-overview .session-row strong { display: block; margin: 3px 0; color: #0f172a; font-size: 19px; overflow-wrap: anywhere; }
+.operations-overview .session-row em { display: block; margin: 0; color: #64748b; }
+.operations-overview .mgmt-status { grid-column: 1 / -1; font-size: 12px; }
+.operations-management .seat-hint { margin-bottom: 8px; font-size: 11px; line-height: 1.5; }
+.operations-management .mgmt-btn, .operations-management .mgmt-seat-select { min-height: 34px; font-size: 12px; }
+.operations-management .mgmt-staff { padding: 10px; }
+.operations-management .mgmt-staff-head { flex-wrap: wrap; }
+.operations-management .mgmt-tags { font-size: 11px; }
+.operations-management .seat-row { flex-wrap: wrap; }
+.operations-management .seat-freq { overflow-wrap: anywhere; }
+.operations-management #management-trial-btn, .operations-management #management-day-btn { width: 100%; margin-top: 8px; }
+.operations-settlement p { margin-bottom: 10px; color: #64748b; font-size: 12px; line-height: 1.6; }
+
+@media (max-width: 850px) {
+    .platform-header { flex-wrap: wrap; gap: 10px 18px; padding: 10px 16px; }
+    .platform-save-note { display: none; }
+    .operations-shell { padding: 20px 16px 32px; }
+    .operations-management.panel-section { grid-template-columns: 1fr; }
+    .operations-overview { grid-column: auto; }
+    .operations-overview #management-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+    .platform-header { align-items: stretch; }
+    .platform-brand { width: 100%; }
+    .platform-nav { width: 100%; }
+    .platform-nav button { flex: 1; }
+    .operations-intro { align-items: stretch; flex-direction: column; gap: 16px; }
+    .operations-duty-btn { width: 100%; }
+    .operations-next { align-items: flex-start; flex-direction: column; gap: 3px; }
+    .operations-next button { margin: 7px 0 0; }
+    .operations-overview #management-body { grid-template-columns: 1fr; }
+    .operations-block { padding: 14px; }
+}
+
+@media (max-width: 700px) {
+    #main-content { min-height: 0; flex-direction: column; }
+    #radar-container { flex: 1 1 auto; min-height: 0; }
+    #progress-overlay { display: none; }
+    #right-panel { flex: 0 0 42%; width: 100%; min-height: 0; padding: 8px; border-left: 0; border-top: 2px solid #cbd5e1; }
+    #session-section { order: -5; }
+    #progress-section { order: -4; }
+    #console-section { order: -3; }
+    #comm-section { order: -2; }
+    #seat-section { order: -1; }
+    #toolbar { flex: 0 0 52px; justify-content: center; padding: 0 8px; }
+    #toolbar-left, #toolbar-right, #time-slider { display: none; }
+    #time-control { gap: 5px; }
+    #time-display { min-width: 70px; font-size: 12px; }
+}

@@ -112,6 +112,30 @@ function attachDiagnostics(win) {
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
+const SCRIPT_PLATFORM_VIEW = `(() => {
+    const operations = document.getElementById('operations-view');
+    const radar = document.getElementById('main-content');
+    const nav = document.querySelector('[data-platform-view="operations"]');
+    const startedInRadar = document.body.dataset.platformView === 'radar' && !radar.classList.contains('hidden');
+    const wasPlaying = window.__ATC__.state.isPlaying;
+    nav.click();
+    const operationsVisible = !operations.classList.contains('hidden')
+        && radar.classList.contains('hidden')
+        && document.getElementById('management-staff-list').closest('#operations-view') === operations
+        && document.getElementById('operations-next-text').textContent.includes('区域支线包');
+    const pausedSafely = wasPlaying && !window.__ATC__.state.isPlaying
+        && !document.getElementById('operations-paused-note').classList.contains('hidden');
+    document.getElementById('operations-duty-btn').click();
+    if (wasPlaying) document.getElementById('play-pause-btn').click();
+    return {
+        platformViewSwitch: startedInRadar && operationsVisible
+            && document.body.dataset.platformView === 'radar'
+            && !radar.classList.contains('hidden'),
+        platformViewPause: pausedSafely && window.__ATC__.state.isPlaying,
+        platformRadarResized: document.getElementById('radar-canvas').width > 0
+    };
+})()`;
+
 /** 阶段一：启动自检 + 生成场景 + 开始播放 */
 const SCRIPT_BOOT = `(async () => {
     const A = window.__ATC__;
@@ -1132,6 +1156,7 @@ async function runSmoke() {
         });
         await wait(1000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_BOOT));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PLATFORM_VIEW));
         await wait(3000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_INTERACT));
         await win.webContents.executeJavaScript(SCRIPT_AUTO);
@@ -1156,6 +1181,41 @@ async function runSmoke() {
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_R1_VERIFY));
         // 阶段十三：空管单位经营（v1.7 M1）——招聘 / 任命 / 培训 / 建设 / 技术 / 合同 / 局方 / 日结算
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_MGMT));
+        await win.webContents.executeJavaScript("document.querySelector('[data-platform-view=operations]').click()");
+        await wait(180);
+        try {
+            const image = await win.webContents.capturePage();
+            const shotPath = path.join(app.getPath('userData'), 'operations-shot.png');
+            writeFileSync(shotPath, image.toPNG());
+            report.operationsScreenshot = shotPath;
+        } finally {
+            await win.webContents.executeJavaScript("document.querySelector('[data-platform-view=radar]').click()");
+        }
+        const expectedManagement = await win.webContents.executeJavaScript(`(() => {
+            const A = window.__ATC__;
+            const m = A.management.summary();
+            return { day: m.day, cash: m.cash, staffCount: m.staffCount,
+                roomCount: m.roomCount, contractCount: m.contractCount, tech: m.tech,
+                routePoints: A.state.routePoints.length };
+        })()`);
+        const restoredWin = createWindow({ show: false, headless: true });
+        try {
+            await new Promise((resolve, reject) => {
+                restoredWin.webContents.once('did-finish-load', resolve);
+                restoredWin.webContents.once('did-fail-load', () => reject(new Error('存档恢复窗口加载失败')));
+                setTimeout(() => reject(new Error('存档恢复窗口超时')), 20000);
+            });
+            const restoredManagement = await restoredWin.webContents.executeJavaScript(`(() => {
+                const A = window.__ATC__;
+                const m = A.management.summary();
+                return { day: m.day, cash: m.cash, staffCount: m.staffCount,
+                    roomCount: m.roomCount, contractCount: m.contractCount, tech: m.tech,
+                    routePoints: A.state.routePoints.length };
+            })()`);
+            report.managementReloadRestored = JSON.stringify(restoredManagement) === JSON.stringify(expectedManagement);
+        } finally {
+            restoredWin.close();
+        }
         // 阶段十四：v1.8 M2 —— 事件 / 迁移 / 多机场 / 难度曲线 / 扇区拆分
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_M2));
         // 离屏渲染下抓取整屏截图，便于人工核验渲染效果
@@ -1217,6 +1277,9 @@ async function runSmoke() {
     }
 
     const checks = [
+        ['平台：经营指挥台与雷达值班可切换、切走时安全暂停', report.platformViewSwitch === true
+            && report.platformViewPause === true && report.platformRadarResized === true],
+        ['平台：经营操作及场景刷新后恢复', report.managementReloadRestored === true],
         ['启动句柄存在', report.bootOk === true],
         ['画布已按容器尺寸初始化', report.canvasSized === true],
         ['启动通话消息已渲染', (report.bootCommMessages ?? 0) >= 4],

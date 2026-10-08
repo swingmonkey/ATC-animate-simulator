@@ -15,6 +15,7 @@
 
 import { escapeHtml } from '../core/dom.js';
 import { STAFF_ROLES } from '../data/management.js';
+import { updateOperationsSummary } from './platformView.js';
 import {
     managementSummary, hireStaff, appointSupervisor, trainStaff,
     buildRoom, upgradeTech, assignSeat, signContract, requestTrialRun, endDay
@@ -251,6 +252,7 @@ export function updateManagementPanel() {
     renderContracts(m);
     renderSeats(m);
     renderTrial(m);
+    updateOperationsSummary(m);
 
     const dayBtn = document.getElementById('management-day-btn');
     if (dayBtn) dayBtn.textContent = `⏭ 结束第 ${m.day} 日并结算`;

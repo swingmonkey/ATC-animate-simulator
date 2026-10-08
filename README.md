@@ -201,10 +201,28 @@ ATC-animate-simulator/
 ### 浏览器运行（零构建）
 
 ```bash
-git clone https://github.com/swingmonkey/ATC-animate-simulator.git
+git clone git@github.com:swingmonkey/ATC-animate-simulator.git
 cd ATC-animate-simulator
 python -m http.server 8000
 # 打开 http://localhost:8000
+```
+
+网页默认进入**经营指挥台**：签合同、建设设施、招聘并排席，再切换到**雷达值班**完成班次。经营进度自动保存在当前浏览器的 `localStorage`，换浏览器或设备不会自动同步。Electron 桌面版默认进入雷达值班，顶部也可切换视图。
+
+### 在线游玩与部署
+
+在线地址：[空管模拟运营平台](https://www.airtraffic.site/atc-simulator/)。该子路径由 HP 服务器 Nginx 提供静态文件，独立于根站点。
+
+Windows 家里 PC 在提交并推送代码、确认 `npm run check` 与 `npm run smoke` 通过后运行：
+
+```powershell
+.\deploy\deploy-web.ps1
+```
+
+脚本只打包 `index.html`、`styles.css`、`js/`、`build/icon.ico`；在 `/var/www/atc-simulator/releases/<commit>` 保存版本，通过 `current` 符号链接切换。首次部署会备份 `/etc/nginx/sites-available/airtraffic`，仅添加 `/atc-simulator/` 路径配置，并在重载前执行 `nginx -t`。上一版链接保存在 `/var/www/atc-simulator/previous`。如需回退：
+
+```bash
+ssh hp 'ln -sfn "$(readlink -f /var/www/atc-simulator/previous)" /var/www/atc-simulator/current.next && mv -Tf /var/www/atc-simulator/current.next /var/www/atc-simulator/current'
 ```
 
 ### 桌面运行（Electron）
@@ -249,8 +267,8 @@ npm run build:win
 ### 校验与冒烟测试
 
 ```bash
-npm run check    # 静态校验 78 个模块、722 条具名导入、283 条跨层引用 + 循环依赖 + 层级越界
-npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，146 项断言
+npm run check    # 校验导入、循环依赖与层级边界
+npm run smoke    # Electron 离屏端到端冒烟；含经营视图、存档恢复与 L1 教学
 npm run location -- <机场文件.txt>   # Endless ATC 位置文件离线校验（解析摘要 + 告警）
 ```
 
@@ -459,4 +477,3 @@ MIT License
 
 - 项目地址：https://github.com/swingmonkey/ATC-animate-simulator
 - 作者：swingmonkey
-

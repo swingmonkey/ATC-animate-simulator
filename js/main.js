@@ -52,6 +52,7 @@ import { initFormBindings } from './ui/formBindings.js';
 import { initSessionPanel, initRosterPanel, initManagementPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
 import { hudModel } from './render/hud.js';
 import { initTutorialPanel } from './ui/tutorialPanel.js';
+import { initPlatformView } from './ui/platformView.js';
 import { tickKeyboard } from './interaction/index.js';
 
 let _lastTime = performance.now();
@@ -94,6 +95,7 @@ initTutorialPanel();               // L1 教学卡片的复诵核对按钮
 initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
 initRosterPanel();                 // 值班面板：申请不参加本次执勤（§128 权利，绑定一次）
 initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 合同 / 局方审批（事件委托，绑定一次）
+initPlatformView();                 // 网页经营首页 / 雷达值班双视图
 
 if (loadState()) {
     normalizeScene();                 // 领域字段补齐（旧存档 ac.phase → ac.flow）
@@ -106,7 +108,7 @@ addComm('atc', '空管雷达模拟器已启动（领域层分层版 v2 · P1 班
 addComm('atc', '滚轮缩放地图 | ASWD或方向键移动 | 点击播放开始模拟');
 addComm('atc', '场景数据自动保存在浏览器本地（localStorage）');
 addComm('atc', '右侧「🎯 班次与评分」→ 开始班次：导演注入无限流量并按目标结算评级（班次内不可回溯时间轴）');
-addComm('atc', '右侧「🏢 单位经营」→ 招聘/建设/升级/签合同，点「结束今日并结算」推进日次（资金 / 声望 / 实验运行）');
+addComm('atc', '顶部「经营指挥台」→ 招聘/建设/升级/签合同，点「结束今日并结算」推进日次（资金 / 声望 / 实验运行）');
 
 /** 自动化冒烟测试与调试用只读句柄（装配点导出，业务层不得依赖） */
 window.__ATC__ = {

@@ -124,6 +124,8 @@ export function initSubscriptions() {
     [EV.MANAGEMENT_CHANGED, EV.STAFF_CHANGED, EV.ROOM_CHANGED,
         EV.CONTRACT_CHANGED, EV.TRIAL_CHANGED, EV.DAY_SETTLED
     ].forEach(evt => bus.on(evt, updateManagementPanel));
+    // 各经营动作最后统一发 management:changed；只在此落盘一次，刷新页面可恢复进度。
+    bus.on(EV.MANAGEMENT_CHANGED, saveState);
 
     /* v1.8 M2：随机特情 / 复飞 / 席位开合 → 席位 · 值班 · 经营 · 进程单即时刷新（无需手动刷新） */
     const refreshM2Panels = () => {
