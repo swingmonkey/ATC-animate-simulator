@@ -1007,6 +1007,34 @@ const SCRIPT_PHASE1_CLOCK = `(async () => {
     st.location = oldLocation;
     return out;
 })()`;
+const SCRIPT_PHASE2_RULES = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const clock = await import('./js/core/clock.js');
+    const speedSelect = document.getElementById('speed-select');
+    const clearanceToggle = document.getElementById('auto-clearance-toggle');
+    st.autoClearance = true;
+    st.timeSpeed = 1;
+    speedSelect.value = '1';
+    A.game.start({ scenarioId: 'l1-approach-basic' });
+    const initialSpeed = st.timeSpeed;
+    const manualAtStart = !st.autoClearance && clearanceToggle.disabled && !clearanceToggle.checked;
+    st.timeSpeed = 60;
+    for (let i = 0; i < 10; i++) clock.tickClock(0.1);
+    const dir = A.game.director();
+    const out = {
+        phase2L1Controlled: initialSpeed === 5 && manualAtStart
+            && dir.spawned.arrival === 1 && dir.spawned.departure === 0
+            && dir.totalSpawned === 1 && A.events.summary().count === 0
+    };
+    A.game.end({ reason: '教学规则测试' });
+    out.phase2PreferencesRestored = st.autoClearance === true && st.timeSpeed === 1
+        && !clearanceToggle.disabled && speedSelect.value === '1';
+    A.game.start({ scenarioId: 'l2-departure-rush' });
+    out.phase2OtherLevelsUntouched = st.autoClearance === true && !clearanceToggle.disabled;
+    A.game.end({ reason: '教学规则测试' });
+    return out;
+})()`;
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -1057,6 +1085,7 @@ async function runSmoke() {
         }
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE1_RESULTS));
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE1_CLOCK));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE2_RULES));
     } catch (e) {
         pageFailures.push(String((e && e.message) || e));
     }
@@ -1103,6 +1132,9 @@ async function runSmoke() {
         ['第一阶段：落地机不参与冲突配对', report.phase1LandedNoConflict === true],
         ['第一阶段：1×/10×/60× 的落地与违规结果一致', report.phase1RateIndependent === true],
         ['第一阶段：游戏时钟跨过显示上限仍继续出流', report.phase1MonotonicClock === true],
+        ['第二阶段：L1 手动许可且只生成教学航班', report.phase2L1Controlled === true],
+        ['第二阶段：结束 L1 后恢复自动许可与倍率', report.phase2PreferencesRestored === true],
+        ['第二阶段：L2 保留现有自动许可规则', report.phase2OtherLevelsUntouched === true],
         ['随机场景生成航班', (report.aircraft ?? 0) >= 7],
         ['随机场景生成航线', (report.routes ?? 0) >= 7],
         ['航路点面板已重建', (report.pointItems ?? 0) > 0],
@@ -1213,7 +1245,7 @@ async function runSmoke() {
         /* ---- P1-B：关卡包 + 指令台 2.0 + 复诵 ---- */
         ['关卡包：内置 L1/L2/L3（目标数与事件数随关卡）', report.levelCount === 3
             && report.levelIds === 'l1-approach-basic,l2-departure-rush,l3-reverse-wind'
-            && report.levelObjectives === '5,6,5' && report.levelEvents === '10,16,11'],
+            && report.levelObjectives === '5,6,5' && report.levelEvents === '8,16,11'],
         ['选中关卡后难度随关卡（下拉灰显 + 任务简述）', report.difficultyLockedForLevel === true
             && report.panelShowsBrief === true],
         ['L2 关卡装载（标准难度 · 16 条事件 · 6 项目标 · 复诵率 8%）', report.l2Active === true

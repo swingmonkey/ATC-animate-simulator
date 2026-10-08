@@ -76,13 +76,18 @@ export function initSubscriptions() {
 
     /* 班次玩法：班次开始/结束/分数变化 → 班次面板（HUD 由 render/index.js 每帧绘制） */
     bus.on(EV.SESSION_STARTED, () => {
+        const speedSelect = document.getElementById('speed-select');
+        if (speedSelect) speedSelect.value = String(state.timeSpeed);
         updateSessionPanel();
         updateSeatPanel();
         updateRosterPanel();
         updateProgressList(true);
     });
     bus.on(EV.SESSION_ENDED, () => {
+        const speedSelect = document.getElementById('speed-select');
+        if (speedSelect) speedSelect.value = String(state.timeSpeed);
         updateSessionPanel();
+        updateSeatPanel();
         updateManagementPanel();
         updateRosterPanel();
         updateProgressList(true);

@@ -277,6 +277,11 @@ export function normalizeScenario(raw = {}) {
         airport,
         difficulty: dif.key,
         seed: Number.isFinite(raw.seed) ? raw.seed : DEFAULT_SEED,
+        trafficMode: raw.trafficMode === 'scripted' ? 'scripted' : 'continuous',
+        randomEvents: raw.randomEvents !== false,
+        autoClearance: raw.autoClearance === false ? false : null,
+        tutorial: raw.tutorial === 'arrival-basic' ? 'arrival-basic' : null,
+        initialTimeSpeed: [1, 2, 5, 10, 60].includes(raw.initialTimeSpeed) ? raw.initialTimeSpeed : null,
         config: raw.config || { wind: null, weather: { enabled: false, intensity: 0.4 }, autoRunways: true },
         finish: raw.finish && (raw.finish.count || raw.finish.timeLimit)
             ? { count: num(raw.finish.count, 0), timeLimit: raw.finish.timeLimit ? num(raw.finish.timeLimit, 0) : null }
@@ -303,6 +308,8 @@ export function scenarioSummary(sc) {
         airport: sc.airport,
         difficulty: sc.difficulty,
         difficultyLabel: (DIFFICULTY[sc.difficulty] || DIFFICULTY.standard).label,
+        trafficMode: sc.trafficMode,
+        tutorial: sc.tutorial,
         entrypoints: sc.entrypoints.length,
         airlines: sc.airlineTable.length,
         events: sc.timeline.length,

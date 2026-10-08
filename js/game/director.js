@@ -466,7 +466,7 @@ export function tickDirector() {
         director.cursor++;
         events++;
     }
-    spawnInfinite();
+    if (director.scenario.trafficMode !== 'scripted') spawnInfinite();
     return { spawned: director.totalSpawned, events };
 }
 

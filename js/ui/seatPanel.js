@@ -13,6 +13,7 @@ import { ATC_UNITS, UNIT_ORDER, unitFrequency } from '../data/atcUnits.js';
 import { airportName, runwayList } from '../data/airports.js';
 import { unitSummary } from '../domain/airspace.js';
 import { sectorPlanOf } from '../domain/management.js';
+import { currentSession, isSessionActive } from '../game/session.js';
 
 export function updateSeatPanel() {
     const list = document.getElementById('seat-list');
@@ -52,7 +53,12 @@ export function updateSeatPanel() {
     const handoffBox = document.getElementById('auto-handoff-toggle');
     if (handoffBox) handoffBox.checked = !!state.autoHandoff;
     const clearanceBox = document.getElementById('auto-clearance-toggle');
-    if (clearanceBox) clearanceBox.checked = !!state.autoClearance;
+    if (clearanceBox) {
+        clearanceBox.checked = !!state.autoClearance;
+        const guided = isSessionActive() && currentSession()?.meta.tutorial === 'arrival-basic';
+        clearanceBox.disabled = guided;
+        clearanceBox.title = guided ? 'L1 教学班次由你亲自下达进近与落地许可' : '';
+    }
 }
 
 /**

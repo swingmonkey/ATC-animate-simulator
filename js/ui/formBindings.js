@@ -239,6 +239,7 @@ export function initFormBindings() {
     });
 
     $('auto-clearance-toggle')?.addEventListener('change', e => {
+        if (e.target.disabled) return;
         setAutoClearance(e.target.checked);
         addComm('atc', e.target.checked
             ? '已开启自动许可（离港放行 / 进近许可 / 落地许可）'

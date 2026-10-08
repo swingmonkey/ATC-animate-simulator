@@ -11,7 +11,7 @@
  * 复盘依赖 game/scoring.js 的事件时间轴与 game/director.js 的场景事件序列。
  */
 
-import { state, addComm, setPlaying } from '../core/store.js';
+import { state, addComm, setPlaying, setAutoClearance } from '../core/store.js';
 import { bus, EV } from '../core/eventBus.js';
 import { resetClockAccumulator } from '../core/clock.js';
 import { onAircraftStep, updateAircraftPositionsForTime } from '../simulation/motion.js';
@@ -34,6 +34,14 @@ import { defaultObjectives, evaluateObjectives } from './objectives.js';
 let session = null;
 /** 上一次结算结果（结果页读取；新班次开始时清除） */
 let lastResult = null;
+let sessionPreferences = null;
+
+function restoreSessionPreferences() {
+    if (!sessionPreferences) return;
+    setAutoClearance(sessionPreferences.autoClearance);
+    state.timeSpeed = sessionPreferences.timeSpeed;
+    sessionPreferences = null;
+}
 
 /**
  * 开始一个班次。
@@ -110,6 +118,7 @@ export function sessionResult() { return lastResult; }
  * @returns {{session:object, scenario:object, summary:object}}
  */
 export function startGameSession(opts = {}) {
+    restoreSessionPreferences();
     const builtin = getBuiltinScenario(opts.scenarioId);
     const scenario = normalizeScenario(
         opts.scenario
@@ -119,6 +128,12 @@ export function startGameSession(opts = {}) {
             : defaultScenario(opts))
     );
     const dif = DIFFICULTY[scenario.difficulty] || DIFFICULTY.standard;
+
+    if (scenario.autoClearance === false || scenario.initialTimeSpeed !== null) {
+        sessionPreferences = { autoClearance: state.autoClearance, timeSpeed: state.timeSpeed };
+        if (scenario.autoClearance === false) setAutoClearance(false);
+        if (scenario.initialTimeSpeed !== null) state.timeSpeed = scenario.initialTimeSpeed;
+    }
 
     // 班次从零开始：清空沙盒航班与导演自动航路（用户自建航路点/航线保留）
     state.aircraft = [];
@@ -138,6 +153,8 @@ export function startGameSession(opts = {}) {
         scenarioName: scenario.name,
         scenarioBrief: scenario.brief || '',
         difficulty: scenario.difficulty,
+        tutorial: scenario.tutorial,
+        randomEvents: scenario.randomEvents,
         objectives: scenario.objectives || defaultObjectives()
     });
     setScoringScenario(scenario);                // 跑道构型/门槛优先取关卡数据
@@ -172,6 +189,7 @@ export function endGameSession(opts = {}) {
     stopDirector();
     stopEvents();                                 // 清空进行中的特情调度（active 归零）
     setPlaying(false);
+    restoreSessionPreferences();
 
     const sc = scoringSummary();
     const objectives = evaluateObjectives(currentObjectives(), { scoring: sc, session: summary });
@@ -219,7 +237,7 @@ export function tickSession() {
     if (!isSessionActive()) return;
     tickDirector();
     tickScoring();
-    tickEvents();          // 随机特情抽检/推进
+    if (session.meta.randomEvents !== false) tickEvents(); // 教学班次保持可控流量
     resolveEvents();       // 特情消解/到期释放
     const goal = directorGoal();
     if (goal.met) endGameSession({ reason: goal.reason, outcome: goal.outcome, auto: true });
