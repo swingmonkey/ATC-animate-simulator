@@ -10,9 +10,10 @@
 <body>
     <div id="app">
         <header class="platform-header">
-            <div class="platform-brand"><span class="platform-mark">ATC</span><span>空管模拟运营<small>经营决策 × 雷达值班</small></span></div>
+            <div class="platform-brand"><span class="platform-mark">ATC</span><span>空管模拟运营<small>经营决策 × 现场俯视 × 雷达值班</small></span></div>
             <nav class="platform-nav" aria-label="平台视图">
                 <button type="button" data-platform-view="operations" aria-current="false">经营指挥台</button>
+                <button type="button" data-platform-view="scene" aria-current="false">现场俯视</button>
                 <button type="button" data-platform-view="radar" aria-current="false">雷达值班</button>
             </nav>
             <span class="platform-save-note">进度保存在当前浏览器</span>
@@ -40,6 +41,35 @@
                     <div class="operations-block operations-settlement"><h2>日结算</h2><p>结束今日会结算合同收入、薪酬与设施维护，并推进培训及审批。</p>
                         <button id="management-day-btn" class="add-btn" type="button">结束今日并结算</button></div>
                 </section>
+            </div>
+        </main>
+        <main id="scene-view" class="scene-view hidden" aria-label="管制室现场俯视">
+            <div class="scene-shell">
+                <div class="scene-intro">
+                    <div><span class="operations-eyebrow">ATC · 现场俯视</span><h1>看见每一个管制席位</h1>
+                        <p>房间建设、席位开放和人员排班与经营指挥台实时同步。选择席位查看现场，再进入对应的雷达视角。</p></div>
+                    <div class="scene-live"><span class="scene-live-dot" aria-hidden="true"></span><span id="scene-live-label">读取现场状态…</span></div>
+                </div>
+                <div id="scene-site-tabs" class="scene-site-tabs" role="group" aria-label="选择管制现场"></div>
+                <div class="scene-layout">
+                    <section class="scene-stage" aria-label="二维俯视现场">
+                        <div class="scene-stage-top"><span id="scene-stage-title">现场加载中</span><span>2D · TOP VIEW</span></div>
+                        <div id="scene-viewport" class="scene-viewport"></div>
+                        <div class="scene-stage-bottom"><span><i class="scene-legend-dot staffed"></i>人员值守</span><span><i class="scene-legend-dot vacant"></i>席位空缺</span><span><i class="scene-legend-dot locked"></i>未开放</span></div>
+                    </section>
+                    <aside class="scene-inspector" aria-label="现场状态与席位详情">
+                        <div class="scene-inspector-head"><span>现场档案</span><strong id="scene-room-state">--</strong></div>
+                        <h2 id="scene-room-name">--</h2><p id="scene-room-brief"></p>
+                        <div id="scene-metrics" class="scene-metrics"></div>
+                        <div id="scene-seat-list" class="scene-seat-list" role="group" aria-label="现场席位列表"></div>
+                        <div class="scene-inspector-divider"></div>
+                        <span class="scene-inspector-caption">当前席位</span>
+                        <div id="scene-seat-detail" class="scene-seat-detail" aria-live="polite">点击平面图中的席位查看详情。</div>
+                        <button id="scene-enter-radar" class="scene-primary-btn" type="button" disabled>进入雷达值班 →</button>
+                        <button id="scene-open-operations" class="scene-secondary-btn" type="button">前往经营指挥台</button>
+                    </aside>
+                </div>
+                <p class="scene-footnote">俯视布局为模拟示意，展示当前存档的设施和排班；现场动画不推进班次时钟。</p>
             </div>
         </main>
         <div id="main-content">

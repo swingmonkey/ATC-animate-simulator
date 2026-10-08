@@ -52,7 +52,9 @@ import { initFormBindings } from './ui/formBindings.js';
 import { initSessionPanel, initRosterPanel, initManagementPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
 import { hudModel } from './render/hud.js';
 import { initTutorialPanel } from './ui/tutorialPanel.js';
-import { initPlatformView } from './ui/platformView.js';
+import { initPlatformView, showPlatformView } from './ui/platformView.js';
+import { initWorkplaceScene } from './ui/workplaceScene.js';
+import { focusRadarView } from './render/views.js';
 import { tickKeyboard } from './interaction/index.js';
 
 let _lastTime = performance.now();
@@ -95,7 +97,11 @@ initTutorialPanel();               // L1 教学卡片的复诵核对按钮
 initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
 initRosterPanel();                 // 值班面板：申请不参加本次执勤（§128 权利，绑定一次）
 initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 合同 / 局方审批（事件委托，绑定一次）
-initPlatformView();                 // 网页经营首页 / 雷达值班双视图
+initWorkplaceScene({ openRadar: (view) => {
+    showPlatformView('radar');
+    focusRadarView(view);
+} });
+initPlatformView();                 // 网页经营首页 / 现场俯视 / 雷达值班
 
 if (loadState()) {
     normalizeScene();                 // 领域字段补齐（旧存档 ac.phase → ac.flow）

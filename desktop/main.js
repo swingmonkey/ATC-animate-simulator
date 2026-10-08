@@ -136,6 +136,33 @@ const SCRIPT_PLATFORM_VIEW = `(() => {
     };
 })()`;
 
+/** 现场俯视与经营快照、席位进入雷达的接线回归。 */
+const SCRIPT_SCENE_VIEW = `(() => {
+    const A = window.__ATC__;
+    const m = A.management.summary();
+    document.querySelector('[data-platform-view="scene"]').click();
+    const visible = document.body.dataset.platformView === 'scene'
+        && !document.getElementById('scene-view').classList.contains('hidden')
+        && document.getElementById('main-content').classList.contains('hidden');
+    const countMatches = document.querySelectorAll('.scene-desk.staffed').length
+        === m.staff.filter(staff => staff.seat && m.sectorPlan.tower.includes(staff.seat)).length;
+    const towerSeats = document.querySelectorAll('.scene-desk').length === 5
+        && document.querySelectorAll('.scene-seat-chip').length === 5;
+    document.querySelector('.scene-site-tabs button[data-site="approach"]').click();
+    const approach = document.getElementById('scene-room-name').textContent === '进近现场'
+        && document.querySelectorAll('.scene-desk').length === 6;
+    document.querySelector('.scene-site-tabs button[data-site="area"]').click();
+    const area = document.getElementById('scene-room-name').textContent === '区域现场'
+        && document.querySelectorAll('.scene-desk').length === 4;
+    document.querySelector('.scene-site-tabs button[data-site="tower"]').click();
+    const canEnter = document.getElementById('scene-enter-radar').disabled === false;
+    document.getElementById('scene-enter-radar').click();
+    return { sceneViewSwitch: visible && approach && area && towerSeats,
+        sceneSnapshotLinked: countMatches && canEnter,
+        sceneSeatRadarEntry: document.body.dataset.platformView === 'radar'
+            && A.state.activeView === 'TWR' };
+})()`;
+
 /** 阶段一：启动自检 + 生成场景 + 开始播放 */
 const SCRIPT_BOOT = `(async () => {
     const A = window.__ATC__;
@@ -1181,6 +1208,17 @@ async function runSmoke() {
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_R1_VERIFY));
         // 阶段十三：空管单位经营（v1.7 M1）——招聘 / 任命 / 培训 / 建设 / 技术 / 合同 / 局方 / 日结算
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_MGMT));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_SCENE_VIEW));
+        await win.webContents.executeJavaScript("document.querySelector('[data-platform-view=scene]').click()");
+        await wait(180);
+        try {
+            const image = await win.webContents.capturePage();
+            const shotPath = path.join(app.getPath('userData'), 'scene-shot.png');
+            writeFileSync(shotPath, image.toPNG());
+            report.sceneScreenshot = shotPath;
+        } finally {
+            await win.webContents.executeJavaScript("document.querySelector('[data-platform-view=radar]').click()");
+        }
         await win.webContents.executeJavaScript("document.querySelector('[data-platform-view=operations]').click()");
         await wait(180);
         try {
@@ -1280,6 +1318,9 @@ async function runSmoke() {
         ['平台：经营指挥台与雷达值班可切换、切走时安全暂停', report.platformViewSwitch === true
             && report.platformViewPause === true && report.platformRadarResized === true],
         ['平台：经营操作及场景刷新后恢复', report.managementReloadRestored === true],
+        ['现场：塔台/进近/区调二维俯视可切换', report.sceneViewSwitch === true],
+        ['现场：值守席位与经营快照一致', report.sceneSnapshotLinked === true],
+        ['现场：席位进入对应雷达视角', report.sceneSeatRadarEntry === true],
         ['启动句柄存在', report.bootOk === true],
         ['画布已按容器尺寸初始化', report.canvasSized === true],
         ['启动通话消息已渲染', (report.bootCommMessages ?? 0) >= 4],

@@ -1,15 +1,17 @@
 /** 两个游戏视图共用同一状态；仅切换可见区域，不重建经营或班次。 */
 import { resizeCanvas } from '../core/viewport.js';
 import { state, setPlaying } from '../core/store.js';
+import { updateWorkplaceScene } from './workplaceScene.js';
 
-const VIEWS = ['operations', 'radar'];
+const VIEWS = ['operations', 'scene', 'radar'];
 
 export function showPlatformView(view) {
     if (!VIEWS.includes(view)) return false;
     const operations = document.getElementById('operations-view');
+    const scene = document.getElementById('scene-view');
     const radar = document.getElementById('main-content');
     const toolbar = document.getElementById('toolbar');
-    if (!operations || !radar || !toolbar) return false;
+    if (!operations || !scene || !radar || !toolbar) return false;
 
     const isRadar = view === 'radar';
     if (!isRadar && state.isPlaying) {
@@ -17,7 +19,8 @@ export function showPlatformView(view) {
         document.getElementById('operations-paused-note')?.classList.remove('hidden');
     }
     if (isRadar) document.getElementById('operations-paused-note')?.classList.add('hidden');
-    operations.classList.toggle('hidden', isRadar);
+    operations.classList.toggle('hidden', view !== 'operations');
+    scene.classList.toggle('hidden', view !== 'scene');
     radar.classList.toggle('hidden', !isRadar);
     toolbar.classList.toggle('hidden', !isRadar);
     document.body.dataset.platformView = view;
@@ -26,6 +29,7 @@ export function showPlatformView(view) {
         button.setAttribute('aria-current', current ? 'page' : 'false');
     });
     if (isRadar) resizeCanvas();
+    if (view === 'scene') updateWorkplaceScene();
     return true;
 }
 
