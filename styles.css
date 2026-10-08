@@ -1674,3 +1674,79 @@ body {
     #time-control { gap: 5px; }
     #time-display { min-width: 70px; font-size: 12px; }
 }
+
+/* 雷达值班：清爽的掌机动画配色，常用指令固定在第一层。 */
+#radar-container {
+    background: #f1f7f2;
+    border: 3px solid #28445a;
+    border-radius: 12px;
+    box-shadow: 0 4px 0 #b0c9bf, inset 0 0 0 3px #fff9e8;
+}
+#radar-canvas { cursor: crosshair; }
+#progress-overlay { display: none; }
+#right-panel {
+    flex: 0 0 316px;
+    width: 316px;
+    background: #e7f0e8;
+    border-left: 3px solid #28445a;
+    padding: 10px;
+    gap: 9px;
+    scrollbar-color: #9dbbb0 transparent;
+}
+#right-panel > #quick-control { order: 0; }
+#right-panel > #session-section { order: 1; }
+#right-panel > #progress-section { order: 2; }
+#right-panel > #comm-section { order: 3; }
+#right-panel > #radar-advanced-toggle { order: 4; }
+#right-panel > :not(#quick-control):not(#progress-section):not(#comm-section):not(#session-section):not(#radar-advanced-toggle) { order: 5; }
+#right-panel:not(.advanced-open) > :not(#quick-control):not(#progress-section):not(#comm-section):not(#session-section):not(#radar-advanced-toggle) { display: none; }
+#right-panel > .panel-section,
+#right-panel > #tool-palette {
+    flex: 0 0 auto;
+    background: #fffaf0;
+    border: 2px solid #28445a;
+    border-radius: 10px;
+    padding: 11px;
+    box-shadow: 3px 3px 0 #aac8bd;
+}
+#right-panel .section-title { color: #28445a; border-bottom-color: #d9e8dc; }
+#quick-control { display: grid; gap: 10px; }
+.quick-kicker { display: flex; justify-content: space-between; align-items: center; color: #28445a; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
+.quick-kicker span:first-child { color: #c75c50; font-size: 15px; }
+.quick-kicker span:last-child { font: 700 10px Consolas, monospace; color: #6b8f88; }
+.quick-readout { min-height: 48px; display: flex; align-items: center; padding: 9px 10px; background: #e4f3e8; border: 1px solid #7cac9b; border-left: 5px solid #168c87; border-radius: 6px; color: #28445a; font-size: 12px; line-height: 1.4; font-weight: 700; }
+.quick-field { display: grid; gap: 6px; }
+.quick-field label { color: #405f65; font-size: 11px; font-weight: 800; }
+.quick-alt-row, .quick-direct-row { display: flex; gap: 5px; min-width: 0; }
+.quick-alt-row > *, .quick-direct-row > * { min-width: 0; }
+#quick-altitude, #quick-waypoint { flex: 1 1 auto; width: 100%; height: 36px; padding: 5px 7px; border: 1.5px solid #8aaba3; border-radius: 6px; background: #fffdf7; color: #28445a; font: 700 12px 'Microsoft YaHei', sans-serif; }
+#quick-altitude { text-align: center; }
+.quick-small-btn, .quick-action-btn, .quick-clearances button, #radar-advanced-toggle { border-radius: 6px; font: 800 12px 'Microsoft YaHei', sans-serif; cursor: pointer; transition: transform .12s, background .12s; }
+.quick-small-btn { flex: 0 0 62px; border: 1.5px solid #168c87; background: #e4f3e8; color: #0c625e; }
+.quick-action-btn { height: 36px; border: 1.5px solid #28445a; background: #168c87; color: #fffdf4; }
+.quick-direct-row .quick-action-btn { flex: 0 0 66px; }
+.quick-clearances { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.quick-clearances button { padding: 8px 4px; border: 1.5px solid #28445a; background: #f8e5b9; color: #28445a; }
+.quick-clearances button:last-child { background: #f5d8cf; }
+.quick-small-btn:not(:disabled):hover, .quick-action-btn:not(:disabled):hover, .quick-clearances button:not(:disabled):hover { transform: translateY(-2px); filter: brightness(1.06); }
+#quick-control button:disabled, #quick-control input:disabled, #quick-control select:disabled { opacity: .45; cursor: not-allowed; }
+.quick-feedback { min-height: 31px; padding: 7px 9px; background: #f4f5df; border-radius: 5px; color: #5d726d; font-size: 11px; line-height: 1.45; }
+.quick-feedback.error { color: #a63838; background: #ffe9e2; }
+#session-start-btn { background: #f4d17f; border: 2px solid #28445a; border-radius: 6px; color: #28445a; }
+#session-start-btn:not(:disabled):hover { background: #f7df9f; }
+#session-end-btn { background: #fff3df; border: 1.5px solid #c75c50; border-radius: 6px; color: #a64740; }
+#session-section .session-hud { max-height: 74px; overflow-y: auto; color: #405f65; font-size: 11px; line-height: 1.45; }
+#radar-advanced-toggle { width: 100%; padding: 9px 10px; background: transparent; border: 1.5px dashed #7da69b; color: #405f65; }
+#radar-advanced-toggle:hover { background: #f2f8ed; }
+#progress-section .progress-list { max-height: 160px; overflow-y: auto; }
+#progress-section .progress-item { background: #fffdf7; border-color: #c6d8cf; }
+#comm-section .comm-messages { max-height: 94px; min-height: 50px; }
+#toolbar { background: #fff9e8; border-top: 3px solid #28445a; }
+#toolbar .tool-btn { border-color: #8cad9e; color: #28445a; background: #fffdf7; }
+#toolbar .tool-btn.active { border-color: #28445a; color: #fffdf7; background: #168c87; }
+
+@media (max-width: 700px) {
+    #right-panel { flex: 0 0 46%; width: 100%; border-left: 0; border-top: 3px solid #28445a; }
+    #radar-container { margin: 3px; }
+    #quick-control { gap: 7px; }
+}

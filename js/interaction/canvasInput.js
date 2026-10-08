@@ -18,6 +18,9 @@ import { requestRedraw } from '../core/eventBus.js';
 import { HIT } from '../core/constants.js';
 import { posX, posY } from '../core/accessors.js';
 import { pointOnRoute, getPositionOnRoute } from '../simulation/geometry.js';
+import { canIssue, issueHint } from '../domain/phases.js';
+import { submitAtcText } from '../ui/commPanel.js';
+import { showQuickFeedback } from '../ui/quickControl.js';
 import {
     updatePointDialogPosition, openAircraftDialog, openPointDialog, openRouteDialog, updateTargetInfo
 } from '../ui/index.js';
@@ -25,6 +28,22 @@ import {
 /* 模块内拖拽会话状态（仅本模块读写） */
 let draggingPoint = null;
 let draggingAc = null;
+let guidingAc = null;
+let guidingStart = null;
+
+function radarGuideAt(ac, coords) {
+    const x = toWorldX(coords.x), y = toWorldY(coords.y);
+    let waypoint = null;
+    let nearest = 22;
+    for (const point of state.routePoints) {
+        const distance = Math.hypot(toScreenX(point.x) - coords.x, toScreenY(point.y) - coords.y);
+        if (distance < nearest) { nearest = distance; waypoint = point; }
+    }
+    const targetX = waypoint?.x ?? x;
+    const targetY = waypoint?.y ?? y;
+    const heading = (Math.round(Math.atan2(targetX - posX(ac), -(targetY - posY(ac))) * 180 / Math.PI) + 360) % 360;
+    return { acId: ac.id, x: targetX, y: targetY, waypointId: waypoint?.id ?? null, waypointName: waypoint?.name ?? null, heading };
+}
 
 /* ---------------- 缩放 ---------------- */
 
@@ -38,6 +57,14 @@ canvas.addEventListener('wheel', e => {
 
 canvas.addEventListener('mousemove', e => {
     const coords = getCanvasCoords(e);
+
+    if (guidingAc && guidingStart && !isEditMode()) {
+        if (Math.hypot(coords.x - guidingStart.x, coords.y - guidingStart.y) >= 8) {
+            state.radarDragPreview = radarGuideAt(guidingAc, coords);
+            canvas.style.cursor = 'grabbing';
+            requestRedraw();
+        }
+    }
 
     if (state.targetSelectMode) {
         state.tempTargetPoint = { x: toWorldX(coords.x), y: toWorldY(coords.y) };
@@ -124,7 +151,7 @@ canvas.addEventListener('mousedown', e => {
     const coords = getCanvasCoords(e);
     const mx = toWorldX(coords.x), my = toWorldY(coords.y);
 
-    /* 播放中：仅允许选择飞机 */
+    /* 值班中：点选飞机；拖动后下达直飞或航向指令 */
     if (!isEditMode()) {
         let hitAc = null;
         state.aircraft.forEach(ac => {
@@ -132,6 +159,10 @@ canvas.addEventListener('mousedown', e => {
             if (Math.sqrt((mx - posX(ac)) ** 2 + (my - posY(ac)) ** 2) < HIT.AIRCRAFT) hitAc = ac;
         });
         select(hitAc ? { type: 'aircraft', id: hitAc.id } : null);
+        guidingAc = hitAc;
+        guidingStart = hitAc ? coords : null;
+        state.radarDragPreview = null;
+        canvas.style.cursor = hitAc ? 'grab' : '';
         return;
     }
 
@@ -199,6 +230,27 @@ canvas.addEventListener('mousedown', e => {
 /* ---------------- 鼠标抬起（飞机贴航线 / 航路点落位） ---------------- */
 
 window.addEventListener('mouseup', e => {
+    if (guidingAc) {
+        const ac = guidingAc;
+        const preview = state.radarDragPreview;
+        guidingAc = null;
+        guidingStart = null;
+        state.radarDragPreview = null;
+        canvas.style.cursor = '';
+        requestRedraw();
+        const rect = canvas.getBoundingClientRect();
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        if (e.button === 0 && inside && preview && !isEditMode() && state.aircraft.includes(ac)) {
+            const type = preview.waypointId !== null ? 'DIRECT' : 'HDG';
+            if (!canIssue(ac, type)) {
+                showQuickFeedback(issueHint(ac, type), true);
+            } else {
+                const words = preview.waypointId !== null ? `直飞 ${preview.waypointName}` : `航向 ${preview.heading}`;
+                const result = submitAtcText(`${ac.flightNo} ${words}`);
+                showQuickFeedback(result?.message, !result?.ok);
+            }
+        }
+    }
     if (state.draggingLabelAc) {
         state.draggingLabelAc = null;
         requestRedraw();

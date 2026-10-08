@@ -35,6 +35,7 @@ export const state = {
     /* 目标点选择（自由导航） */
     targetSelectMode: null,
     tempTargetPoint: null,
+    radarDragPreview: null,
 
     /* 到达航路点询问流程 */
     pendingNextWaypointSelection: null,

@@ -14,7 +14,7 @@ import { drawLocationBackground, drawRestrictedAreas } from './location.js';
 import {
     drawRouteSegments, drawRoutePoints, drawConnectionPreview
 } from './routes.js';
-import { drawAircraft, drawAircraftWarnings, drawFreeNavTargets } from './aircraft.js';
+import { drawAircraft, drawAircraftWarnings, drawFreeNavTargets, drawRadarDragPreview } from './aircraft.js';
 import { drawHud } from './hud.js';
 
 export function drawRadar() {
@@ -36,6 +36,7 @@ export function drawRadar() {
     drawAircraftWarnings();
     drawAircraft();
     drawFreeNavTargets();
+    drawRadarDragPreview();
     drawConnectionPreview();
 
     ctx.restore();

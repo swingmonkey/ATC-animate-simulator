@@ -14,8 +14,9 @@ export function drawRouteSegments() {
     state.routes.forEach(route => {
         if (route.points.length < 2) return;
         ctx.save();
-        ctx.strokeStyle = route.color || '#2563eb';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = route.color || '#168c87';
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 2 / viewScale;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.beginPath();
@@ -23,14 +24,15 @@ export function drawRouteSegments() {
         for (let i = 1; i < route.points.length; i++) ctx.lineTo(route.points[i].x, route.points[i].y);
         ctx.stroke();
 
-        ctx.shadowColor = route.color || '#2563eb';
-        ctx.shadowBlur = 3;
-        ctx.strokeStyle = (route.color || '#2563eb') + '22';
-        ctx.lineWidth = 5;
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 0.10;
+        ctx.strokeStyle = route.color || '#168c87';
+        ctx.lineWidth = 6 / viewScale;
         ctx.beginPath();
         ctx.moveTo(route.points[0].x, route.points[0].y);
         for (let i = 1; i < route.points.length; i++) ctx.lineTo(route.points[i].x, route.points[i].y);
         ctx.stroke();
+        ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
 
         for (let i = 1; i < route.points.length; i++) {

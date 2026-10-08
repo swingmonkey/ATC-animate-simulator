@@ -98,7 +98,7 @@ export function updateModeIndicator() {
         hint?.classList.add('hidden');
         return;
     }
-    indicator.textContent = '模式：选择 | 滚轮缩放 | ASWD移动';
+    indicator.textContent = isEditMode() ? '编辑：点选与拖放 · 滚轮缩放' : '值班：拖动飞机引导 · 滚轮缩放';
     setStyle('#ffffff', '#e2e8f0', '#475569');
     hint?.classList.add('hidden');
 }

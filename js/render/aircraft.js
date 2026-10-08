@@ -29,7 +29,7 @@ export function drawAircraft() {
 
         if (ac.trail && ac.trail.length > 1) {
             ctx.save();
-            ctx.strokeStyle = isSelected ? 'rgba(0,100,0,0.4)' : 'rgba(100,120,180,0.3)';
+            ctx.strokeStyle = isSelected ? 'rgba(24,140,135,0.52)' : 'rgba(83,128,136,0.3)';
             ctx.lineWidth = 1;
             ctx.setLineDash([3, 4]);
             ctx.lineCap = 'round';
@@ -45,41 +45,32 @@ export function drawAircraft() {
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(headRad);
-        if (isWarning) { ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 14; }
-        else if (isSelected) { ctx.shadowColor = '#006400'; ctx.shadowBlur = 10; }
+        if (isWarning) { ctx.shadowColor = '#d85c51'; ctx.shadowBlur = 14; }
+        else if (isSelected) { ctx.shadowColor = '#168c87'; ctx.shadowBlur = 10; }
         else { ctx.shadowColor = '#00000022'; ctx.shadowBlur = 3; }
-        ctx.fillStyle = isWarning ? '#ff2222' : (isSelected ? '#006400' : '#1a1a2e');
-        ctx.strokeStyle = isWarning ? '#ff6666' : (isSelected ? '#228b22' : '#334155');
+        ctx.fillStyle = isWarning ? '#d85c51' : (isSelected ? '#168c87' : '#28445a');
+        ctx.strokeStyle = isWarning ? '#9e3838' : (isSelected ? '#0c625e' : '#28445a');
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(14, 0); ctx.lineTo(-8, -7); ctx.lineTo(-4, 0); ctx.lineTo(-8, 7); ctx.closePath();
         ctx.fill(); ctx.stroke();
-        ctx.fillStyle = isWarning ? '#ffaaaa' : '#94a3b8';
+        ctx.fillStyle = isWarning ? '#fff1e4' : '#f8e6bc';
         ctx.beginPath(); ctx.arc(-2, 0, 2.5, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
         ctx.save();
-        const labelColor = isWarning ? '#ff3333' : (isSelected ? '#006400' : '#16a34a');
-        const bgColor = isWarning ? 'rgba(255,0,0,0.15)' : (isSelected ? 'rgba(0,100,0,0.12)' : 'rgba(255,255,255,0.85)');
+        const labelColor = isWarning ? '#a63838' : (isSelected ? '#0c625e' : '#28445a');
+        const bgColor = isWarning ? 'rgba(255,229,219,0.96)' : (isSelected ? 'rgba(221,247,234,0.97)' : 'rgba(255,249,233,0.95)');
         const labelOffsetX = ac.labelOffsetX !== undefined ? ac.labelOffsetX : 50;
         const labelOffsetY = ac.labelOffsetY !== undefined ? ac.labelOffsetY : -30;
         const labelX = p.x + labelOffsetX, labelY = p.y + labelOffsetY;
-        ctx.font = `bold ${10 / viewScale}px Consolas`;
+        ctx.font = `bold ${11 / viewScale}px 'Microsoft YaHei', sans-serif`;
         const line1 = ac.flightNo || `AC${ac.id}`;
         const line2 = `${p.alt}m ${p.spd}kt`;
-        const line3 = ac.acType || '';
-        const line4 = ac.destination ? `→ ${ac.destination}` : '';
-        // 第 5 行：管制席位 + 跑道 + 进近方式（塔台/进近管制内容在雷达标签上的体现）
         const seat = unit(ac.unit || 'ACC');
-        const line5 = ac.landed
-            ? '已落地'
-            : `${seat.short}${ac.runway ? ` R${ac.runway}` : ''}${ac.approachType ? ` ${ac.approachType}` : ''}`;
-        const boxW = Math.max(
-            ctx.measureText(line1).width, ctx.measureText(line2).width,
-            ctx.measureText(line3).width, ctx.measureText(line4).width,
-            ctx.measureText(line5).width
-        ) / viewScale + 8 / viewScale;
-        const boxH = (line5 ? 66 : (line4 ? 54 : 44)) / viewScale;
+        const line3 = ac.landed ? '已落地' : `${seat.short}${ac.destination ? `  → ${ac.destination}` : ''}`;
+        const boxW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width, ctx.measureText(line3).width) + 14 / viewScale;
+        const boxH = 43 / viewScale;
 
         const corners = [
             { x: labelX, y: labelY }, { x: labelX + boxW, y: labelY },
@@ -90,7 +81,7 @@ export function drawAircraft() {
             const d = Math.sqrt((c.x - p.x) ** 2 + (c.y - p.y) ** 2);
             if (d < minDist) { minDist = d; nearestCorner = c; }
         }
-        ctx.strokeStyle = isSelected ? '#00640088' : 'rgba(100,120,180,0.4)';
+        ctx.strokeStyle = isSelected ? '#168c8788' : 'rgba(83,128,136,0.45)';
         ctx.lineWidth = 0.5 / viewScale;
         ctx.setLineDash([2 / viewScale, 2 / viewScale]);
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(nearestCorner.x, nearestCorner.y); ctx.stroke();
@@ -98,26 +89,20 @@ export function drawAircraft() {
 
         ctx.fillStyle = bgColor;
         ctx.fillRect(labelX, labelY, boxW, boxH);
-        ctx.strokeStyle = isWarning ? '#ff6666' : (isSelected ? '#228b22' : '#64748b');
-        ctx.lineWidth = 0.5 / viewScale;
+        ctx.strokeStyle = isWarning ? '#d85c51' : (isSelected ? '#168c87' : '#6f938a');
+        ctx.lineWidth = 1.2 / viewScale;
         ctx.strokeRect(labelX, labelY, boxW, boxH);
         ctx.fillStyle = labelColor;
-        ctx.fillText(line1, labelX + 3 / viewScale, labelY + 12 / viewScale);
-        ctx.font = `${8 / viewScale}px Consolas`;
-        ctx.fillStyle = isWarning ? '#ff6666' : (isSelected ? '#228b22' : '#64748b');
-        ctx.fillText(line2, labelX + 3 / viewScale, labelY + 24 / viewScale);
-        ctx.fillText(line3, labelX + 3 / viewScale, labelY + 36 / viewScale);
-        if (line4) ctx.fillText(line4, labelX + 3 / viewScale, labelY + 48 / viewScale);
-        if (line5) {
-            ctx.font = `bold ${8 / viewScale}px Consolas`;
-            ctx.fillStyle = ac.landed ? '#94a3b8' : seat.color;
-            ctx.fillText(line5, labelX + 3 / viewScale, labelY + (line4 ? 60 : 48) / viewScale);
-        }
+        ctx.fillText(line1, labelX + 7 / viewScale, labelY + 13 / viewScale);
+        ctx.font = `${9 / viewScale}px Consolas, monospace`;
+        ctx.fillStyle = isWarning ? '#a63838' : '#557171';
+        ctx.fillText(line2, labelX + 7 / viewScale, labelY + 26 / viewScale);
+        ctx.fillText(line3, labelX + 7 / viewScale, labelY + 38 / viewScale);
 
         if (isSelected) {
-            ctx.strokeStyle = '#006400';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([3, 2]);
+            ctx.strokeStyle = '#168c87';
+            ctx.lineWidth = 1.5 / viewScale;
+            ctx.setLineDash([4 / viewScale, 3 / viewScale]);
             ctx.beginPath(); ctx.arc(p.x, p.y, 18, 0, Math.PI * 2); ctx.stroke();
             ctx.setLineDash([]);
         }
@@ -195,4 +180,32 @@ export function drawFreeNavTargets() {
             ctx.stroke();
         }
     }
+}
+
+/** 拖动时显示指令预览；飞机本体不会随鼠标瞬移。 */
+export function drawRadarDragPreview() {
+    const preview = state.radarDragPreview;
+    if (!preview) return;
+    const ac = state.aircraft.find(item => item.id === preview.acId);
+    if (!ac) return;
+    const x = posX(ac), y = posY(ac);
+    const color = preview.waypointId !== null ? '#168c87' : '#dc695e';
+    const label = preview.waypointId !== null ? `直飞 ${preview.waypointName}` : `航向 ${String(preview.heading).padStart(3, '0')}°`;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5 / viewScale;
+    ctx.setLineDash([8 / viewScale, 5 / viewScale]);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(preview.x, preview.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#fff7e9';
+    ctx.beginPath(); ctx.arc(preview.x, preview.y, 12 / viewScale, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.beginPath(); ctx.arc(preview.x, preview.y, 12 / viewScale, 0, Math.PI * 2); ctx.stroke();
+    ctx.font = `bold ${12 / viewScale}px 'Microsoft YaHei', sans-serif`;
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = '#fff7e9';
+    ctx.fillRect(preview.x + 15 / viewScale, preview.y - 10 / viewScale, tw + 14 / viewScale, 24 / viewScale);
+    ctx.fillStyle = color;
+    ctx.fillText(label, preview.x + 22 / viewScale, preview.y + 6 / viewScale);
+    ctx.restore();
 }

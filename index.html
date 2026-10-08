@@ -96,6 +96,32 @@
             </div>
 
             <div id="right-panel">
+                <section id="quick-control" class="panel-section" aria-label="选中飞机的即时指挥">
+                    <div class="quick-kicker"><span>✦ 即时指挥</span><span>ATC / 01</span></div>
+                    <div id="quick-readout" class="quick-readout" aria-live="polite">点选雷达上的飞机或进程单，开始指挥。</div>
+                    <div class="quick-field">
+                        <label for="quick-altitude">目标高度 · 米</label>
+                        <div class="quick-alt-row">
+                            <button type="button" id="quick-alt-down" class="quick-small-btn" disabled>−600</button>
+                            <input type="number" id="quick-altitude" step="300" disabled aria-label="目标高度，米">
+                            <button type="button" id="quick-alt-up" class="quick-small-btn" disabled>+600</button>
+                        </div>
+                        <button type="button" id="quick-alt-apply" class="quick-action-btn" disabled>下达高度</button>
+                    </div>
+                    <div class="quick-field">
+                        <label for="quick-waypoint">直飞航路点</label>
+                        <div class="quick-direct-row">
+                            <select id="quick-waypoint" disabled aria-label="选择直飞航路点"><option value="">暂无航路点</option></select>
+                            <button type="button" id="quick-direct" class="quick-action-btn" disabled>直飞</button>
+                        </div>
+                    </div>
+                    <div class="quick-clearances" aria-label="常用许可">
+                        <button type="button" id="quick-takeoff" disabled>起飞</button>
+                        <button type="button" id="quick-approach" disabled>进近</button>
+                        <button type="button" id="quick-land" disabled>落地</button>
+                    </div>
+                    <p id="quick-feedback" class="quick-feedback" role="status" aria-live="polite">拖动飞机：松在航路点上直飞；松在空白处按方向引导。</p>
+                </section>
                 <div id="tool-palette">
                     <div class="palette-section">
                         <div class="palette-title">📍 航路点</div>
@@ -246,6 +272,7 @@
                 <div class="panel-section">
                     <button id="settings-btn" class="settings-btn">⚙ 默认参数设置</button>
                 </div>
+                <button id="radar-advanced-toggle" type="button" aria-expanded="false">展开高级工具与完整指令 ▾</button>
             </div>
         </div>
 
@@ -256,7 +283,7 @@
                 </div>
                 <div id="connection-hint" class="connection-hint hidden"></div>
                 <div id="play-indicator" class="play-indicator hidden">
-                    <span class="pulse"></span> 播放中 - 仅查看
+                    <span class="pulse"></span> 播放中 · 可拖动飞机引导
                 </div>
             </div>
             <div id="toolbar-center">
@@ -292,6 +319,7 @@
                 <ul style="margin-left:20px;margin-bottom:12px;">
                     <li><strong>滚轮缩放</strong>：使用鼠标滚轮放大或缩小地图</li>
                     <li><strong>移动地图</strong>：使用ASWD键或方向键移动地图</li>
+                    <li><strong>值班引导</strong>：播放时拖动飞机到航路点可直飞；拖到空白处可设定航向，右侧可直接下达高度与许可</li>
                     <li><strong>添加航路点</strong>：从左侧工具栏拖拽航路点到地图，或点击"+ 添加航路点"按钮</li>
                     <li><strong>添加飞机</strong>：从左侧工具栏拖拽飞机到地图，或点击"+ 添加飞机"按钮</li>
                 </ul>

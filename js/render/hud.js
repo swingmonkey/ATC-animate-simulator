@@ -67,7 +67,7 @@ export function hudModel() {
     };
 }
 
-const BAR_H = 26;
+const BAR_H = 30;
 
 /** 顶部信息条 + 场景字幕 + 告警列表（在世界变换之外调用，坐标为屏幕像素） */
 export function drawHud() {
@@ -75,41 +75,32 @@ export function drawHud() {
     const w = canvasWidth;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(15,23,42,0.82)';
+    ctx.fillStyle = 'rgba(255,249,232,0.96)';
     ctx.fillRect(0, 0, w, BAR_H);
+    ctx.fillStyle = '#28445a';
+    ctx.fillRect(0, BAR_H - 2, w, 2);
 
-    ctx.font = '12px Consolas, monospace';
+    ctx.font = 'bold 12px Consolas, monospace';
     ctx.textBaseline = 'middle';
     let x = 10;
     const put = (text, color) => {
         ctx.fillStyle = color;
         ctx.fillText(text, x, BAR_H / 2);
-        x += ctx.measureText(text).width + 14;
+        x += ctx.measureText(text).width + 17;
     };
 
     if (m.sessionActive) {
-        put(`🎯 ${m.scenarioName || '--'}`, '#e2e8f0');
-        put(`🕒 ${m.timeText}`, '#93c5fd');
-        put(`⭐ ${m.score} (${m.grade})`, m.score >= 85 ? '#4ade80' : (m.score >= 60 ? '#fbbf24' : '#f87171'));
-        put(`🛬 ${m.landed}${m.finish && m.finish.count ? '/' + m.finish.count : ''}`, '#e2e8f0');
-        put(`🔓 ${m.progress}`, '#a5b4fc');
-        put(`⚠ ${m.alerts}`, m.alerts ? '#f87171' : '#64748b');
-        put(`🛣 ${(m.runwayLand || []).join('/') || '--'}`, '#34d399');
-        put(`↗ ${(m.runwayStart || []).join('/') || '--'}`, '#fbbf24');
-        put(`💨 ${m.wind ? `${m.wind.dir}° ${m.wind.spd}kt` : '--'}`, '#7dd3fc');
-        put(`✈ ${m.activeAircraft}/${m.maxAircraft}`, '#cbd5e1');
-        put(`💰 ${m.cashText}`, '#fcd34d');
-        put(`🏅 ${m.reputation}`, '#c4b5fd');
-        put(`👥 ${m.staffCount}`, '#e2e8f0');
-        put(`🏠 ${m.roomCount}`, '#e2e8f0');
+        put(`✦ ${m.scenarioName || '值班中'}`, '#28445a');
+        put(m.timeText, '#168c87');
+        put(`评分 ${m.score} · ${m.grade}`, m.score >= 60 ? '#168c87' : '#c75c50');
+        put(`落地 ${m.landed}${m.finish?.count ? '/' + m.finish.count : ''}`, '#28445a');
+        put(`告警 ${m.alerts}`, m.alerts ? '#c75c50' : '#68887f');
+        if (w > 820) put(`飞机 ${m.activeAircraft}/${m.maxAircraft}`, '#28445a');
+        if (w > 1050) put(`跑道 ${(m.runwayLand || []).join('/') || '--'}`, '#68887f');
     } else {
-        put('🎯 未开始班次 — 点击右侧「开始班次」装载关卡（无限流量 + 评分）', '#cbd5e1');
-        put(`🕒 ${m.timeText}`, '#93c5fd');
-        put(m.playing ? '沙盒模式 · 播放中' : '沙盒模式 · 暂停', '#94a3b8');
-        put(`💰 ${m.cashText}`, '#fcd34d');
-        put(`🏅 ${m.reputation}`, '#c4b5fd');
-        put(`👥 ${m.staffCount}`, '#e2e8f0');
-        put(`🏠 ${m.roomCount}`, '#e2e8f0');
+        put('✦ 雷达值班', '#28445a');
+        put(m.timeText, '#168c87');
+        put(m.playing ? '自由模拟 · 运行中' : '右侧开始班次 / 自由模拟', '#68887f');
     }
     ctx.restore();
 

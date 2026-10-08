@@ -278,6 +278,79 @@ const SCRIPT_BOOT = `(async () => {
     return out;
 })()`;
 
+/** 雷达值班快捷操作：画布拖拽应生成指令而非直接移动飞机。 */
+const SCRIPT_RADAR_QUICK = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const vp = await import('./js/core/viewport.js');
+    const quick = await import('./js/ui/quickControl.js');
+    const canvas = document.getElementById('radar-canvas');
+    const inputLog = A.session()?.inputs;
+    const saved = { aircraft: st.aircraft, points: st.routePoints, selected: st.selectedItem,
+        commCount: st.commMessages.length, commDomCount: document.querySelectorAll('#comm-messages .comm-msg').length,
+        inputCount: inputLog?.length || 0, feedbackText: document.getElementById('comm-feedback').textContent,
+        feedbackClass: document.getElementById('comm-feedback').className };
+    const ac = { ...saved.aircraft[0], id: -888, flightNo: 'QTEST888', phase: 'VECTOR', flow: 'arrival',
+        startTime: 0, landed: false, unit: 'APP', clearance: null, clearances: [], trail: [],
+        x: vp.toWorldX(canvas.clientWidth / 2), y: vp.toWorldY(canvas.clientHeight / 2),
+        altitude: 6000, displayAltitude: 6000, altCon: 6000, heading: 90, displayHeading: 90,
+        navMode: 'heading', routeId: null };
+    ac.displayX = ac.x; ac.displayY = ac.y;
+    const point = { id: -889, name: 'QTEST', x: vp.toWorldX(canvas.clientWidth / 2 + 140), y: ac.y, type: 'normal' };
+    const result = {};
+    const rect = canvas.getBoundingClientRect();
+    const mouse = (type, x, y, target = canvas) => target.dispatchEvent(new MouseEvent(type, {
+        bubbles: true, button: 0, clientX: rect.left + x, clientY: rect.top + y
+    }));
+    try {
+        st.aircraft = [ac]; st.routePoints = [point]; st.selectedItem = null;
+        quick.updateQuickControl(true);
+        result.quickAdvancedCollapsed = getComputedStyle(document.getElementById('tool-palette')).display === 'none';
+        document.getElementById('radar-advanced-toggle').click();
+        result.quickAdvancedOpens = getComputedStyle(document.getElementById('tool-palette')).display !== 'none';
+        document.getElementById('radar-advanced-toggle').click();
+        mouse('mousedown', canvas.clientWidth / 2, canvas.clientHeight / 2);
+        mouse('mouseup', canvas.clientWidth / 2, canvas.clientHeight / 2, window);
+        result.quickAircraftSelected = st.selectedItem?.id === ac.id && !document.getElementById('quick-alt-up').disabled
+            && !document.getElementById('quick-altitude').disabled;
+        document.getElementById('quick-alt-up').click();
+        result.quickAltitudeStep = ac.altCon === 6600;
+        document.getElementById('quick-altitude').value = '7200';
+        document.getElementById('quick-alt-apply').click();
+        result.quickAltitudeCustom = ac.altCon === 7200;
+        document.getElementById('quick-waypoint').value = String(point.id);
+        document.getElementById('quick-waypoint').dispatchEvent(new Event('change'));
+        document.getElementById('quick-direct').click();
+        result.quickWaypointDirect = ac.navMode === 'free' && ac.targetX === point.x;
+        mouse('mousedown', canvas.clientWidth / 2, canvas.clientHeight / 2);
+        mouse('mousemove', canvas.clientWidth / 2 + 140, canvas.clientHeight / 2);
+        result.quickDragPreview = st.radarDragPreview?.waypointId === point.id;
+        mouse('mouseup', canvas.clientWidth / 2 + 140, canvas.clientHeight / 2, window);
+        result.quickDragDirect = ac.navMode === 'free' && ac.targetX === point.x && st.radarDragPreview === null;
+        const before = { x: ac.x, y: ac.y };
+        mouse('mousedown', canvas.clientWidth / 2, canvas.clientHeight / 2);
+        mouse('mousemove', canvas.clientWidth / 2 + 80, canvas.clientHeight / 2 + 70);
+        mouse('mouseup', canvas.clientWidth / 2 + 80, canvas.clientHeight / 2 + 70, window);
+        result.quickDragHeading = ac.navMode === 'heading' && Number.isFinite(ac.hdgCon)
+            && ac.x === before.x && ac.y === before.y;
+        const heading = ac.hdgCon;
+        mouse('mousedown', canvas.clientWidth / 2, canvas.clientHeight / 2);
+        mouse('mousemove', canvas.clientWidth / 2 + 50, canvas.clientHeight / 2 + 30);
+        mouse('mouseup', -10, -10, window);
+        result.quickOutsideCancels = ac.hdgCon === heading && st.radarDragPreview === null;
+    } finally {
+        st.aircraft = saved.aircraft; st.routePoints = saved.points; st.selectedItem = saved.selected;
+        st.commMessages.length = saved.commCount;
+        [...document.querySelectorAll('#comm-messages .comm-msg')].slice(saved.commDomCount).forEach(node => node.remove());
+        if (inputLog) inputLog.length = saved.inputCount;
+        document.getElementById('comm-feedback').textContent = saved.feedbackText;
+        document.getElementById('comm-feedback').className = saved.feedbackClass;
+        A.bus.emit(A.EV.SELECTION_CHANGED);
+        quick.updateQuickControl(true);
+    }
+    return result;
+})()`;
+
 
 /** 阶段二：播放推进、暂停、指令、天气、对话框、增删 */
 const SCRIPT_INTERACT = `(() => {
@@ -1216,6 +1289,16 @@ async function runSmoke() {
         await wait(1000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_BOOT));
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PLATFORM_VIEW));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_RADAR_QUICK));
+        await wait(120);
+        try {
+            const image = await win.webContents.capturePage();
+            const shotPath = path.join(app.getPath('userData'), 'radar-active-shot.png');
+            writeFileSync(shotPath, image.toPNG());
+            report.radarActiveScreenshot = shotPath;
+        } catch (e) {
+            consoleErrors.push('雷达截图失败: ' + String(e && e.message || e));
+        }
         await wait(3000);
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_INTERACT));
         await win.webContents.executeJavaScript(SCRIPT_AUTO);
@@ -1376,6 +1459,14 @@ async function runSmoke() {
         ['第一阶段：空机时首次双击航路点有效', report.phase1FirstDblClick === true],
         ['第一阶段：画布外松开结束首次拖拽', report.phase1DragEndsOutside === true],
         ['第一阶段：反复点击后双击只触发一次', report.phase1DblClickOnce === true],
+        ['雷达：常用指令区选机与高级工具折叠', report.quickAircraftSelected === true
+            && report.quickAdvancedCollapsed === true && report.quickAdvancedOpens === true],
+        ['雷达：高度快捷步进与自定义目标', report.quickAltitudeStep === true && report.quickAltitudeCustom === true],
+        ['雷达：航路点下拉直飞', report.quickWaypointDirect === true],
+        ['雷达：拖至航路点显示预览并下达直飞', report.quickDragPreview === true && report.quickDragDirect === true],
+        ['雷达：拖至空白处下达航向且飞机不瞬移', report.quickDragHeading === true],
+        ['雷达：画布外松开取消指令', report.quickOutsideCancels === true],
+        ['雷达：运行态画面可截图', !!report.radarActiveScreenshot],
         ['第一阶段：未知呼号零影响且输入保留并提示', report.phase1UnknownTargetRejected === true],
         ['第一阶段：零落地提前结束不得获 S', report.phase1AbandonFair === true],
         ['第一阶段：超时未达标不得获 S', report.phase1TimeoutFair === true],

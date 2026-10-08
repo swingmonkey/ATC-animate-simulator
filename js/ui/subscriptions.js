@@ -24,6 +24,7 @@ import { updateSessionPanel } from './sessionPanel.js';
 import { resetTutorialPanel, updateTutorialPanel, handleTutorialCommandResult } from './tutorialPanel.js';
 import { updateRosterPanel } from './rosterPanel.js';
 import { updateManagementPanel } from './managementPanel.js';
+import { updateQuickControl } from './quickControl.js';
 import { showNextWaypointDialog } from './dialogs.js';
 
 /**
@@ -37,6 +38,7 @@ export function initSubscriptions() {
         updateAircraftPanelList();
         updateCommTargetSelect();
         updateProgressList(true);
+        updateQuickControl(true);
         saveState();
     });
 
@@ -45,6 +47,7 @@ export function initSubscriptions() {
         updateModeIndicator();
         updateProgressList(true);
         updateConsole(true);
+        updateQuickControl(true);
         updateTutorialPanel();
     });
 
@@ -54,6 +57,7 @@ export function initSubscriptions() {
         updateEditModeUI();
         updateModeIndicator();
         updateProgressList(true);
+        updateQuickControl(true);
         if (!state.isPlaying) {
             document.querySelectorAll('.dialog:not(.hidden)').forEach(d => d.classList.add('hidden'));
         }
@@ -68,16 +72,19 @@ export function initSubscriptions() {
         updateSeatPanel();
         updateProgressList(true);
         updateConsole(true);
+        updateQuickControl(true);
         updateTutorialPanel();
     });
 
     /* 飞行阶段变化：指令台的合法指令集合随之变化（灰显项刷新） */
     bus.on(EV.PHASE_CHANGED, () => {
         updateConsole(true);
+        updateQuickControl(true);
         updateTutorialPanel();
     });
     bus.on(EV.CLOCK_TICK, updateTutorialPanel);
     bus.on(EV.COMMAND_RESULT, handleTutorialCommandResult);
+    bus.on(EV.COMMAND_RESULT, () => updateQuickControl(true));
 
     /* 到达目标航路点：暂停播放并弹出下一航路点选择框 */
     bus.on(EV.WAYPOINT_ARRIVED, ({ ac, idx }) => showNextWaypointDialog(ac, idx));
@@ -158,4 +165,5 @@ export function refreshAll() {
     updateEditModeUI();
     updateTimeDisplay(true);
     updateManagementPanel();
+    updateQuickControl(true);
 }

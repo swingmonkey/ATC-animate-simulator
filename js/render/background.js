@@ -49,13 +49,13 @@ function isLocalMax(storm, r, c) {
 }
 
 export function drawMapBackground() {
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#f1f7f2';
     ctx.fillRect(-10000, -10000, 20000, 20000);
 }
 
 export function drawGrid() {
     const pixelsPerKm = getPixelsPerKm();
-    ctx.strokeStyle = 'rgba(180,190,200,0.2)';
+    ctx.strokeStyle = 'rgba(71,121,116,0.13)';
     ctx.lineWidth = 0.5;
     for (let x = -10000; x < 10000; x += pixelsPerKm * 10) {
         ctx.beginPath(); ctx.moveTo(x, -10000); ctx.lineTo(x, 10000); ctx.stroke();
