@@ -248,6 +248,7 @@ export function initFormBindings() {
     /* ---------------- 设置对话框 ---------------- */
 
     $('save-settings')?.addEventListener('click', () => {
+        if (state.gameSessionActive) return;
         state.defaults.altitude = parseInt($('def-altitude').value) || 10600;
         state.defaults.speed = parseInt($('def-speed').value) || 480;
         state.defaults.acType = $('def-ac-type').value || 'B738';

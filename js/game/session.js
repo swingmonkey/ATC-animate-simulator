@@ -5,7 +5,7 @@
  *   · 装配：把领域层的逐帧推进 `syncAircraftState` 注册进仿真层钩子（依赖倒置的注入点）
  *   · 输入录制：记录管制员每条文本指令（含模拟时刻）—— 复盘与评分的数据基础
  *   · 采样：订阅 `clock:tick`，按 1Hz 采样各机高度/速度/航向（高度剖面图数据源）
- *   · P1 班次玩法：装载关卡 → 启动导演（无限流量 + 场景事件）→ 逐帧记分 → 结算（评级/目标/时间轴）
+ *   · P1 班次玩法：装载关卡 → 启动导演（无限流量 + 场景事件）→ 每模拟秒记分 → 结算（评级/目标/时间轴）
  *
  * 边界：班次内**实时不可回溯**（时间轴拖动在游戏模式被拦截，见 interaction/toolbar.js），
  * 复盘依赖 game/scoring.js 的事件时间轴与 game/director.js 的场景事件序列。
@@ -14,7 +14,7 @@
 import { state, addComm, setPlaying } from '../core/store.js';
 import { bus, EV } from '../core/eventBus.js';
 import { resetClockAccumulator } from '../core/clock.js';
-import { onAircraftStep } from '../simulation/motion.js';
+import { onAircraftStep, updateAircraftPositionsForTime } from '../simulation/motion.js';
 import { syncAircraftState, sampleAllAircraftHistory } from '../domain/aircraft.js';
 import {
     startDirector, stopDirector, tickDirector, directorGoal, directorSummary
@@ -230,6 +230,7 @@ export function tickSession() {
  */
 export function initSessionWiring() {
     onAircraftStep(syncAircraftState);
+    bus.on(EV.CLOCK_TICK, ({ time }) => updateAircraftPositionsForTime(time));
     bus.on(EV.CLOCK_TICK, sampleAllAircraftHistory);
     bus.on(EV.CLOCK_TICK, tickSession);          // 班次内：导演 + 评分 + 完成条件
     if (!session) startSession({ kind: 'sandbox' });

@@ -15,11 +15,11 @@ import { posX, posY } from '../core/accessors.js';
 import { getCategory } from '../data/aircraft.js';
 import { pointToSegmentDist, headingBetween } from './geometry.js';
 
-/* ---------- 逐帧钩子（依赖倒置） ----------
+/* ---------- 业务时钟钩子（依赖倒置） ----------
  * 仿真层不得反向依赖领域层：席位/阶段/许可推进由 js/main.js 通过 onAircraftStep 注册进来。 */
 const aircraftStepHooks = [];
 
-/** 注册“每架航空器每帧推进”钩子（由入口 js/main.js 注入领域层实现） */
+/** 注册“每架航空器每模拟秒推进”钩子（由游戏层装配领域层实现） */
 export function onAircraftStep(fn) {
     aircraftStepHooks.push(fn);
 }
@@ -253,16 +253,18 @@ function checkWaypointArrival(ac) {
     bus.emit(EV.WAYPOINT_ARRIVED, { ac, idx });
 }
 
-export function updateAircraftPositionsForTime(targetTime) {
+export function updateAircraftPositionsForTime(targetTime, syncDomain = true) {
     state.aircraft.forEach(ac => {
+        updateAircraftKinematics(ac, targetTime);
         const pos = calculateAircraftPositionAtTime(ac, targetTime);
         ac.displayX = pos.x;
         ac.displayY = pos.y;
         ac.displayHeading = pos.heading;
         ac._visible = pos.visible;
-        updateAircraftKinematics(ac, targetTime);
-        runAircraftStepHooks(ac);   // 领域层钩子：席位归属 / 自动移交 / 许可链 / 接地 / 阶段
-        checkWaypointArrival(ac);
+        if (syncDomain) {
+            runAircraftStepHooks(ac);   // 领域层钩子：席位归属 / 自动移交 / 许可链 / 接地 / 阶段
+            checkWaypointArrival(ac);
+        }
     });
 }
 

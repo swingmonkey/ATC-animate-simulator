@@ -39,6 +39,8 @@ export function updateEditModeUI() {
         item.classList.toggle('edit-disabled', locked);
         item.draggable = !locked;
     });
+    const timeSlider = document.getElementById('time-slider');
+    if (timeSlider) timeSlider.disabled = state.gameSessionActive;
 }
 
 /** 播放按钮文字（由 playback:changed 触发） */

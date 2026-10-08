@@ -954,6 +954,59 @@ const SCRIPT_PHASE1_RESULTS = `(async () => {
     st.aircraft = oldAircraft;
     return out;
 })()`;
+const SCRIPT_PHASE1_CLOCK = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const clock = await import('./js/core/clock.js');
+    const { getAirport } = await import('./js/data/airports.js');
+    const { scoreTimeline } = await import('./js/game/scoring.js');
+    const oldLocation = st.location;
+    st.location = null;
+    const sampleTicks = (speed, frameCount, frameDt) => {
+        A.game.start({ difficulty: 'standard', seed: 321 });
+        st.timeSpeed = speed;
+        const airport = getAirport(st.focusAirport);
+        const holding = { x: airport.x + 1000, y: airport.y + 1000, altitude: 3000,
+            speed: 0, heading: 90, acType: 'B738', flow: 'departure', clearance: 'takeoff',
+            startTime: 0, landed: false, clearances: [], navMode: 'heading' };
+        st.aircraft = [
+            { ...holding, id: -931, flightNo: 'TST931' },
+            { ...holding, id: -932, flightNo: 'TST932' },
+            { id: -933, flightNo: 'TST933', x: airport.x, y: airport.y, altitude: 500,
+                speed: 0, heading: 90, acType: 'B738', flow: 'arrival', clearance: 'land',
+                approachType: 'ILS', startTime: 0, landed: false, clearances: [], navMode: 'heading' }
+        ];
+        const times = [];
+        const off = A.bus.on(A.EV.CLOCK_TICK, ({ time }) => times.push(Math.round(time * 100) / 100));
+        for (let i = 0; i < frameCount; i++) clock.tickClock(frameDt);
+        off();
+        const score = A.game.scoring();
+        const result = { times, landed: score.landed, separation: score.counts.separation,
+            timeline: scoreTimeline(20).map(({ kind, t }) => ({ kind, t })) };
+        A.game.end({ reason: '时钟测试' });
+        return result;
+    };
+    const normal = sampleTicks(1, 61, 0.1);
+    const medium = sampleTicks(10, 6, 0.1017);
+    const fast = sampleTicks(60, 1, 0.1017);
+    const out = {
+        phase1RateIndependent: normal.times.length === 6
+            && JSON.stringify(normal) === JSON.stringify(medium)
+            && JSON.stringify(normal) === JSON.stringify(fast)
+            && normal.times.every((time, i) => time === i + 1)
+            && normal.landed === 1 && normal.separation === 1
+    };
+    A.game.start({ difficulty: 'standard', seed: 321 });
+    st.time = 2599.9;
+    st.timeSpeed = 60;
+    clock.resetClockAccumulator();
+    clock.tickClock(0.1);
+    out.phase1MonotonicClock = st.time >= 2600
+        && A.game.director().totalSpawned > 0;
+    A.game.end({ reason: '时钟测试' });
+    st.location = oldLocation;
+    return out;
+})()`;
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -1003,6 +1056,7 @@ async function runSmoke() {
             consoleErrors.push('截图失败: ' + String(e && e.message || e));
         }
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE1_RESULTS));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE1_CLOCK));
     } catch (e) {
         pageFailures.push(String((e && e.message) || e));
     }
@@ -1047,6 +1101,8 @@ async function runSmoke() {
         ['第一阶段：零落地提前结束不得获 S', report.phase1AbandonFair === true],
         ['第一阶段：超时未达标不得获 S', report.phase1TimeoutFair === true],
         ['第一阶段：落地机不参与冲突配对', report.phase1LandedNoConflict === true],
+        ['第一阶段：1×/10×/60× 的落地与违规结果一致', report.phase1RateIndependent === true],
+        ['第一阶段：游戏时钟跨过显示上限仍继续出流', report.phase1MonotonicClock === true],
         ['随机场景生成航班', (report.aircraft ?? 0) >= 7],
         ['随机场景生成航线', (report.routes ?? 0) >= 7],
         ['航路点面板已重建', (report.pointItems ?? 0) > 0],

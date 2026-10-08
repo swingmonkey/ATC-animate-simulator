@@ -64,7 +64,7 @@ function animate(currentTime) {
     if (state.isPlaying) {
         const { stepped, dt } = tickClock(frameDt);
         if (stepped) {
-            updateAircraftPositionsForTime(state.time);
+            updateAircraftPositionsForTime(state.time, false);
             updateTrails(dt);
             // 两者内部均按 100ms / 250ms 节流，60× 倍速下不再每秒重建数千次 DOM
             updateTimeDisplay();

@@ -57,7 +57,7 @@ export const EV = {
     COMM_ADDED: 'comm:added',
     /** 管制席位状态变更（移交/许可/落地/席位过滤/自动开关）→ 席位面板 + 进程单刷新 */
     UNIT_CHANGED: 'unit:changed',
-    /** 时钟步进（固定步长） → 采样器 / HUD */
+    /** 每模拟秒的业务时钟 → 状态同步 / 采样 / 导演 / 评分 */
     CLOCK_TICK: 'clock:tick',
     /** 飞行阶段变化 → 进程单 / 标签 / 目标判定 */
     PHASE_CHANGED: 'phase:changed',
