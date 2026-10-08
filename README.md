@@ -218,11 +218,11 @@ npm start
 
 ```bash
 npm run build:win
-# 产物：dist/ATC-Simulator-1.6.0.exe —— 双击即运行，无需安装、无需浏览器
+# 产物：dist/ATC-Simulator-1.8.0.exe —— 双击即运行，无需安装、无需浏览器
 ```
 
 **直接下载（免打包）**：见 [Releases](https://github.com/swingmonkey/ATC-animate-simulator/releases) 页面的
-`ATC-Simulator-1.6.0.exe`（Windows 便携版，单文件，约 74MB）。
+`ATC-Simulator-1.8.0.exe`（Windows 便携版，单文件，约 74MB）。
 
 应用图标由 `tools/make-icon.py`（Pillow）绘制生成 `build/icon.ico`，窗口/任务栏图标在
 `desktop/main.js` 中通过 `BrowserWindow.icon` 指定；网页端使用 `<link rel="icon">`。
@@ -249,8 +249,8 @@ npm run build:win
 ### 校验与冒烟测试
 
 ```bash
-npm run check    # 静态校验 76 个模块、690 条具名导入、272 条跨层引用 + 循环依赖 + 层级越界
-npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，138 项断言
+npm run check    # 静态校验 78 个模块、722 条具名导入、283 条跨层引用 + 循环依赖 + 层级越界
+npm run smoke    # 无头启动应用（Electron 离屏）并脚本化驱动关键交互，146 项断言
 npm run location -- <机场文件.txt>   # Endless ATC 位置文件离线校验（解析摘要 + 告警）
 ```
 
