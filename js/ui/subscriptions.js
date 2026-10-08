@@ -25,6 +25,7 @@ import { resetTutorialPanel, updateTutorialPanel, handleTutorialCommandResult } 
 import { updateRosterPanel } from './rosterPanel.js';
 import { updateManagementPanel } from './managementPanel.js';
 import { updateQuickControl } from './quickControl.js';
+import { updateRadarModes } from './radarModes.js';
 import { showNextWaypointDialog } from './dialogs.js';
 
 /**
@@ -39,6 +40,7 @@ export function initSubscriptions() {
         updateCommTargetSelect();
         updateProgressList(true);
         updateQuickControl(true);
+        updateRadarModes(true);
         saveState();
     });
 
@@ -48,6 +50,7 @@ export function initSubscriptions() {
         updateProgressList(true);
         updateConsole(true);
         updateQuickControl(true);
+        updateRadarModes(true);
         updateTutorialPanel();
     });
 
@@ -58,6 +61,7 @@ export function initSubscriptions() {
         updateModeIndicator();
         updateProgressList(true);
         updateQuickControl(true);
+        updateRadarModes(true);
         if (!state.isPlaying) {
             document.querySelectorAll('.dialog:not(.hidden)').forEach(d => d.classList.add('hidden'));
         }
@@ -73,6 +77,7 @@ export function initSubscriptions() {
         updateProgressList(true);
         updateConsole(true);
         updateQuickControl(true);
+        updateRadarModes(true);
         updateTutorialPanel();
     });
 
@@ -80,7 +85,13 @@ export function initSubscriptions() {
     bus.on(EV.PHASE_CHANGED, () => {
         updateConsole(true);
         updateQuickControl(true);
+        updateRadarModes(true);
         updateTutorialPanel();
+    });
+    bus.on(EV.VIEW_CHANGED, () => {
+        updateRadarModes(true);
+        updateQuickControl(true);
+        updateProgressList(true);
     });
     bus.on(EV.CLOCK_TICK, updateTutorialPanel);
     bus.on(EV.COMMAND_RESULT, handleTutorialCommandResult);
@@ -97,6 +108,7 @@ export function initSubscriptions() {
         updateSeatPanel();
         updateRosterPanel();
         updateProgressList(true);
+        updateRadarModes(true);
         resetTutorialPanel();
     });
     bus.on(EV.SESSION_ENDED, () => {
@@ -107,6 +119,7 @@ export function initSubscriptions() {
         updateManagementPanel();
         updateRosterPanel();
         updateProgressList(true);
+        updateRadarModes(true);
         updateTutorialPanel();
     });
     bus.on(EV.SCORE_CHANGED, () => updateSessionPanel());
@@ -166,4 +179,5 @@ export function refreshAll() {
     updateTimeDisplay(true);
     updateManagementPanel();
     updateQuickControl(true);
+    updateRadarModes(true);
 }

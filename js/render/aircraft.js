@@ -10,13 +10,17 @@ import { acPos, altOf, hdgOf, posX, posY, spdOf } from '../core/accessors.js';
 import { isAircraftInConflictAt, getConflictPairs } from '../domain/separation.js';
 import { unit } from '../data/atcUnits.js';
 
-export function drawAircraft() {
+export function drawAircraft(profile) {
     state.aircraft.forEach(ac => {
         const acStartTime = ac.startTime || 0;
         if (state.time < acStartTime) return;
         if (ac._visible === false) return;
 
         const p = acPos(ac);
+        ctx.save();
+        if (!state.selectedItem || state.selectedItem.id !== ac.id) {
+            if (ac.unit && !ac.unit.startsWith(profile.code)) ctx.globalAlpha = 0.43;
+        }
         const heading = p.hdg;
         const headRad = (heading - 90) * Math.PI / 180;
         const isWarning = isAircraftInConflictAt(p.x, p.y, p.alt, ac.id);
@@ -30,8 +34,8 @@ export function drawAircraft() {
         if (ac.trail && ac.trail.length > 1) {
             ctx.save();
             ctx.strokeStyle = isSelected ? 'rgba(24,140,135,0.52)' : 'rgba(83,128,136,0.3)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([3, 4]);
+            ctx.lineWidth = 1 / viewScale;
+            ctx.setLineDash([3 / viewScale, 4 / viewScale]);
             ctx.lineCap = 'round';
             ctx.beginPath();
             const startIdx = Math.max(0, ac.trail.length - trailPoints);
@@ -45,6 +49,7 @@ export function drawAircraft() {
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(headRad);
+        ctx.scale(1 / viewScale, 1 / viewScale);
         if (isWarning) { ctx.shadowColor = '#d85c51'; ctx.shadowBlur = 14; }
         else if (isSelected) { ctx.shadowColor = '#168c87'; ctx.shadowBlur = 10; }
         else { ctx.shadowColor = '#00000022'; ctx.shadowBlur = 3; }
@@ -63,12 +68,19 @@ export function drawAircraft() {
         const bgColor = isWarning ? 'rgba(255,229,219,0.96)' : (isSelected ? 'rgba(221,247,234,0.97)' : 'rgba(255,249,233,0.95)');
         const labelOffsetX = ac.labelOffsetX !== undefined ? ac.labelOffsetX : 50;
         const labelOffsetY = ac.labelOffsetY !== undefined ? ac.labelOffsetY : -30;
-        const labelX = p.x + labelOffsetX, labelY = p.y + labelOffsetY;
+        const labelX = p.x + labelOffsetX / viewScale, labelY = p.y + labelOffsetY / viewScale;
         ctx.font = `bold ${11 / viewScale}px 'Microsoft YaHei', sans-serif`;
         const line1 = ac.flightNo || `AC${ac.id}`;
-        const line2 = `${p.alt}m ${p.spd}kt`;
+        const line2 = profile.code === 'ACC'
+            ? `FL${Math.round(p.alt / 30.48)}  ${p.spd}kt`
+            : `${p.alt}m  ${p.spd}kt`;
         const seat = unit(ac.unit || 'ACC');
-        const line3 = ac.landed ? '已落地' : `${seat.short}${ac.destination ? `  → ${ac.destination}` : ''}`;
+        const groundLabel = { parked: '停机位', pushed: '已推出', started: '已开车', taxi: '滑行中', lineup: '跑道等待' }[ac.groundStage];
+        const line3 = ac.landed ? '已落地' : profile.code === 'TWR'
+            ? `R${ac.runway || '--'}  ${ac.clearance === 'land' ? '落地许可' : ac.clearance === 'takeoff' ? '起飞许可' : groundLabel || '待许可'}`
+            : profile.code === 'APP'
+                ? `${ac.arrivalOrder ? `#${ac.arrivalOrder} ` : ''}${ac.crossingFix ? `${ac.crossingFix} ${ac.crossingAltM}m` : ac.approachType || '待排序'}`
+                : `${ac.areaAltitudeLimitM ? `≤${ac.areaAltitudeLimitM}m` : '无限高'}  ${ac.flowSpeedKt ? `${ac.flowSpeedKt}kt` : ac.destination || '--'}`;
         const boxW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width, ctx.measureText(line3).width) + 14 / viewScale;
         const boxH = 43 / viewScale;
 
@@ -103,9 +115,10 @@ export function drawAircraft() {
             ctx.strokeStyle = '#168c87';
             ctx.lineWidth = 1.5 / viewScale;
             ctx.setLineDash([4 / viewScale, 3 / viewScale]);
-            ctx.beginPath(); ctx.arc(p.x, p.y, 18, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(p.x, p.y, 18 / viewScale, 0, Math.PI * 2); ctx.stroke();
             ctx.setLineDash([]);
         }
+        ctx.restore();
         ctx.restore();
     });
 }
@@ -121,14 +134,14 @@ export function drawAircraftWarnings() {
         const alpha = Math.max(0.1, 0.5 - dist / thresholdPx * 0.4);
         ctx.save();
         ctx.strokeStyle = `rgba(255,50,50,${alpha})`;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1.5 / viewScale;
+        ctx.setLineDash([3 / viewScale, 3 / viewScale]);
         ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
         ctx.setLineDash([]);
         const midX = (pa.x + pb.x) / 2, midY = (pa.y + pb.y) / 2;
         ctx.fillStyle = `rgba(220,40,40,${alpha + 0.2})`;
-        ctx.font = 'bold 9px Consolas';
-        ctx.fillText('⚠', midX + 2, midY - 3);
+        ctx.font = `bold ${14 / viewScale}px Consolas`;
+        ctx.fillText('⚠', midX + 2 / viewScale, midY - 3 / viewScale);
         ctx.restore();
     });
 }

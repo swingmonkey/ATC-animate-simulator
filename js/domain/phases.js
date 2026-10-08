@@ -21,6 +21,8 @@ import { altOf } from '../core/accessors.js';
 export const PHASE = {
     /* 地面 */
     PARKED: 'PARKED',
+    PUSHBACK: 'PUSHBACK',
+    ENGINE_START: 'ENGINE_START',
     TAXI: 'TAXI',
     HOLD_SHORT: 'HOLD_SHORT',
     TAKEOFF_ROLL: 'TAKEOFF_ROLL',
@@ -45,6 +47,8 @@ export const PHASE = {
 /** 中文标签（进程单/标签/HUD 显示） */
 export const PHASE_LABEL = {
     PARKED: '停机位',
+    PUSHBACK: '推出',
+    ENGINE_START: '开车',
     TAXI: '滑行',
     HOLD_SHORT: '等待放行',
     TAKEOFF_ROLL: '起飞滑跑',
@@ -99,7 +103,10 @@ export function derivePhase(ac) {
 
     const alt = altOf(ac);
     if (flowOf(ac) === 'departure') {
-        if (!ac.clearance) return PHASE.HOLD_SHORT;              // 停场/待放行
+        if (!ac.clearance) {
+            return { parked: PHASE.PARKED, pushed: PHASE.PUSHBACK, started: PHASE.ENGINE_START,
+                taxi: PHASE.TAXI, lineup: PHASE.HOLD_SHORT }[ac.groundStage] || PHASE.HOLD_SHORT;
+        }
         if (alt < 1500) return PHASE.INIT_CLIMB;
         const top = ac.plannedAltitude ?? state.defaults.altitude;
         return alt < top - 150 ? PHASE.CLIMB : PHASE.CRUISE;
@@ -157,6 +164,7 @@ export function canIssue(ac, type) {
     const rule = ISSUE_RULES[type];
     if (!rule) return true;                     // 未登记的类型不拦截
     const phase = ac.phase || derivePhase(ac);
+    if (type === 'TAKEOFF' && ac.groundStage && ac.groundStage !== 'lineup') return false;
     if (rule === 'airborne') return isAirborne(phase) && !ac.landed;
     return rule.includes(phase);
 }

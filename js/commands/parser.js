@@ -59,6 +59,49 @@ export function parseCommand(text, knownCallsigns = []) {
 
     const callsign = findCallsign(raw, knownCallsigns);
 
+    // 专属席位指令优先解析，避免「过点高度」被当成普通目标高度。
+    let special;
+    if ((special = raw.match(/(?:过点|过)\s*([^\s，,]+)\s*高度\s*(\d{2,5})/i))) {
+        actions.push({ type: 'crossingAlt', fix: special[1].toUpperCase(), value: Number(special[2]), raw: special[0] });
+        return { target: callsign, actions };
+    }
+    if (/取消高度限制|解除高度限制/.test(raw)) {
+        actions.push({ type: 'areaAltLimit', value: null, raw: '取消高度限制' });
+        return { target: callsign, actions };
+    }
+    if ((special = raw.match(/高度限制\s*(\d{2,5})/))) {
+        actions.push({ type: 'areaAltLimit', value: Number(special[1]), raw: special[0] });
+        return { target: callsign, actions };
+    }
+    if (/解除流控|取消流控/.test(raw)) {
+        actions.push({ type: 'flowSpeed', value: null, raw: '解除流控' });
+        return { target: callsign, actions };
+    }
+    if ((special = raw.match(/流控速度\s*(\d{2,3})/))) {
+        actions.push({ type: 'flowSpeed', value: Number(special[1]), raw: special[0] });
+        return { target: callsign, actions };
+    }
+    if ((special = raw.match(/(?:进近)?排序\s*([1-9])/))) {
+        actions.push({ type: 'arrivalOrder', value: Number(special[1]), raw: special[0] });
+        return { target: callsign, actions };
+    }
+    if (/批准推出|可以推出|推出|pushback/.test(lower)) {
+        actions.push({ type: 'pushback', raw: 'pushback' });
+        return { target: callsign, actions };
+    }
+    if (/批准开车|可以开车|开车|startup|start engine/.test(lower)) {
+        actions.push({ type: 'startup', raw: 'startup' });
+        return { target: callsign, actions };
+    }
+    if (/滑行|taxi/.test(lower)) {
+        actions.push({ type: 'taxi', raw: 'taxi' });
+        return { target: callsign, actions };
+    }
+    if (/进跑道|lineup|line up/.test(lower)) {
+        actions.push({ type: 'lineup', raw: 'lineup' });
+        return { target: callsign, actions };
+    }
+
     // 高度：到达某绝对高度
     let m;
     if ((m = lower.match(new RegExp(`(?:高度|上高度|下高度|alt(?:itude)?)\\s*${NUM}`)))) {
@@ -107,7 +150,7 @@ export function parseCommand(text, knownCallsigns = []) {
     }
 
     // 盘旋 / 进跑道 / lineup（保持当前航向）
-    if (lower.includes('盘旋') || lower.includes('hold') || lower.includes('进跑道') || lower.includes('lineup') || lower.includes('hold short')) {
+    if (lower.includes('盘旋') || lower.includes('hold')) {
         actions.push({ type: 'hold', raw: 'hold' });
     }
     // 复飞

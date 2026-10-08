@@ -16,6 +16,9 @@ import { getWaypointInfoForAircraft } from '../simulation/index.js';
 import { clearanceText } from '../domain/clearances.js';
 import { unit } from '../data/atcUnits.js';
 import { openAircraftDialog } from './dialogs.js';
+import { focusRadarView } from '../render/views.js';
+import { distanceToAirportKm } from '../domain/airspace.js';
+import { flowOf } from '../domain/phases.js';
 
 const TIME_REFRESH_MS = 100;
 let _lastTimeRender = 0;
@@ -118,6 +121,10 @@ export function updateTimeDisplay(force = false) {
 }
 
 function openProgressAircraft(ac) {
+    const view = ac.unit?.split('-')[0];
+    if (!isEditMode() && view && view !== state.activeView && ['TWR', 'APP', 'ACC'].includes(view)) {
+        focusRadarView(view);
+    }
     select({ type: 'aircraft', id: ac.id });
     if (!isEditMode()) return;
     openAircraftDialog(ac.id);
@@ -138,7 +145,18 @@ export function updateProgressList(force = false) {
     container.innerHTML = '';
     if (containerOverlay) containerOverlay.innerHTML = '';
 
-    state.aircraft.forEach(ac => {
+    const aircraft = [...state.aircraft];
+    if (state.activeView === 'APP') {
+        const inApproachQueue = ac => String(ac.unit || '').startsWith('APP') && flowOf(ac) === 'arrival' && !ac.landed;
+        aircraft.sort((a, b) => {
+            const aQueue = inApproachQueue(a), bQueue = inApproachQueue(b);
+            if (aQueue !== bQueue) return aQueue ? -1 : 1;
+            if (!aQueue) return 0;
+            return (a.arrivalOrder || 99) - (b.arrivalOrder || 99)
+                || distanceToAirportKm(a, state.focusAirport) - distanceToAirportKm(b, state.focusAirport);
+        });
+    }
+    aircraft.forEach(ac => {
         if (state.time < (ac.startTime || 0)) return;
         // 席位过滤：点击席位面板后只显示该席位管辖的航空器
         if (state.seatFilter && (ac.unit || 'ACC') !== state.seatFilter) return;
@@ -164,7 +182,8 @@ export function updateProgressList(force = false) {
         const seat = unit(ac.unit || 'ACC');
         const seatText = `${seat.short}${ac.runway ? ` R${ac.runway}` : ''}`;
         const div = document.createElement('div');
-        div.className = 'progress-item';
+        div.className = 'progress-item' + (ac.unit && !ac.unit.startsWith(state.activeView) ? ' outside-view' : '');
+        div.dataset.unit = ac.unit || 'ACC';
         div.dataset.flightNo = ac.flightNo;
         div.innerHTML = `
             <div class="flight-no" style="color:${isSelected ? '#006400' : (ac.landed ? '#94a3b8' : '#1e40af')}">${escapeHtml(ac.flightNo)}${isSelected ? ' ✓' : ''}${ac.landed ? ' 🛬' : ''}</div>

@@ -53,6 +53,7 @@ import { initSessionPanel, initRosterPanel, initManagementPanel, initConsolePane
 import { hudModel } from './render/hud.js';
 import { initTutorialPanel } from './ui/tutorialPanel.js';
 import { initQuickControl, updateQuickControl } from './ui/quickControl.js';
+import { initRadarModes, updateRadarModes } from './ui/radarModes.js';
 import { initPlatformView, showPlatformView } from './ui/platformView.js';
 import { initWorkplaceScene } from './ui/workplaceScene.js';
 import { focusRadarView } from './render/views.js';
@@ -80,6 +81,7 @@ function animate(currentTime) {
             updateProgressList();
             updateConsole();
             updateQuickControl();
+            updateRadarModes();
         }
     }
 
@@ -103,6 +105,7 @@ initSessionPanel();                // 班次面板按钮绑定（开始班次 / 
 initTutorialPanel();               // L1 教学卡片的复诵核对按钮
 initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
 initQuickControl();
+initRadarModes();
 initRosterPanel();                 // 值班面板：申请不参加本次执勤（§128 权利，绑定一次）
 initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 合同 / 局方审批（事件委托，绑定一次）
 initWorkplaceScene();
@@ -118,6 +121,7 @@ if (loadState()) {
     normalizeScene();                 // 领域字段补齐（旧存档 ac.phase → ac.flow）
     bus.emit(EV.SCENE_CHANGED);       // 重建面板 + 落盘（幂等）
 }
+focusRadarView(state.activeView);
 startManagement();                    // 经营层：恢复已有存档或按默认值初始化（normalize + 补全）
 initAvatar();
 refreshAll();

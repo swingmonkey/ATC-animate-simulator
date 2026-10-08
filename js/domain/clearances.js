@@ -14,6 +14,7 @@ import { setAltitudeConstraint, setSpeedConstraint, setHeadingConstraint } from 
 import { runwayHeading } from '../data/airports.js';
 import { APPROACH_TYPES, approachLabel } from '../data/atcUnits.js';
 import { referenceAirportCode, assignRunway, normalizeRunway } from './airspace.js';
+import { flowOf } from './phases.js';
 import { noteCorrectReadback } from './readback.js';
 import { APPROACH_ALT, APPROACH_SPD, LANDING_ALT, LANDING_SPD } from '../core/constants.js';
 
@@ -52,9 +53,12 @@ export function clearanceText(ac) {
 
 /** 起飞许可（塔台）：按计划高度/速度放行离港航班 */
 export function issueTakeoffClearance(ac, options = {}) {
-    if (ac.landed || ac.clearance === 'takeoff') return false;
+    if (ac.landed || flowOf(ac) !== 'departure' || ac.clearance === 'takeoff'
+        || (ac.groundStage && ac.groundStage !== 'lineup')) return false;
     if (!ac.flow) ac.flow = 'departure';
     ac.clearance = 'takeoff';
+    ac.groundStage = 'takeoff';
+    ac.takeoffTime = state.time;
     if (!ac.runway) ac.runway = assignRunway(ac);
     setAltitudeConstraint(ac, ac.plannedAltitude ?? state.defaults.altitude);
     setSpeedConstraint(ac, ac.plannedSpeed ?? state.defaults.speed);

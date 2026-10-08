@@ -16,25 +16,30 @@ import {
 } from './routes.js';
 import { drawAircraft, drawAircraftWarnings, drawFreeNavTargets, drawRadarDragPreview } from './aircraft.js';
 import { drawHud } from './hud.js';
+import { drawSeatMap } from './seatMaps.js';
+import { state } from '../core/store.js';
+import { profileFor } from '../data/viewProfiles.js';
 
 export function drawRadar() {
+    const profile = profileFor(state.activeView);
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.save();
     ctx.translate(canvasWidth / 2 + viewOffsetX, canvasHeight / 2 + viewOffsetY);
     ctx.scale(viewScale, viewScale);
     ctx.translate(-centerX, -centerY);
 
-    drawMapBackground();
-    drawGrid();
-    drawLocationBackground();      // 位置文件：背景线 + 空域边界
-    drawRestrictedAreas();         // 位置文件：最低高度区（MVA）
-    drawWeather();
-    drawControlAreas();
-    drawAirports();
-    drawRouteSegments();
-    drawRoutePoints();
+    drawMapBackground(profile);
+    drawGrid(profile);
+    if (profile.layers.airspace || profile.layers.backgroundLines) drawLocationBackground();
+    if (profile.layers.mva) drawRestrictedAreas();
+    if (profile.layers.weather) drawWeather();
+    if (profile.layers.controlAreas) drawControlAreas();
+    drawSeatMap(profile);
+    drawAirports(profile);
+    if (profile.layers.routes) drawRouteSegments();
+    if (profile.layers.routePoints !== 'none') drawRoutePoints(profile);
     drawAircraftWarnings();
-    drawAircraft();
+    drawAircraft(profile);
     drawFreeNavTargets();
     drawRadarDragPreview();
     drawConnectionPreview();

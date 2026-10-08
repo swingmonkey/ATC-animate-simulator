@@ -17,7 +17,7 @@ import { state, addComm } from '../core/store.js';
 import { bus, EV, requestRedraw } from '../core/eventBus.js';
 import { nextId } from '../core/ids.js';
 import { kmToPxFixed, pxToKmFixed } from '../core/viewport.js';
-import { KT_TO_KMPS, DEPARTURE_INIT_ALT, DEPARTURE_INIT_SPD } from '../core/constants.js';
+import { KT_TO_KMPS } from '../core/constants.js';
 import { makeRng, pickWeighted, DEFAULT_SEED } from '../core/random.js';
 import { getAirport } from '../data/airports.js';
 import { AIRCRAFT, COMMON_TYPES } from '../data/aircraft.js';
@@ -260,8 +260,8 @@ export function spawnDeparture(spec = {}) {
 
     const ac = {
         id: nextId(),
-        x: ap.x, y: ap.y,
-        displayX: ap.x, displayY: ap.y,
+        x: ap.x, y: ap.y + kmToPxFixed(2.1),
+        displayX: ap.x, displayY: ap.y + kmToPxFixed(2.1),
         flightNo: spec.callsign || makeTrafficCallsign(),
         squawk: String(2000 + Math.floor(director.rng() * 7000)),
         departure: sc.airport,
@@ -271,9 +271,10 @@ export function spawnDeparture(spec = {}) {
         plannedAltitude: def.cruiseAlt,
         plannedSpeed: def.cruiseSpeed,
         clearance: null,
+        groundStage: 'parked',
         acType,
-        altitude: DEPARTURE_INIT_ALT,
-        speed: DEPARTURE_INIT_SPD,
+        altitude: 0,
+        speed: 0,
         heading: headingBetween({ x: ap.x, y: ap.y }, { x: exit.x, y: exit.y }),
         routeId: route.id,
         routeDistance: 0,

@@ -79,6 +79,7 @@ export const VIEW_PROFILES = {
             airspace: true,
             runwayDetail: true,
             ils: true,
+            routes: false,
             routePoints: 'near'
         }
     },

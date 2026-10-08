@@ -12,13 +12,14 @@
 import { state, isEditMode, select, addComm, commitScene, addRouteConnectPoint, clearTargetSelectMode } from '../core/store.js';
 import {
     canvas, toWorldX, toWorldY, toScreenX, toScreenY,
-    getCanvasCoords, zoomAt
+    getCanvasCoords, zoomAt, viewScale
 } from '../core/viewport.js';
 import { requestRedraw } from '../core/eventBus.js';
 import { HIT } from '../core/constants.js';
 import { posX, posY } from '../core/accessors.js';
 import { pointOnRoute, getPositionOnRoute } from '../simulation/geometry.js';
 import { canIssue, issueHint } from '../domain/phases.js';
+import { unitOfAircraft } from '../domain/airspace.js';
 import { submitAtcText } from '../ui/commPanel.js';
 import { showQuickFeedback } from '../ui/quickControl.js';
 import {
@@ -30,6 +31,15 @@ let draggingPoint = null;
 let draggingAc = null;
 let guidingAc = null;
 let guidingStart = null;
+
+function aircraftHit(ac, coords, radius = 18) {
+    return Math.hypot(coords.x - toScreenX(posX(ac)), coords.y - toScreenY(posY(ac))) <= radius;
+}
+
+function inActiveSeat(ac) {
+    const code = unitOfAircraft(ac);
+    return code === state.activeView || code.startsWith(`${state.activeView}-`);
+}
 
 function radarGuideAt(ac, coords) {
     const x = toWorldX(coords.x), y = toWorldY(coords.y);
@@ -90,7 +100,7 @@ canvas.addEventListener('mousemove', e => {
         const angle = Math.atan2(mouseWorldY - acY, mouseWorldX - acX);
         const angleStep = 30 * Math.PI / 180;
         const snappedAngle = Math.round(angle / angleStep) * angleStep;
-        const dx = mouseWorldX - acX, dy = mouseWorldY - acY;
+        const dx = (mouseWorldX - acX) * viewScale, dy = (mouseWorldY - acY) * viewScale;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const maxOffsetWorld = 80;
         const clampedDist = Math.min(dist, maxOffsetWorld);
@@ -156,13 +166,14 @@ canvas.addEventListener('mousedown', e => {
         let hitAc = null;
         state.aircraft.forEach(ac => {
             if (state.time < (ac.startTime || 0)) return;
-            if (Math.sqrt((mx - posX(ac)) ** 2 + (my - posY(ac)) ** 2) < HIT.AIRCRAFT) hitAc = ac;
+            if (aircraftHit(ac, coords)) hitAc = ac;
         });
         select(hitAc ? { type: 'aircraft', id: hitAc.id } : null);
-        guidingAc = hitAc;
-        guidingStart = hitAc ? coords : null;
+        guidingAc = hitAc && state.activeView !== 'TWR' && inActiveSeat(hitAc) ? hitAc : null;
+        guidingStart = guidingAc ? coords : null;
         state.radarDragPreview = null;
-        canvas.style.cursor = hitAc ? 'grab' : '';
+        canvas.style.cursor = guidingAc ? 'grab' : '';
+        if (hitAc && !inActiveSeat(hitAc)) showQuickFeedback('这架飞机由其他席位管制，请切换上方地图。', true);
         return;
     }
 
@@ -191,7 +202,7 @@ canvas.addEventListener('mousedown', e => {
     let hitAc = null;
     state.aircraft.forEach(ac => {
         if (state.time < (ac.startTime || 0)) return;
-        if (Math.sqrt((mx - posX(ac)) ** 2 + (my - posY(ac)) ** 2) < HIT.AIRCRAFT) hitAc = ac;
+        if (aircraftHit(ac, coords)) hitAc = ac;
     });
     if (hitAc) {
         select({ type: 'aircraft', id: hitAc.id });
@@ -205,8 +216,8 @@ canvas.addEventListener('mousedown', e => {
         const labelOffsetX = ac.labelOffsetX !== undefined ? ac.labelOffsetX : 50;
         const labelOffsetY = ac.labelOffsetY !== undefined ? ac.labelOffsetY : -30;
 
-        const labelScreenX = toScreenX(ac.x + labelOffsetX);
-        const labelScreenY = toScreenY(ac.y + labelOffsetY);
+        const labelScreenX = toScreenX(ac.x + labelOffsetX / viewScale);
+        const labelScreenY = toScreenY(ac.y + labelOffsetY / viewScale);
         if (coords.x >= labelScreenX && coords.x <= labelScreenX + HIT.LABEL_W &&
             coords.y >= labelScreenY && coords.y <= labelScreenY + HIT.LABEL_H) hitLabel = ac;
     });
@@ -240,7 +251,7 @@ window.addEventListener('mouseup', e => {
         requestRedraw();
         const rect = canvas.getBoundingClientRect();
         const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-        if (e.button === 0 && inside && preview && !isEditMode() && state.aircraft.includes(ac)) {
+        if (e.button === 0 && inside && preview && !isEditMode() && state.aircraft.includes(ac) && inActiveSeat(ac)) {
             const type = preview.waypointId !== null ? 'DIRECT' : 'HDG';
             if (!canIssue(ac, type)) {
                 showQuickFeedback(issueHint(ac, type), true);
@@ -300,14 +311,14 @@ canvas.addEventListener('dblclick', e => {
     const mx = toWorldX(coords.x), my = toWorldY(coords.y);
     let hitAc = null;
     state.aircraft.forEach(ac => {
-        if (Math.sqrt((mx - posX(ac)) ** 2 + (my - posY(ac)) ** 2) < HIT.AIRCRAFT_DBL) hitAc = ac;
+        if (aircraftHit(ac, coords, 24)) hitAc = ac;
     });
     if (!hitAc) {
         state.aircraft.forEach(ac => {
             if (state.time < (ac.startTime || 0)) return;
             const labelOffsetX = ac.labelOffsetX !== undefined ? ac.labelOffsetX : 50;
             const labelOffsetY = ac.labelOffsetY !== undefined ? ac.labelOffsetY : -30;
-            const lsx = toScreenX(ac.x + labelOffsetX), lsy = toScreenY(ac.y + labelOffsetY);
+            const lsx = toScreenX(ac.x + labelOffsetX / viewScale), lsy = toScreenY(ac.y + labelOffsetY / viewScale);
             if (coords.x >= lsx && coords.x <= lsx + HIT.LABEL_W &&
                 coords.y >= lsy && coords.y <= lsy + HIT.LABEL_H) hitAc = ac;
         });

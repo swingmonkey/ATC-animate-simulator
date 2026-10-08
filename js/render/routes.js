@@ -9,6 +9,8 @@ import {
 } from '../core/viewport.js';
 import { state } from '../core/store.js';
 import { POINT_COLORS, POINT_LABELS } from '../data/waypointTypes.js';
+import { getAirport } from '../data/airports.js';
+import { kmToPxFixed } from '../core/viewport.js';
 
 export function drawRouteSegments() {
     state.routes.forEach(route => {
@@ -61,8 +63,12 @@ export function drawRouteSegments() {
     });
 }
 
-export function drawRoutePoints() {
+export function drawRoutePoints(profile) {
+    const airport = getAirport(state.focusAirport);
+    const nearRadius = kmToPxFixed(100);
     state.routePoints.forEach(pt => {
+        if (profile?.layers.routePoints === 'near' && airport &&
+            Math.hypot(pt.x - airport.x, pt.y - airport.y) > nearRadius) return;
         const color = POINT_COLORS[pt.type] || POINT_COLORS.normal;
         const isSelected = state.selectedItem && state.selectedItem.type === 'point' && state.selectedItem.id === pt.id;
         const isConnectMode = state.routeConnectMode && state.routeConnectPoints.includes(pt.id);
@@ -71,8 +77,8 @@ export function drawRoutePoints() {
         if (isSelected) { ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 10; }
         ctx.fillStyle = isConnectMode ? '#16a34a' : color;
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        const r = isSelected ? 8 : 6;
+        ctx.lineWidth = 2 / viewScale;
+        const r = (isSelected ? 8 : 6) / viewScale;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
         ctx.fill();
@@ -80,7 +86,7 @@ export function drawRoutePoints() {
 
         if (pt.type !== 'normal') {
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 8px sans-serif';
+            ctx.font = `bold ${8 / viewScale}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(POINT_LABELS[pt.type] || '', pt.x, pt.y);
@@ -89,15 +95,15 @@ export function drawRoutePoints() {
         }
 
         ctx.fillStyle = color;
-        ctx.font = 'bold 9px Consolas';
-        ctx.fillText(pt.name || `P${pt.id}`, pt.x + 8, pt.y - 6);
+        ctx.font = `bold ${9 / viewScale}px Consolas`;
+        ctx.fillText(pt.name || `P${pt.id}`, pt.x + 8 / viewScale, pt.y - 6 / viewScale);
 
         if (isSelected) {
             ctx.strokeStyle = '#ff6600';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([2, 2]);
+            ctx.lineWidth = 1 / viewScale;
+            ctx.setLineDash([2 / viewScale, 2 / viewScale]);
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 11, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, 11 / viewScale, 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
         }

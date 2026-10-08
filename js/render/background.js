@@ -3,7 +3,7 @@
  */
 
 import {
-    ctx, canvasHeight, getPixelsPerKm, viewScale
+    ctx, canvasWidth, canvasHeight, kmToPxFixed, toWorldX, toWorldY, viewScale
 } from '../core/viewport.js';
 import { state } from '../core/store.js';
 import { windAt } from '../weather/weather.js';
@@ -48,21 +48,31 @@ function isLocalMax(storm, r, c) {
     return true;
 }
 
-export function drawMapBackground() {
-    ctx.fillStyle = '#f1f7f2';
+export function drawMapBackground(profile) {
+    ctx.fillStyle = profile.code === 'TWR' ? '#f8f2df' : profile.code === 'ACC' ? '#e9edf8' : '#edf8f3';
     ctx.fillRect(-10000, -10000, 20000, 20000);
 }
 
-export function drawGrid() {
-    const pixelsPerKm = getPixelsPerKm();
-    ctx.strokeStyle = 'rgba(71,121,116,0.13)';
-    ctx.lineWidth = 0.5;
-    for (let x = -10000; x < 10000; x += pixelsPerKm * 10) {
-        ctx.beginPath(); ctx.moveTo(x, -10000); ctx.lineTo(x, 10000); ctx.stroke();
+export function drawGrid(profile) {
+    if (!profile.layers.grid) return;
+    const step = kmToPxFixed(profile.gridSpacingKm);
+    const x0 = Math.min(toWorldX(0), toWorldX(canvasWidth));
+    const x1 = Math.max(toWorldX(0), toWorldX(canvasWidth));
+    const y0 = Math.min(toWorldY(0), toWorldY(canvasHeight));
+    const y1 = Math.max(toWorldY(0), toWorldY(canvasHeight));
+    ctx.save();
+    ctx.strokeStyle = profile.code === 'TWR' ? 'rgba(163,131,92,0.18)' :
+        profile.code === 'ACC' ? 'rgba(79,91,153,0.16)' : 'rgba(71,121,116,0.14)';
+    ctx.lineWidth = 0.75 / viewScale;
+    ctx.beginPath();
+    for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) {
+        ctx.moveTo(x, y0); ctx.lineTo(x, y1);
     }
-    for (let y = -10000; y < 10000; y += pixelsPerKm * 10) {
-        ctx.beginPath(); ctx.moveTo(-10000, y); ctx.lineTo(10000, y); ctx.stroke();
+    for (let y = Math.floor(y0 / step) * step; y <= y1; y += step) {
+        ctx.moveTo(x0, y); ctx.lineTo(x1, y);
     }
+    ctx.stroke();
+    ctx.restore();
 }
 
 /** 风场箭头（天气开启时叠加） */

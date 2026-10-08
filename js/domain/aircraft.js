@@ -21,6 +21,7 @@ import {
 import {
     issueTakeoffClearance, issueApproachClearance, issueLandingClearance
 } from './clearances.js';
+import { issueGroundAction, checkCrossingAltitude } from './dutyOps.js';
 
 /* ---------------- 尾流类别 ---------------- */
 
@@ -64,8 +65,15 @@ export function normalizeAircraft(ac) {
  */
 function applyAutoClearance(ac) {
     if (flowOf(ac) === 'departure') {
+        const elapsed = state.time - (ac.startTime || 0);
+        if (ac.unit === 'TWR' && ac.groundStage && !ac.clearance) {
+            if (elapsed >= 10 && ac.groundStage === 'parked') issueGroundAction(ac, 'pushback', { auto: true });
+            if (elapsed >= 20 && ac.groundStage === 'pushed') issueGroundAction(ac, 'startup', { auto: true });
+            if (elapsed >= 30 && ac.groundStage === 'started') issueGroundAction(ac, 'taxi', { auto: true });
+            if (elapsed >= 40 && ac.groundStage === 'taxi') issueGroundAction(ac, 'lineup', { auto: true });
+        }
         if (!ac.clearance && ac.unit === 'TWR'
-            && (state.time - (ac.startTime || 0)) >= AUTO_TAKEOFF_DELAY) {
+            && elapsed >= AUTO_TAKEOFF_DELAY) {
             issueTakeoffClearance(ac, { auto: true });
         }
         return;
@@ -123,6 +131,7 @@ export function syncAircraftState(ac) {
     /* 3. 接地判定与阶段同步 */
     checkLanding(ac);
     syncPhase(ac);
+    checkCrossingAltitude(ac);
     if (ac.landed) ac._visible = false;
 }
 

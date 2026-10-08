@@ -115,10 +115,10 @@ function drawFocusAirportDetails(code, ap) {
             // 跑道条只画一次（对向跑道是同一条）
             if (idx === 0) {
                 ctx.strokeStyle = '#334155';
-                ctx.lineWidth = 3.4;
+                ctx.lineWidth = 3.4 / viewScale;
                 ctx.beginPath(); ctx.moveTo(thX, thY); ctx.lineTo(endX, endY); ctx.stroke();
                 ctx.strokeStyle = '#f8fafc';
-                ctx.lineWidth = 2.2;
+                ctx.lineWidth = 2.2 / viewScale;
                 ctx.beginPath(); ctx.moveTo(thX, thY); ctx.lineTo(endX, endY); ctx.stroke();
             }
 
@@ -204,7 +204,7 @@ export function drawControlAreas() {
 }
 
 /** 机场图标（点 + 塔台区标注） */
-export function drawAirports() {
+export function drawAirports(profile) {
     const focus = state.focusAirport;
     Object.entries(AIRPORTS).forEach(([code, ap]) => {
         const isFocus = code === focus;
@@ -216,6 +216,6 @@ export function drawAirports() {
         ctx.lineWidth = 1.2 / viewScale;
         ctx.stroke();
         ctx.restore();
-        if (isFocus) drawFocusAirportDetails(code, ap);
+        if (isFocus && profile?.layers.runwayDetail) drawFocusAirportDetails(code, ap);
     });
 }

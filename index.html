@@ -78,6 +78,14 @@
         <div id="main-content">
             <div id="radar-container">
                 <canvas id="radar-canvas"></canvas>
+                <nav id="radar-view-switch" aria-label="管制席位地图">
+                    <div class="radar-view-tabs">
+                        <button type="button" class="radar-view-tab" data-radar-view="TWR">塔台 <small>跑道</small></button>
+                        <button type="button" class="radar-view-tab" data-radar-view="APP">进近 <small>终端区</small></button>
+                        <button type="button" class="radar-view-tab" data-radar-view="ACC">区调 <small>航路</small></button>
+                    </div>
+                    <span id="radar-view-caption">终端区引导与进近排序</span>
+                </nav>
                 <div id="tutorial-card" class="tutorial-card hidden" aria-live="polite">
                     <div class="tutorial-card-head"><strong>🎯 L1 第一局</strong><span id="tutorial-progress">落地 0/4</span></div>
                     <div id="tutorial-title" class="tutorial-card-title"></div>
@@ -96,10 +104,15 @@
             </div>
 
             <div id="right-panel">
+                <section id="mode-brief" class="panel-section" aria-label="当前席位任务">
+                    <div class="mode-brief-head"><strong id="mode-title">进近 · 终端区</strong><span id="mode-count">0 架在管</span></div>
+                    <p id="mode-mission">留意进入终端区的航班，安排进近和高度。</p>
+                    <button type="button" id="mode-focus-btn" disabled>定位下一架待处理航班</button>
+                </section>
                 <section id="quick-control" class="panel-section" aria-label="选中飞机的即时指挥">
                     <div class="quick-kicker"><span>✦ 即时指挥</span><span>ATC / 01</span></div>
                     <div id="quick-readout" class="quick-readout" aria-live="polite">点选雷达上的飞机或进程单，开始指挥。</div>
-                    <div class="quick-field">
+                    <div class="quick-field" id="quick-alt-field">
                         <label for="quick-altitude">目标高度 · 米</label>
                         <div class="quick-alt-row">
                             <button type="button" id="quick-alt-down" class="quick-small-btn" disabled>−600</button>
@@ -108,17 +121,44 @@
                         </div>
                         <button type="button" id="quick-alt-apply" class="quick-action-btn" disabled>下达高度</button>
                     </div>
-                    <div class="quick-field">
+                    <div class="quick-flight-levels" id="quick-flight-levels" aria-label="区域高度层快捷指令" hidden>
+                        <span>常用高度层</span><div><button type="button" data-fl="180">FL180</button><button type="button" data-fl="240">FL240</button><button type="button" data-fl="300">FL300</button><button type="button" data-fl="360">FL360</button></div>
+                    </div>
+                    <div class="quick-field" id="quick-direct-field">
                         <label for="quick-waypoint">直飞航路点</label>
                         <div class="quick-direct-row">
                             <select id="quick-waypoint" disabled aria-label="选择直飞航路点"><option value="">暂无航路点</option></select>
                             <button type="button" id="quick-direct" class="quick-action-btn" disabled>直飞</button>
                         </div>
                     </div>
+                    <div class="quick-field" id="quick-runway-field" hidden>
+                        <label for="quick-runway">指派跑道 / 进近跑道</label>
+                        <div class="quick-direct-row"><select id="quick-runway" aria-label="选择跑道"></select><button type="button" id="quick-assign-runway" class="quick-action-btn" disabled>指定</button></div>
+                    </div>
+                    <div class="quick-special" id="quick-ground" hidden>
+                        <div class="quick-special-head"><strong>地面放行流程</strong><span id="quick-ground-stage">停机位</span></div>
+                        <div class="quick-special-grid"><button type="button" data-ground="pushback">1 推出</button><button type="button" data-ground="startup">2 开车</button><button type="button" data-ground="taxi">3 滑行</button><button type="button" data-ground="lineup">4 进跑道</button></div>
+                        <label class="quick-auto"><input type="checkbox" id="quick-auto-clearance" checked> 自动许可流程</label>
+                    </div>
+                    <div class="quick-special" id="quick-approach-plan" hidden>
+                        <div class="quick-special-head"><strong>进近排序</strong><span id="quick-order-readout">未排序</span></div>
+                        <div class="quick-special-grid quick-order-grid"><button type="button" data-order="1">第 1 架</button><button type="button" data-order="2">第 2 架</button><button type="button" data-order="3">第 3 架</button></div>
+                        <label for="quick-crossing-alt">过所选航路点高度 · 米</label>
+                        <div class="quick-direct-row"><input type="number" id="quick-crossing-alt" step="100" min="610" aria-label="过点高度，米"><button type="button" id="quick-crossing-apply">下达过点高度</button></div>
+                    </div>
+                    <div class="quick-special" id="quick-area-plan" hidden>
+                        <div class="quick-special-head"><strong>区域流量控制</strong><span id="quick-area-readout">无限高 · 无流控</span></div>
+                        <label for="quick-area-limit">高度上限 · 米</label>
+                        <div class="quick-direct-row"><input type="number" id="quick-area-limit" step="300" min="610" aria-label="高度限制，米"><button type="button" id="quick-area-limit-apply">设置限制</button><button type="button" id="quick-area-limit-clear">解除</button></div>
+                        <label for="quick-flow-speed">流控速度 · 节</label>
+                        <div class="quick-direct-row"><select id="quick-flow-speed" aria-label="选择流控速度"><option value="220">220 节</option><option value="250" selected>250 节</option><option value="280">280 节</option></select><button type="button" id="quick-flow-apply">下达</button><button type="button" id="quick-flow-clear">解除</button></div>
+                    </div>
                     <div class="quick-clearances" aria-label="常用许可">
                         <button type="button" id="quick-takeoff" disabled>起飞</button>
                         <button type="button" id="quick-approach" disabled>进近</button>
                         <button type="button" id="quick-land" disabled>落地</button>
+                        <button type="button" id="quick-go-around" disabled hidden>复飞</button>
+                        <button type="button" id="quick-handoff" disabled hidden>移交</button>
                     </div>
                     <p id="quick-feedback" class="quick-feedback" role="status" aria-live="polite">拖动飞机：松在航路点上直飞；松在空白处按方向引导。</p>
                 </section>

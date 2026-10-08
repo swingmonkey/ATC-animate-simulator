@@ -6,6 +6,7 @@
 
 import { state, setFocusAirport } from '../core/store.js';
 import { nextId } from '../core/ids.js';
+import { kmToPxFixed } from '../core/viewport.js';
 import {
     getAirport, distantAirport, airportName, AIRPORTS
 } from '../data/airports.js';
@@ -18,7 +19,6 @@ import {
 import { setAltitudeConstraint, setSpeedConstraint } from '../simulation/motion.js';
 import { assignRunwayFor } from '../domain/airspace.js';
 import { normalizeAircraft } from '../domain/aircraft.js';
-import { DEPARTURE_INIT_ALT, DEPARTURE_INIT_SPD } from '../core/constants.js';
 
 /** 统一 ID（core/ids.js）：原 Date.now() 自增在同毫秒多实体时会碰撞 */
 const genId = nextId;
@@ -108,8 +108,8 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
 
     const ac = {
         id: genId(),
-        x: focusPt.x, y: focusPt.y,
-        displayX: focusPt.x, displayY: focusPt.y,
+        x: focusPt.x, y: focusPt.y + kmToPxFixed(2.1),
+        displayX: focusPt.x, displayY: focusPt.y + kmToPxFixed(2.1),
         flightNo: makeCallsign(airline, randomFlightNumber()),
         squawk: String(Math.floor(Math.random() * 7000) + 2000),
         departure: focusCode,
@@ -119,9 +119,10 @@ export function createDeparture(focusCode = 'ZUUU', startTime = 0) {
         plannedAltitude: def.cruiseAlt,                      // 计划巡航高度：起飞许可后爬升
         plannedSpeed: def.cruiseSpeed,                       // 计划巡航速度：起飞许可后加速
         clearance: null,                                     // 待塔台放行
+        groundStage: 'parked',
         acType,
-        altitude: DEPARTURE_INIT_ALT,   // 起始低高度（等待放行）
-        speed: DEPARTURE_INIT_SPD,
+        altitude: 0,
+        speed: 0,
         heading: 90,
         routeId: route.id,
         routeDistance: 0,

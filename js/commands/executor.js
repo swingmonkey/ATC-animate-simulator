@@ -20,18 +20,23 @@ import {
 import { handoffAircraft } from '../domain/airspace.js';
 import { makeReadback, resolveReadback } from '../domain/readback.js';
 import { unitLabel } from '../data/atcUnits.js';
+import { issueGroundAction, setArrivalOrder, setCrossingAltitude,
+    setAreaAltitudeLimit, setFlowSpeed } from '../domain/dutyOps.js';
 
 /** 定向指令最多为几架生成复诵（避免广播时刷屏；广播指令由机组按需复诵） */
 const READBACK_MAX_TARGETS = 3;
 
-function findWaypointByName(name) {
+function findWaypointByName(name, ac = null) {
     const n = (name || '').toLowerCase();
-    return state.routePoints.find(p => (p.name || '').toLowerCase() === n) || null;
+    const route = ac?.routeId ? state.routes.find(item => item.id === ac.routeId) : null;
+    return state.routePoints.find(p => (p.name || '').toLowerCase() === n)
+        || route?.points.find(p => (p.name || '').toLowerCase() === n) || null;
 }
 
 /** 可指令高度下限/上限（m）：导入 Endless ATC 位置文件后由 floor / above 改写 */
 function altFloorM() { return state.defaults.altMinM || ALT_MIN; }
 function altCeilingM() { return state.defaults.altMaxM || ALT_MAX; }
+function aircraftCeilingM(ac) { return Math.min(altCeilingM(), ac.areaAltitudeLimitM ?? Infinity); }
 
 /**
  * @param {string} text 原始指令文本
@@ -54,17 +59,19 @@ export function executeCommand(text) {
 
     let affected = 0;
     const applied = [];
+    let rejected = '';
     for (const ac of targets) {
         if (state.time < (ac.startTime || 0)) continue;
+        let accepted = true;
         for (const act of parsed.actions) {
             switch (act.type) {
                 case 'alt':
-                    setAltitudeConstraint(ac, Math.max(altFloorM(), Math.min(altCeilingM(), act.value)));
+                    setAltitudeConstraint(ac, Math.max(altFloorM(), Math.min(aircraftCeilingM(ac), act.value)));
                     break;
                 case 'climb':
                     setAltitudeConstraint(ac, act.absolute
-                        ? Math.min(altCeilingM(), act.value)
-                        : Math.min(altCeilingM(), altOf(ac) + act.value));
+                        ? Math.min(aircraftCeilingM(ac), act.value)
+                        : Math.min(aircraftCeilingM(ac), altOf(ac) + act.value));
                     break;
                 case 'descend':
                     // 绝对高度同样受可指令高度下限约束（导入位置文件后为 floor）；
@@ -116,7 +123,7 @@ export function executeCommand(text) {
                     markGoAround(ac);          // 领域记录 + 阶段推导转入 GO_AROUND
                     break;
                 case 'direct': {
-                    const wp = findWaypointByName(act.value);
+                    const wp = findWaypointByName(act.value, ac);
                     if (wp) {
                         ac.navMode = 'free';
                         ac.targetX = wp.x;
@@ -135,7 +142,33 @@ export function executeCommand(text) {
                     issueLandingClearance(ac, act.runway);
                     break;
                 case 'takeoff':
-                    issueTakeoffClearance(ac);
+                    accepted = issueTakeoffClearance(ac);
+                    if (!accepted) rejected = `${ac.flightNo} 尚未完成推出、开车、滑行与进跑道流程`;
+                    break;
+                case 'pushback': case 'startup': case 'taxi': case 'lineup':
+                    accepted = issueGroundAction(ac, act.type);
+                    if (!accepted) rejected = `${ac.flightNo} 当前地面阶段不允许${act.type}，请按推出→开车→滑行→进跑道顺序操作`;
+                    break;
+                case 'arrivalOrder':
+                    accepted = setArrivalOrder(ac, act.value);
+                    if (!accepted) rejected = `${ac.flightNo} 当前不在进近进港队列`;
+                    break;
+                case 'crossingAlt': {
+                    const fix = findWaypointByName(act.fix, ac);
+                    accepted = !!fix && act.value >= altFloorM() && act.value <= altCeilingM()
+                        && setCrossingAltitude(ac, fix.name, act.value);
+                    if (!accepted) rejected = `${ac.flightNo} 过点高度不可用：检查进近席位、航路点和高度范围`;
+                    break;
+                }
+                case 'areaAltLimit':
+                    accepted = (act.value == null || (act.value >= altFloorM() && act.value <= altCeilingM()))
+                        && setAreaAltitudeLimit(ac, act.value);
+                    if (!accepted) rejected = `${ac.flightNo} 高度限制不可用：检查区域席位和高度范围`;
+                    break;
+                case 'flowSpeed':
+                    accepted = (act.value == null || (act.value >= 160 && act.value <= 450))
+                        && setFlowSpeed(ac, act.value);
+                    if (!accepted) rejected = `${ac.flightNo} 流控速度不可用：区域席位可设 160–450 节`;
                     break;
                 case 'handoff':
                     if (!handoffAircraft(ac, act.value)) {
@@ -147,9 +180,10 @@ export function executeCommand(text) {
                     break;
             }
         }
-        affected++;
-        applied.push(ac);
+        if (accepted) { affected++; applied.push(ac); }
     }
+
+    if (affected === 0) return { ok: false, affected: 0, message: rejected || '当前航班无法执行该指令' };
 
     // 机组复诵：定向指令逐架播报（含按难度概率抽取的漏项错诵，见 domain/readback.js）。
     // 重新下发视为纠正：先清掉上一轮「复诵不符」状态，再播报新的复诵。

@@ -351,6 +351,102 @@ const SCRIPT_RADAR_QUICK = `(async () => {
     return result;
 })()`;
 
+/** 三席位值班：视距、任务与推荐指令均随席位切换，且指令走真实输入通道。 */
+const SCRIPT_RADAR_MODES = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const vp = await import('./js/core/viewport.js');
+    const motion = await import('./js/simulation/motion.js');
+    const saved = { aircraft: st.aircraft, selected: st.selectedItem, view: st.activeView,
+        commCount: st.commMessages.length, commDomCount: document.querySelectorAll('#comm-messages .comm-msg').length,
+        inputCount: A.session()?.inputs.length || 0 };
+    const make = (id, flightNo, unit, flow, phase, altitude) => ({
+        ...saved.aircraft[0], id, flightNo, unit, flow, phase, altitude, displayAltitude: altitude,
+        altCon: altitude, landed: false, _visible: true, startTime: 0, clearance: null,
+        approachType: null, clearances: [], readback: null, trail: [], runway: '02L'
+    });
+    const twr = make(-991, 'RTWR991', 'TWR', 'departure', 'HOLD_SHORT', 0);
+    twr.groundStage = 'parked';
+    const app = make(-992, 'RAPP992', 'APP', 'arrival', 'VECTOR', 3200);
+    const acc = make(-993, 'RACC993', 'ACC', 'arrival', 'CRUISE', 10000);
+    const result = {};
+    const probe = { x: 300, y: 300, speed: 220, displaySpeed: 220,
+        heading: 90, displayHeading: 90, navMode: 'heading', routeId: null, startTime: 0 };
+    try {
+        st.aircraft = [twr, app, acc];
+        const switchTo = code => {
+            document.querySelector('#radar-view-switch button[data-radar-view="' + code + '"]').click();
+            result[code + 'View'] = st.activeView === code && document.body.dataset.radarView === code
+                && document.querySelector('#radar-view-switch .active')?.dataset.radarView === code;
+            return vp.viewScale;
+        };
+        const select = ac => { st.selectedItem = { type: 'aircraft', id: ac.id }; A.bus.emit(A.EV.SELECTION_CHANGED); };
+        const twrScale = switchTo('TWR');
+        const twrPosition = motion.calculateAircraftPositionAtTime(probe, 100);
+        select(twr);
+        result.twrBrief = document.getElementById('mode-title').textContent.includes('地面')
+            && document.getElementById('mode-count').textContent.includes('1 架');
+        result.twrControls = !document.getElementById('quick-takeoff').hidden
+            && document.getElementById('quick-alt-field').hidden && document.getElementById('quick-direct-field').hidden;
+        result.twrTakeoffBlockedOnStand = document.getElementById('quick-takeoff').disabled;
+        for (const [action, stage] of [['pushback', 'pushed'], ['startup', 'started'],
+            ['taxi', 'taxi'], ['lineup', 'lineup']]) {
+            document.querySelector('#quick-ground button[data-ground="' + action + '"]').click();
+            result['ground' + action] = twr.groundStage === stage;
+        }
+        document.getElementById('quick-takeoff').click();
+        result.twrTakeoff = twr.clearance === 'takeoff';
+        const appScale = switchTo('APP');
+        const appPosition = motion.calculateAircraftPositionAtTime(probe, 100);
+        select(app);
+        result.appBrief = document.getElementById('mode-title').textContent.includes('排序');
+        result.appControls = !document.getElementById('quick-approach').hidden
+            && !document.getElementById('quick-alt-field').hidden && !document.getElementById('quick-direct-field').hidden;
+        document.querySelector('#quick-approach-plan button[data-order="1"]').click();
+        result.appOrder = app.arrivalOrder === 1;
+        const firstPoint = document.querySelector('#quick-waypoint option[value]:not([value=""])');
+        if (firstPoint) {
+            document.getElementById('quick-waypoint').value = firstPoint.value;
+            document.getElementById('quick-waypoint').dispatchEvent(new Event('change'));
+            document.getElementById('quick-crossing-alt').value = '4200';
+            document.getElementById('quick-crossing-apply').click();
+        }
+        result.appCrossing = !!app.crossingFix && app.crossingAltM === 4200;
+        document.getElementById('quick-approach').click();
+        result.appApproach = app.approachType === 'ILS';
+        const accScale = switchTo('ACC');
+        const accPosition = motion.calculateAircraftPositionAtTime(probe, 100);
+        select(acc);
+        result.accBrief = document.getElementById('mode-title').textContent.includes('流量');
+        result.accControls = !document.getElementById('quick-flight-levels').hidden
+            && document.getElementById('quick-runway-field').hidden && document.getElementById('quick-go-around').hidden;
+        document.querySelector('#quick-flight-levels button[data-fl="360"]').click();
+        result.accFlightLevel = Math.abs(acc.altCon - 10973) <= 1;
+        document.getElementById('quick-area-limit').value = '9600';
+        document.getElementById('quick-area-limit-apply').click();
+        result.accAltitudeLimit = acc.areaAltitudeLimitM === 9600 && acc.altCon === 9600;
+        document.getElementById('quick-flow-speed').value = '250';
+        document.getElementById('quick-flow-apply').click();
+        result.accFlowControl = acc.flowSpeedKt === 250 && acc.spdCon === 250;
+        document.getElementById('quick-handoff').click();
+        result.accHandoff = acc.unit === 'APP';
+        result.viewRanges = twrScale > appScale && appScale > accScale;
+        result.viewMotionInvariant = Math.abs(twrPosition.x - appPosition.x) < 1e-9
+            && Math.abs(appPosition.x - accPosition.x) < 1e-9
+            && Math.abs(twrPosition.y - appPosition.y) < 1e-9
+            && Math.abs(appPosition.y - accPosition.y) < 1e-9;
+    } finally {
+        st.aircraft = saved.aircraft; st.selectedItem = saved.selected;
+        st.commMessages.length = saved.commCount;
+        [...document.querySelectorAll('#comm-messages .comm-msg')].slice(saved.commDomCount).forEach(node => node.remove());
+        const inputLog = A.session()?.inputs;
+        if (inputLog) inputLog.length = saved.inputCount;
+        document.querySelector('#radar-view-switch button[data-radar-view="' + saved.view + '"]').click();
+        A.bus.emit(A.EV.SELECTION_CHANGED);
+    }
+    return result;
+})()`;
+
 
 /** 阶段二：播放推进、暂停、指令、天气、对话框、增删 */
 const SCRIPT_INTERACT = `(() => {
@@ -501,6 +597,18 @@ const SCRIPT_AUTO = `(() => {
             '#comm-messages .comm-msg.twr, #comm-messages .comm-msg.app, #comm-messages .comm-msg.acc'
         ).length
     };
+    // 固定离港样本：随机场景中的离港机可能在验证时已离开塔台区。
+    const ap = A.airports.get(st.focusAirport);
+    const seed = st.aircraft.find(ac => ac.flow === 'departure') || st.aircraft[0];
+    if (ap && seed) {
+        st.aircraft.push({ ...seed, id: -990, flightNo: 'AUTO990', flow: 'departure',
+            phase: 'HOLD_SHORT', unit: 'TWR', departure: st.focusAirport, destination: 'TESTEXIT',
+            startTime: st.time, landed: false, _visible: true, navMode: 'heading', routeId: null,
+            x: ap.x, y: ap.y, displayX: ap.x, displayY: ap.y,
+            altitude: 0, displayAltitude: 0, altCon: 0,
+            speed: 0, displaySpeed: 0, spdCon: 0,
+            clearance: null, clearances: [], trail: [], readback: null });
+    }
     const speed = document.getElementById('speed-select');
     speed.value = '60';
     speed.dispatchEvent(new Event('change'));
@@ -519,7 +627,12 @@ const SCRIPT_AUTO_VERIFY = `(async () => {
         seatCommsAfterAuto: document.querySelectorAll(
             '#comm-messages .comm-msg.twr, #comm-messages .comm-msg.app, #comm-messages .comm-msg.acc'
         ).length,
-        autoTakeoffIssued: st.aircraft.some(ac => ac.flow === 'departure' && ac.clearance === 'takeoff'),
+        autoTakeoffIssued: st.aircraft.some(ac => ac.flightNo === 'AUTO990'
+            && ac.clearances?.some(item => item.type === 'TAKEOFF')),
+        autoFixture: (() => { const ac = st.aircraft.find(item => item.flightNo === 'AUTO990');
+            return ac ? { unit: ac.unit, clearance: ac.clearance, startTime: ac.startTime,
+                x: ac.displayX, y: ac.displayY, records: ac.clearances?.map(item => item.type),
+                autoClearance: st.autoClearance } : null; })(),
         runwayAssigned: st.aircraft.every(ac => !!ac.runway),
         departureAutoHandoff: st.aircraft.some(
             ac => ac.flow === 'departure' && ac.handoffTime !== undefined && ac.unit === 'ACC'
@@ -585,7 +698,7 @@ const SCRIPT_GAME = `(() => {
 })()`;
 
 /** 阶段六：关闭自动许可并把一架进港航班压到最低高度区以下（确定性触发 MVA 记分） */
-const SCRIPT_GAME_MVA = `(() => {
+const SCRIPT_GAME_MVA = `(async () => {
     const A = window.__ATC__;
     const st = A.state;
     const out = {};
@@ -595,7 +708,18 @@ const SCRIPT_GAME_MVA = `(() => {
     out.autoClearanceOff = st.autoClearance === false;
     out.gameLandedBefore = st.aircraft.filter(ac => ac.landed).length;
 
-    const arr = st.aircraft.find(ac => ac.flow === 'arrival' && !ac.landed && ac.spawnedBy === 'director');
+    // 导演进港机可能在等待窗口内全部落地，直接注入固定样本测试 MVA 记分。
+    const { spawnArrival } = await import('./js/game/director.js');
+    const { kmToPxFixed } = await import('./js/core/viewport.js');
+    const ap = A.airports.get('ZUUU');
+    const arr = spawnArrival({ callsign: 'MVATEST', altM: 800, targetAltM: 610, spd: 180 });
+    if (arr && ap) {
+        arr.x = ap.x + kmToPxFixed(16); arr.y = ap.y;
+        arr.displayX = arr.x; arr.displayY = arr.y;
+        arr.altitude = 800; arr.displayAltitude = 800; arr.altCon = 800;
+        arr.unit = 'APP'; arr.phase = 'VECTOR'; arr.navMode = 'heading';
+        arr.routeId = null; arr.approachType = null; arr.clearance = null;
+    }
     out.mvaTargetFound = !!arr;
     if (arr) {
         arr.approachType = null;
@@ -740,6 +864,11 @@ const SCRIPT_CONSOLE_DOM = `(() => {
     out.depFound = !!dep;
     if (!dep) return out;
 
+    // 一键放行与灰显要在塔台等待放行阶段校验，避免随机航班已爬升到进近区。
+    const originalDuty = { unit: dep.unit, phase: dep.phase, clearance: dep.clearance,
+        landed: dep.landed, groundStage: dep.groundStage };
+    dep.unit = 'TWR'; dep.phase = 'HOLD_SHORT'; dep.clearance = null; dep.landed = false; dep.groundStage = 'lineup';
+
     const items = Array.prototype.slice.call(document.querySelectorAll('#progress-list .progress-item'));
     const hit = items.find(el => el.dataset.flightNo === dep.flightNo);
     if (hit) hit.click();
@@ -812,6 +941,7 @@ const SCRIPT_CONSOLE_DOM = `(() => {
     out.pickCounts = [picked.runway, picked.route, picked.alt].join(',');
     out.runwayMostPicked = picked.runway > picked.route && picked.route > picked.alt;
     window.__SMOKE_DEP__ = dep.flightNo;
+    Object.assign(dep, originalDuty);
     return out;
 })()`;
 
@@ -1290,6 +1420,16 @@ async function runSmoke() {
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_BOOT));
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PLATFORM_VIEW));
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_RADAR_QUICK));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_RADAR_MODES));
+        for (const code of ['TWR', 'APP', 'ACC']) {
+            await win.webContents.executeJavaScript(`document.querySelector('#radar-view-switch button[data-radar-view="${code}"]').click()`);
+            await wait(90);
+            const image = await win.webContents.capturePage();
+            const shotPath = path.join(app.getPath('userData'), `radar-${code.toLowerCase()}-shot.png`);
+            writeFileSync(shotPath, image.toPNG());
+            report[`radar${code}Screenshot`] = shotPath;
+        }
+        await win.webContents.executeJavaScript("document.querySelector('#radar-view-switch button[data-radar-view=APP]').click()");
         await wait(120);
         try {
             const image = await win.webContents.capturePage();
@@ -1440,6 +1580,20 @@ async function runSmoke() {
     }
 
     const checks = [
+        ['三席位：塔台/进近/区调视图与比例尺独立', report.TWRView === true && report.APPView === true
+            && report.ACCView === true && report.viewRanges === true && report.viewMotionInvariant === true],
+        ['三席位：任务摘要与快捷操作随席位变化', report.twrBrief === true && report.appBrief === true
+            && report.accBrief === true && report.twrControls === true && report.appControls === true
+            && report.accControls === true],
+        ['三席位：起飞、进近、高度层、移交走真实指令', report.twrTakeoff === true
+            && report.appApproach === true && report.accFlightLevel === true && report.accHandoff === true],
+        ['塔台：推出→开车→滑行→进跑道→起飞按顺序执行', report.twrTakeoffBlockedOnStand === true
+            && report.groundpushback === true && report.groundstartup === true
+            && report.groundtaxi === true && report.groundlineup === true],
+        ['进近：排序与过点高度约束可下达', report.appOrder === true && report.appCrossing === true],
+        ['区域：高度限制和流控速度可下达', report.accAltitudeLimit === true && report.accFlowControl === true],
+        ['三席位：每张地图均可渲染截图', !!report.radarTWRScreenshot && !!report.radarAPPScreenshot
+            && !!report.radarACCScreenshot],
         ['平台：经营指挥台与雷达值班可切换、切走时安全暂停', report.platformViewSwitch === true
             && report.platformViewPause === true && report.platformRadarResized === true],
         ['平台：经营操作及场景刷新后恢复', report.managementReloadRestored === true],

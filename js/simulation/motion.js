@@ -8,7 +8,7 @@
  */
 
 import { state } from '../core/store.js';
-import { getPixelsPerKm } from '../core/viewport.js';
+import { kmToPxFixed } from '../core/viewport.js';
 import { bus, EV } from '../core/eventBus.js';
 import { KT_TO_KMPS, TRAIL_MAX_PTS } from '../core/constants.js';
 import { posX, posY } from '../core/accessors.js';
@@ -92,12 +92,13 @@ export function calculateAircraftPositionAtTime(ac, targetTime) {
     }
 
     const speedKmPerSec = ((ac.displaySpeed ?? ac.speed ?? state.defaults.speed) * KT_TO_KMPS);
-    const pixelsPerKm = getPixelsPerKm();
+    // 世界坐标中的距离固定；用户切换塔台/进近/区域地图不应改变飞行速度。
+    const pixelsPerKm = kmToPxFixed(1);
 
     // 自由导航：朝目标点直线飞行
     if (ac.navMode === 'free' && ac.targetX !== undefined && ac.targetY !== undefined) {
         const startX = ac.x, startY = ac.y;
-        const timeFromStart = targetTime - acStartTime;
+        const timeFromStart = Math.max(0, targetTime - (ac.takeoffTime ?? acStartTime));
         const distPx = speedKmPerSec * timeFromStart * pixelsPerKm;
         const dx = ac.targetX - startX, dy = ac.targetY - startY;
         const totalDist = Math.sqrt(dx * dx + dy * dy);
@@ -113,7 +114,7 @@ export function calculateAircraftPositionAtTime(ac, targetTime) {
     if (!ac.routeId) {
         const heading = ac.displayHeading ?? (ac.heading || 90);
         const startX = ac.x, startY = ac.y;
-        const timeFromStart = targetTime - acStartTime;
+        const timeFromStart = Math.max(0, targetTime - (ac.takeoffTime ?? acStartTime));
         const headRad = (heading - 90) * Math.PI / 180;
         const distPx = speedKmPerSec * timeFromStart * pixelsPerKm;
         return { visible: true, x: startX + Math.cos(headRad) * distPx, y: startY - Math.sin(headRad) * distPx, heading };
@@ -137,7 +138,7 @@ export function calculateAircraftPositionAtTime(ac, targetTime) {
         return { visible: true, x: route.points[0].x, y: route.points[0].y, heading: ac.heading || 90 };
     }
 
-    const timeFromStart = targetTime - acStartTime;
+    const timeFromStart = Math.max(0, targetTime - (ac.takeoffTime ?? acStartTime));
     const distanceMoved = speedKmPerSec * timeFromStart * pixelsPerKm;
 
     let startX = ac.x, startY = ac.y;

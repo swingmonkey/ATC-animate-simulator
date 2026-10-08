@@ -73,6 +73,7 @@ const BAR_H = 30;
 export function drawHud() {
     const m = hudModel();
     const w = canvasWidth;
+    const mode = state.activeView === 'TWR' ? '塔台' : state.activeView === 'ACC' ? '区调' : '进近';
 
     ctx.save();
     ctx.fillStyle = 'rgba(255,249,232,0.96)';
@@ -90,7 +91,7 @@ export function drawHud() {
     };
 
     if (m.sessionActive) {
-        put(`✦ ${m.scenarioName || '值班中'}`, '#28445a');
+        put(`✦ ${mode} · ${m.scenarioName || '值班中'}`, '#28445a');
         put(m.timeText, '#168c87');
         put(`评分 ${m.score} · ${m.grade}`, m.score >= 60 ? '#168c87' : '#c75c50');
         put(`落地 ${m.landed}${m.finish?.count ? '/' + m.finish.count : ''}`, '#28445a');
@@ -98,7 +99,7 @@ export function drawHud() {
         if (w > 820) put(`飞机 ${m.activeAircraft}/${m.maxAircraft}`, '#28445a');
         if (w > 1050) put(`跑道 ${(m.runwayLand || []).join('/') || '--'}`, '#68887f');
     } else {
-        put('✦ 雷达值班', '#28445a');
+        put(`✦ ${mode}值班`, '#28445a');
         put(m.timeText, '#168c87');
         put(m.playing ? '自由模拟 · 运行中' : '右侧开始班次 / 自由模拟', '#68887f');
     }
