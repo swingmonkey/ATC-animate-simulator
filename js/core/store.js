@@ -63,7 +63,16 @@ export const state = {
     pointNameCounter: 1,
 
     /* 经营层状态（v1.7：资金 / 人员 / 房间 / 合同 / 局方审批）；由 game/management.js 装配 */
-    management: null
+    management: null,
+
+    /* 随机特情与经营事件日志（M2 持久化；由 game/events.js 维护） */
+    eventLog: [],
+
+    /* 难度曲线状态（M2 持久化；随日/架次推进，由 game/scenario.js 推导） */
+    difficultyCurve: null,
+
+    /* 多机场：焦点机场代码（与 focusAirport 同步，存档显式保留 M2 语义） */
+    focusAirportCode: null
 };
 
 state.defaults = {
@@ -167,9 +176,13 @@ export function addComm(sender, text) {
 
 /** 场景焦点机场变更（管制区渲染与航班生成的参照机场） */
 export function setFocusAirport(code) {
-    if (!code || code === state.focusAirport) return;
+    if (!code) return;
+    // M2 T7：多机场焦距对齐 —— focusAirport（旧字段）与 focusAirportCode（显式字段）必须同步
+    const same = code === state.focusAirport && code === state.focusAirportCode;
+    if (same) return;
     state.focusAirport = code;
-    bus.emit(EV.UNIT_CHANGED, { focusAirport: code });
+    state.focusAirportCode = code;
+    bus.emit(EV.UNIT_CHANGED, { focusAirport: code, focusAirportCode: code });
     requestRedraw();
 }
 

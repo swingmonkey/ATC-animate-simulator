@@ -55,20 +55,20 @@ export function airportName(code) {
     return a ? a.name : code;
 }
 
-export function randomAirportCode(exclude) {
+export function randomAirportCode(exclude, rng = Math.random) {
     const codes = Object.keys(AIRPORTS).filter(c => c !== exclude);
-    return codes[Math.floor(Math.random() * codes.length)];
+    return codes[Math.floor(rng() * codes.length)];
 }
 
 /** 取与给定机场不同区域的一个机场（用于制造跨区航班） */
-export function distantAirport(exclude) {
+export function distantAirport(exclude, rng = Math.random) {
     const a = AIRPORTS[exclude];
-    if (!a) return randomAirportCode(exclude);
+    if (!a) return randomAirportCode(exclude, rng);
     const candidates = Object.entries(AIRPORTS)
         .filter(([code, ap]) => code !== exclude && ap.region !== a.region)
         .map(([code]) => code);
-    if (!candidates.length) return randomAirportCode(exclude);
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    if (!candidates.length) return randomAirportCode(exclude, rng);
+    return candidates[Math.floor(rng() * candidates.length)];
 }
 
 /** 机场跑道对列表（无数据时回退到通用双跑道示意） */

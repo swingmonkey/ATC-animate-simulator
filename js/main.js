@@ -10,7 +10,7 @@ import { state } from './core/store.js';
 import { bus, EV, consumeRedraw } from './core/eventBus.js';
 import { resizeCanvas } from './core/viewport.js';
 import { tickClock, resetClockAccumulator, clockStats } from './core/clock.js';
-import { loadState } from './core/persistence.js';
+import { loadState, migrateState, SCHEMA_VERSION } from './core/persistence.js';
 import { updateAircraftPositionsForTime, updateTrails } from './simulation/index.js';
 import { normalizeScene } from './domain/aircraft.js';
 import { resolveUnitForDistance } from './domain/airspace.js';
@@ -26,7 +26,8 @@ import {
     trainStaff, buildRoom, upgradeTech, assignSeat, signContract, requestTrialRun, endDay
 } from './game/management.js';
 import { scoringSummary, scoreTimeline, runwayPlan, gradeFor, GRADES, SCORE_WEIGHTS } from './game/scoring.js';
-import { scenarioSummary, scenarioFromLocation, defaultScenario, buildTimeline } from './game/scenario.js';
+import { scenarioSummary, scenarioFromLocation, defaultScenario, buildTimeline, difficultyCurveFor, DIFFICULTY } from './game/scenario.js';
+import { triggerEmergency, eventsSummary, eventCatalog, resolveEvents } from './game/events.js';
 import { evaluateObjectives, defaultObjectives, OBJECTIVE_KINDS } from './game/objectives.js';
 import { scenarioList, getBuiltinScenario } from './data/scenarios.js';
 import { phrasesForUnit, fillPhrase } from './data/phraseology.js';
@@ -178,6 +179,16 @@ window.__ATC__ = {
         trial: requestTrialRun,
         endDay
     },
+    /* M2 T11：把 M2 能力暴露给冒烟脚本（只读句柄，业务层不得依赖） */
+    events: {
+        trigger: triggerEmergency,
+        summary: eventsSummary,
+        catalog: eventCatalog,
+        resolve: resolveEvents
+    },
+    migration: { migrateState, SCHEMA_VERSION },
+    multiAirport: () => (managementSummary() || {}).multiAirport || null,
+    difficulty: { curve: difficultyCurveFor, DIFFICULTY },
     airports: { get: getAirport },
     session: currentSession,
     recordInput,

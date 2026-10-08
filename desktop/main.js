@@ -767,6 +767,91 @@ const SCRIPT_MGMT = `(() => {
     out.mgmtHudRoomCount = hud.roomCount;
     return out;
 })()`;
+
+/** 阶段十四：v1.8 M2 —— 事件引擎 / 存档迁移 / 多机场焦距 / 难度曲线 / 扇区拆分 */
+const SCRIPT_M2 = `(() => {
+    const A = window.__ATC__;
+    const out = {};
+
+    /* ① 事件图鉴：特情 ≥7 条（含 medical）· 经营 5 条 */
+    const catalog = A.events.catalog();
+    out.m2CatEmergency = catalog.emergency.length;
+    out.m2CatManagement = catalog.management.length;
+    out.m2CatHasMedical = catalog.emergency.some(e => e.id === 'medical');
+    out.m2EventsCatalogOk = catalog.emergency.length >= 7
+        && catalog.emergency.some(e => e.id === 'medical')
+        && catalog.management.length === 5;
+
+    /* ② 稳定复现一次特情：有未落地进港机就直接触发，否则临时合成一架（事后移除） */
+    const arrival = A.state.aircraft.filter(ac => !ac.landed && (ac.flow || 'arrival') === 'arrival');
+    const seeded = [];
+    if (arrival.length === 0) {
+        const synth = {
+            id: '__m2smoke__', flightNo: 'M2SMK', callsign: 'M2SMK', flow: 'arrival', landed: false,
+            runway: '20R', unit: 'APP', departure: 'ZUUU', destination: 'ZUUU', startTime: 0,
+            altitude: 3000, speed: 250, x: 0, y: 0, heading: 0,
+            displayAltitude: 3000, displaySpeed: 250, displayHeading: 0, displayX: 0, displayY: 0
+        };
+        A.state.aircraft.push(synth);
+        seeded.push(synth);
+    }
+    let raisedCount = 0;
+    const off = A.bus.on(A.EV.EMERGENCY_RAISED, () => { raisedCount += 1; });
+    const record = A.events.trigger('medical');
+    if (typeof off === 'function') off();
+    seeded.forEach(s => { const i = A.state.aircraft.indexOf(s); if (i >= 0) A.state.aircraft.splice(i, 1); });
+    out.m2TriggerRecordType = record ? record.type : null;
+    out.m2TriggerEmitted = raisedCount;
+    out.m2TriggerOk = !!record && record.type === 'medical' && raisedCount === 1;
+
+    /* ③ 事件快照口径（HUD / 面板共用） */
+    const sum = A.events.summary();
+    out.m2SummaryOk = typeof sum.count === 'number' && Array.isArray(sum.log) && Array.isArray(sum.spawned);
+
+    /* ④ 存档迁移 v1→v2：补齐 M2 字段且不改入参（纯函数） */
+    const rawV1 = { schemaVersion: 1, aircraft: [] };
+    const snapshot = JSON.stringify(rawV1);
+    const mig = A.migration.migrateState(rawV1);
+    out.m2MigrateVersion = A.migration.SCHEMA_VERSION;
+    out.m2MigrateTo = mig.schemaVersion;
+    out.m2MigrateSteps = mig.migrations.join(',');
+    out.m2MigratePureOk = mig.schemaVersion === 2
+        && mig.migrations.indexOf('v1->v2:m2-fields') >= 0
+        && JSON.stringify(rawV1) === snapshot
+        && Array.isArray(mig.data.eventLog);
+
+    /* ⑤ 非法存档回落默认档：每次独立，不与模块级默认值共享引用 */
+    const invA = A.migration.migrateState(null);
+    const invB = A.migration.migrateState(null);
+    out.m2MigrateInvalidOk = invA.schemaVersion === 2 && Array.isArray(invA.data.eventLog)
+        && invA.data.eventLog !== invB.data.eventLog && invA.data !== invB.data;
+
+    /* ⑥ 多机场焦距：焦点机场与显式编码对齐 */
+    const ma = A.multiAirport();
+    out.m2MultiAirport = ma ? (ma.focusAirportCode + '/' + ma.matches) : 'null';
+    out.m2MultiAirportOk = !!ma && typeof ma.focusAirportCode === 'string' && ma.focusAirportCode.length > 0
+        && ma.matches === true;
+
+    /* ⑦ 难度曲线：随经营天数单调加压（流量↑ 事件频率↑ 生成间隔↓） */
+    const d1 = A.difficulty.curve({ day: 1, difficulty: 'standard' });
+    const d30 = A.difficulty.curve({ day: 30, difficulty: 'standard' });
+    out.m2DifficultyOk = d30.trafficScale > d1.trafficScale
+        && d30.eventRateScale >= d1.eventRateScale
+        && d30.spawnIntervalSec <= d1.spawnIntervalSec;
+
+    /* ⑧ 多扇区拆分：大流量拆进近东西扇 + 区域南北扇；小流量不拆 */
+    const big = A.seats.plan({ annualMovements: 130000, radarControl: true });
+    const small = A.seats.plan({ annualMovements: 20000 });
+    const bigIds = big.sectors.map(s => s.id).join(',');
+    out.m2SectorIds = bigIds;
+    out.m2SectorSplitOk = big.sectors.length === 4
+        && big.approach.indexOf('APP-W') >= 0 && big.approach.indexOf('APP-E') >= 0
+        && big.area.indexOf('ACC-N') >= 0 && big.area.indexOf('ACC-S') >= 0
+        && bigIds === 'APP-W,APP-E,ACC-N,ACC-S'
+        && small.sectors.length === 0;
+
+    return out;
+})()`;
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -803,6 +888,8 @@ async function runSmoke() {
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_R1_VERIFY));
         // 阶段十三：空管单位经营（v1.7 M1）——招聘 / 任命 / 培训 / 建设 / 技术 / 合同 / 局方 / 日结算
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_MGMT));
+        // 阶段十四：v1.8 M2 —— 事件 / 迁移 / 多机场 / 难度曲线 / 扇区拆分
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_M2));
         // 离屏渲染下抓取整屏截图，便于人工核验渲染效果
         // （打包后 APP_ROOT 位于 app.asar 内不可写，故写入 userData 目录）
         try {
@@ -1043,6 +1130,15 @@ async function runSmoke() {
         ['经营面板渲染员工卡片', report.mgmtStaffRows === 2],
         ['HUD 顶栏显示经营读数（资金/人员/设施）', /万$/.test(String(report.mgmtHudCashText || ''))
             && report.mgmtHudStaffCount === 2 && report.mgmtHudRoomCount === 5],
+        /* ---- 第四批（v1.8 M2）：事件引擎 / 存档迁移 / 多机场 / 难度曲线 / 扇区拆分 ---- */
+        ['事件图鉴：特情 ≥7 条（含 medical）+ 经营 5 条', report.m2EventsCatalogOk === true],
+        ['特情稳定复现（medical → 记录 + EMERGENCY_RAISED）', report.m2TriggerOk === true],
+        ['事件快照口径（count/log/spawned）', report.m2SummaryOk === true],
+        ['存档迁移 v1→v2 补 M2 字段且不改入参（纯函数）', report.m2MigratePureOk === true],
+        ['非法存档回落默认档且每次独立（不共享引用）', report.m2MigrateInvalidOk === true],
+        ['多机场焦距：焦点机场与显式编码对齐', report.m2MultiAirportOk === true],
+        ['难度曲线随经营天数单调加压', report.m2DifficultyOk === true],
+        ['多扇区拆分：进近东西扇 + 区域南北扇（小流量不拆）', report.m2SectorSplitOk === true],
         ['js/** 无网络上报 API（fetch/XHR/SendBeacon/WebSocket/EventSource）', report.jsNetworkFree === true],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]

@@ -20,7 +20,12 @@ import {
     startDirector, stopDirector, tickDirector, directorGoal, directorSummary
 } from './director.js';
 import { resetScoring, tickScoring, scoringSummary, scoreTimeline, setScoringScenario } from './scoring.js';
-import { defaultScenario, normalizeScenario, scenarioFromLocation, scenarioSummary, DIFFICULTY } from './scenario.js';
+import {
+    startEvents, stopEvents, tickEvents, resolveEvents
+} from './events.js';
+import {
+    defaultScenario, normalizeScenario, scenarioFromLocation, scenarioSummary, DIFFICULTY, difficultyCurveFor
+} from './scenario.js';
 import { getBuiltinScenario } from '../data/scenarios.js';
 import { seedReadback } from '../domain/readback.js';
 import { defaultObjectives, evaluateObjectives } from './objectives.js';
@@ -133,7 +138,11 @@ export function startGameSession(opts = {}) {
     });
     setScoringScenario(scenario);                // 跑道构型/门槛优先取关卡数据
     resetScoring({ progress: opts.progress ?? 0, configIndex: 0 });
+    // 难度曲线：随经营天数增长（事件频率倍率由此进入 startEvents 的调度间隔）
+    const curve = difficultyCurveFor(state.management, { scenario });
+    state.difficultyCurve = curve;
     startDirector({ scenario, seed: opts.seed });
+    startEvents({ seed: opts.seed ?? scenario.seed, difficulty: scenario.difficulty, curve });
     setPlaying(true);
 
     const summary = scenarioSummary(scenario);
@@ -157,6 +166,7 @@ export function endGameSession(opts = {}) {
     const wasActive = isSessionActive();
     const summary = endSession();                 // 时长 / 输入 / 许可 / 落地 / 移交 汇总
     stopDirector();
+    stopEvents();                                 // 清空进行中的特情调度（active 归零）
     setPlaying(false);
 
     const sc = scoringSummary();
@@ -199,6 +209,8 @@ export function tickSession() {
     if (!isSessionActive()) return;
     tickDirector();
     tickScoring();
+    tickEvents();          // 随机特情抽检/推进
+    resolveEvents();       // 特情消解/到期释放
     const goal = directorGoal();
     if (goal.met) endGameSession({ reason: goal.reason, auto: true });
 }

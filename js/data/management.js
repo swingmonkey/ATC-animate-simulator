@@ -52,8 +52,8 @@ export const STAFF_NAMES = [
 /** 房间 / 现场：provides 为对应的管制席位族（null = 支撑设施） */
 export const ROOM_TYPES = Object.freeze({
     tower: { id: 'tower', name: '塔台现场', cost: 800000, buildDays: 2, provides: 'TWR', brief: '提供 TWR / GND / CD 席位' },
-    approach: { id: 'approach', name: '进近现场', cost: 600000, buildDays: 2, provides: 'APP', brief: '提供 APP / APP-ARR / APP-DEP / NTZ 席位' },
-    area: { id: 'area', name: '区域现场', cost: 1200000, buildDays: 3, provides: 'ACC', brief: '提供 ACC / ACC-RDR 席位' },
+    approach: { id: 'approach', name: '进近现场', cost: 600000, buildDays: 2, provides: 'APP', brief: '提供 APP / APP-W / APP-E / APP-ARR / APP-DEP / NTZ 席位' },
+    area: { id: 'area', name: '区域现场', cost: 1200000, buildDays: 3, provides: 'ACC', brief: '提供 ACC / ACC-N / ACC-S / ACC-RDR 席位' },
     training: { id: 'training', name: '培训室', cost: 400000, buildDays: 1, provides: null, brief: '开展见习管制员培训（每人每日培训费）' },
     rest: { id: 'rest', name: '休息室', cost: 300000, buildDays: 1, provides: null, brief: '岗位轮换与疲劳恢复（§123-§128）' },
     equipment: { id: 'equipment', name: '设备机房', cost: 500000, buildDays: 1, provides: null, brief: '技术升级的前置设施（监视管制 / ILS Ⅱ 类 / 平行进近）' }

@@ -14,6 +14,7 @@
 
 import { state } from '../core/store.js';
 import { bus, EV, requestRedraw } from '../core/eventBus.js';
+import { getAirport } from '../data/airports.js';
 import {
     MANAGEMENT, STAFF_ROLES, STAFF_ROLE_ORDER, STAFF_NAMES,
     ROOM_TYPES, ROOM_ORDER, TECH_LEVELS,
@@ -27,6 +28,7 @@ import {
     canUpgrade, canSignContract, canRequestTrial, computeDaySettlement
 } from '../domain/management.js';
 import { sessionResult } from './session.js';
+import { rollManagementEvent, resetEventLog } from './events.js';
 
 const round2 = v => Math.round((Number(v) || 0) * 100) / 100;
 const clampReputation = v => Math.max(
@@ -58,6 +60,7 @@ function nextStaffId(m) {
 export function startManagement(opts = {}) {
     if (opts.reset) {
         state.management = createManagementState();
+        resetEventLog();
     } else if (!state.management) {
         state.management = createManagementState();
     } else {
@@ -71,6 +74,7 @@ export function startManagement(opts = {}) {
 /** 重开经营（清空人员/房间/合同，回到起始预算） */
 export function resetManagement() {
     state.management = createManagementState();
+    resetEventLog();
     bus.emit(EV.MANAGEMENT_CHANGED);
     requestRedraw();
     return state.management;
@@ -280,12 +284,24 @@ function applyTrialDecision(m, settlement) {
     }
 }
 
-/** 疲劳：值守席位者按忽略休息次数累积，未值守者每日恢复 1 点。 */
+/* 疲劳恢复速率：有休息室 ×1.5 / 无休息室 ×0.5【需试玩校验】 */
+const FATIGUE_REST_WITH_ROOM = 1.5;
+const FATIGUE_REST_WITHOUT_ROOM = 0.5;
+const FATIGUE_MIN = 0;
+const FATIGUE_MAX = 10;
+
+const clampFatigue = v => Math.max(FATIGUE_MIN, Math.min(FATIGUE_MAX, Math.round(v * 100) / 100));
+
+/** 疲劳：值守席位者按忽略休息次数累积；未值守者按休息室收益恢复。 */
 function applyFatigue(m, restIgnored) {
-    const seated = new Set(Object.values(m.seats));
-    for (const staff of m.staff) {
-        if (seated.has(staff.id)) staff.fatigue = Math.min(10, staff.fatigue + Math.max(1, restIgnored));
-        else staff.fatigue = Math.max(0, staff.fatigue - 1);
+    const seated = new Set(Object.values(m.seats || {}));
+    const recovery = hasRoom(m, 'rest') ? FATIGUE_REST_WITH_ROOM : FATIGUE_REST_WITHOUT_ROOM;
+    const ignored = Math.max(1, Math.floor(Number(restIgnored)) || 0);
+    for (const staff of m.staff || []) {
+        const fatigue = Number.isFinite(Number(staff.fatigue)) ? Number(staff.fatigue) : 0;
+        staff.fatigue = clampFatigue(
+            seated.has(staff.id) ? fatigue + ignored : fatigue - recovery
+        );
     }
 }
 
@@ -305,12 +321,23 @@ export function endDay(opts = {}) {
         ? { score: result.score, grade: result.grade, restIgnored: result.counts ? result.counts.restIgnored : 0 }
         : {};
 
-    const settlement = computeDaySettlement(m, settlementOpts);
     const settledDay = m.day;
 
-    /* 资金 / 声望 */
+    /* 日结算前抽一次经营事件（同 day+同 cash 的 seed 可复现） */
+    const mgmtEvent = rollManagementEvent(m);
+    const settlement = computeDaySettlement(m, { ...settlementOpts, event: mgmtEvent });
+
+    /* 资金 / 声望（含经营事件的一次性影响） */
     m.cash = round2(m.cash + settlement.net);
     m.reputation = clampReputation(m.reputation + settlement.reputationDelta);
+
+    /* 经营事件次日修正（供 dailyProjectionOf / 后续结算消费） */
+    m.mods = mgmtEvent ? { ...(mgmtEvent.mods || {}) } : {};
+    if (mgmtEvent) {
+        if (!Array.isArray(m.eventLog)) m.eventLog = [];
+        m.eventLog.push({ ...mgmtEvent, cash: m.cash, reputation: m.reputation });
+        if (m.eventLog.length > 120) m.eventLog.splice(0, m.eventLog.length - 120);
+    }
 
     /* 实验运行批复 */
     applyTrialDecision(m, settlement);
@@ -361,6 +388,7 @@ export function endDay(opts = {}) {
         reputationDelta: settlement.reputationDelta,
         cash: m.cash,
         reputation: m.reputation,
+        event: mgmtEvent ? { id: mgmtEvent.id, type: mgmtEvent.type, name: mgmtEvent.name, severity: mgmtEvent.severity, brief: mgmtEvent.brief, cashDelta: mgmtEvent.cashDelta, reputationDelta: mgmtEvent.reputationDelta } : null,
         graduated: graduated.map(g => g.name)
     };
     m.history.push(entry);
@@ -369,13 +397,31 @@ export function endDay(opts = {}) {
     if (usable) m.lastSettledSessionId = result.sessionId;
     m.lastSettlement = settlement;
 
-    bus.emit(EV.DAY_SETTLED, { day: settledDay, nextDay: m.day, settlement, summary: managementSummary() });
+    bus.emit(EV.DAY_SETTLED, { day: settledDay, nextDay: m.day, settlement, event: mgmtEvent, summary: managementSummary() });
     bus.emit(EV.MANAGEMENT_CHANGED);
     requestRedraw();
-    return { ok: true, day: settledDay, nextDay: m.day, settlement, graduated };
+    return { ok: true, day: settledDay, nextDay: m.day, settlement, event: mgmtEvent, graduated };
 }
 
 /* ---------------- 只读汇总（面板 / HUD / 冒烟断言共用单一口径） ---------------- */
+
+/**
+ * M2 T7：多机场焦距汇总 —— 把「当前焦点机场」暴露给经营面板 / HUD / 冒烟断言。
+ * focusAirport 为旧字段、focusAirportCode 为显式字段；matches 反映二者是否对齐。
+ */
+function multiAirportSummary() {
+    const focus = state.focusAirport || 'ZUUU';
+    const code = state.focusAirportCode || focus;
+    const known = getAirport(code);
+    const fromLocation = !!(state.location && state.location.code === code);
+    return {
+        focusAirport: focus,
+        focusAirportCode: code,
+        airportName: (known && known.name) || (state.location && state.location.name) || code,
+        matches: focus === code,
+        source: fromLocation ? 'location' : 'default'
+    };
+}
 
 /** 经营总览快照。state.management 未初始化时返回 null。 */
 export function managementSummary() {
@@ -450,6 +496,11 @@ export function managementSummary() {
         canRequestTrialReason: trialCheck.reason,
 
         lastSettlement: m.lastSettlement,
-        history: m.history.slice(-10)
+        mods: { ...(m.mods || {}) },
+        eventLog: Array.isArray(m.eventLog) ? m.eventLog.slice(-10) : [],
+        history: m.history.slice(-10),
+
+        /* M2 T7：多机场焦距（focusAirport / focusAirportCode 对齐结果） */
+        multiAirport: multiAirportSummary()
     };
 }

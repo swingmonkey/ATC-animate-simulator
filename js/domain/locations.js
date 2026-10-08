@@ -19,8 +19,7 @@
  * 单位：高度统一为**米**（文件为英尺），距离统一为 **km**（文件为海里）。
  */
 
-import { state, commitScene } from '../core/store.js';
-import { bus, EV } from '../core/eventBus.js';
+import { state, commitScene, setFocusAirport } from '../core/store.js';
 import { getAirport, registerAirport, reciprocalRunway } from '../data/airports.js';
 import {
     parseLocationFile, getSection, getSections, itemRows, itemTokens, itemValue,
@@ -491,8 +490,7 @@ export function applyLocation(scene) {
         state.defaults.altMaxM = Math.round(scene.airspace.aboveM);
         state.defaults.altitude = Math.round(scene.airspace.aboveM);
     }
-    state.focusAirport = code;
-    bus.emit(EV.UNIT_CHANGED, { focusAirport: code });
+    setFocusAirport(code);   // M2 T7：同步 focusAirport / focusAirportCode（内部广播 UNIT_CHANGED）
     commitScene();
 
     return {

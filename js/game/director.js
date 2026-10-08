@@ -382,10 +382,23 @@ function applyScenarioEvent(ev) {
 
 /* ---------------- 无限流量 ---------------- */
 
+/**
+ * 当前生效的难度参数：优先取班次开始时落盘的难度曲线 state.difficultyCurve（M2/T5），
+ * 曲线缺失或与当前关卡难度不符时回落到静态预设，保证非班次路径可独立工作。
+ */
+function effectiveDifficulty(sc) {
+    const fallback = (sc && DIFFICULTY[sc.difficulty]) || DIFFICULTY.standard;
+    const curve = state.difficultyCurve;
+    if (curve && typeof curve === 'object' && (!sc || curve.difficulty === sc.difficulty)) {
+        return { ...fallback, ...curve };
+    }
+    return fallback;
+}
+
 /** 到达注入时刻则按难度节奏注入一架（受在管架数与总注入上限约束） */
 function spawnInfinite() {
     const sc = director.scenario;
-    const dif = DIFFICULTY[sc.difficulty] || DIFFICULTY.standard;
+    const dif = effectiveDifficulty(sc);
     const now = state.time;
     if (now < director.nextSpawnAt) return false;
 
@@ -422,7 +435,7 @@ export function startDirector(opts = {}) {
     director.banner = null;
     director.configIndex = 0;
     director.wind = sc.config && sc.config.wind ? { ...sc.config.wind } : null;
-    const dif = DIFFICULTY[sc.difficulty] || DIFFICULTY.standard;
+    const dif = effectiveDifficulty(sc);
     // 首个自动流量在半周期后进入，给出接班准备的缓冲
     director.nextSpawnAt = state.time + dif.spawnIntervalSec * 0.5;
     bus.emit(EV.DIRECTOR_EVENT, { type: 'start', scenario: sc.id, t: Math.round(state.time) });
@@ -476,7 +489,7 @@ export function directorGoal() {
 /** 导演状态快照（HUD / 班次面板 / 冒烟断言） */
 export function directorSummary() {
     const sc = director.scenario;
-    const dif = sc ? (DIFFICULTY[sc.difficulty] || DIFFICULTY.standard) : DIFFICULTY.standard;
+    const dif = effectiveDifficulty(sc);
     return {
         running: director.running,
         scenarioId: sc ? sc.id : null,

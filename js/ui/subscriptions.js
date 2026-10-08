@@ -109,6 +109,17 @@ export function initSubscriptions() {
     [EV.MANAGEMENT_CHANGED, EV.STAFF_CHANGED, EV.ROOM_CHANGED,
         EV.CONTRACT_CHANGED, EV.TRIAL_CHANGED, EV.DAY_SETTLED
     ].forEach(evt => bus.on(evt, updateManagementPanel));
+
+    /* v1.8 M2：随机特情 / 复飞 / 席位开合 → 席位 · 值班 · 经营 · 进程单即时刷新（无需手动刷新） */
+    const refreshM2Panels = () => {
+        updateSeatPanel();
+        updateRosterPanel();
+        updateManagementPanel();
+        updateProgressList(true);
+    };
+    [EV.EMERGENCY_RAISED, EV.EMERGENCY_RESOLVED, EV.PILOT_REQUEST,
+        EV.GO_AROUND, EV.SEAT_OPENED, EV.SEAT_CLOSED
+    ].forEach(evt => bus.on(evt, refreshM2Panels));
 }
 
 /**

@@ -865,6 +865,73 @@ body {
     color: #b45309;
 }
 
+/* M2·T9：已拆分扇区列表（独立于 .seat-row，不改变基础三席口径） */
+.seat-sector-list.hidden {
+    display: none;
+}
+
+.seat-sector-head {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.04em;
+    margin: 8px 0 4px;
+}
+
+.seat-row-sector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px 5px 14px;
+    background: #fafcff;
+    border: 1px dashed #dbeafe;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.seat-row-sector + .seat-row-sector {
+    margin-top: 4px;
+}
+
+.seat-row-sector:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.seat-row-sector.active {
+    background: #eff6ff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.seat-sector-code {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.seat-sector-name {
+    flex: 1;
+    font-size: 11px;
+    color: #334155;
+    font-weight: 600;
+}
+
+.seat-sector-meta {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+.seat-sector-freq {
+    font-family: 'Consolas', monospace;
+    font-size: 10px;
+    color: #64748b;
+}
+
 .seat-info {
     font-size: 10px;
     color: #94a3b8;

@@ -132,5 +132,19 @@ export const EV = {
     /** 局方审批状态变更（递交 / 批复 / 到期）→ 经营面板 */
     TRIAL_CHANGED: 'management:trial_changed',
     /** 结束今日经营（日结算完成）→ 经营面板 + 复盘 */
-    DAY_SETTLED: 'management:day_settled'
+    DAY_SETTLED: 'management:day_settled',
+
+    /* ---- v1.8 M2：随机特情 / 多扇区 ---- */
+    /** 触发随机特情（现场）→ HUD / 复盘 / 日志 */
+    EMERGENCY_RAISED: 'emergency:raised',
+    /** 特情消解 → HUD / 复盘 */
+    EMERGENCY_RESOLVED: 'emergency:resolved',
+    /** 飞行员请求（特情通播）→ 通话面板 */
+    PILOT_REQUEST: 'pilot:request',
+    /** 复飞指令 → 进程单 / 通话 */
+    GO_AROUND: 'goaround',
+    /** 扇区开启（多扇区拆分）→ 席位面板 / 值班面板 */
+    SEAT_OPENED: 'seat:opened',
+    /** 扇区关闭（扇区合并）→ 席位面板 / 值班面板 */
+    SEAT_CLOSED: 'seat:closed'
 };

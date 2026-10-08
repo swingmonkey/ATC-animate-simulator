@@ -18,12 +18,13 @@ import { planSeats } from './seats.js';
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const round2 = v => Math.round(num(v) * 100) / 100;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const mult = v => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 1);
 
 /** 房间 → 可提供席位（null / 缺失 = 不提供管制席位） */
 export const ROOM_SEATS = Object.freeze({
     tower: ['TWR', 'GND', 'CD', 'SUP', 'APP'],
-    approach: ['APP', 'APP-ARR', 'APP-DEP', 'NTZ'],
-    area: ['ACC', 'ACC-RDR']
+    approach: ['APP', 'APP-W', 'APP-E', 'APP-ARR', 'APP-DEP', 'NTZ'],
+    area: ['ACC', 'ACC-N', 'ACC-S', 'ACC-RDR']
 });
 
 /** 经营状态初始值（与存档格式一致；所有字段可 JSON 序列化） */
@@ -40,6 +41,8 @@ export function createManagementState() {
         seats: {},
         contracts: [],
         trial: { status: 'none', appliedDay: null, decidedDay: null, expiresDay: null, note: '' },
+        eventLog: [],
+        mods: {},
         lastSettledSessionId: null,
         lastSettlement: null,
         history: []
@@ -97,6 +100,8 @@ export function normalizeManagementState(raw) {
     };
 
     m.history = Array.isArray(raw.history) ? raw.history.slice(-120) : [];
+    m.eventLog = Array.isArray(raw.eventLog) ? raw.eventLog.slice(-120) : [];
+    m.mods = raw.mods && typeof raw.mods === 'object' ? { ...raw.mods } : {};
     m.lastSettledSessionId = raw.lastSettledSessionId ?? null;
     m.lastSettlement = raw.lastSettlement && typeof raw.lastSettlement === 'object' ? raw.lastSettlement : null;
     return m;
@@ -137,10 +142,11 @@ export function dailyMaintenanceCostOf(m) {
 
 /** 今日经营预测（不含班次绩效奖励与一次性支出） */
 export function dailyProjectionOf(m) {
-    const revenue = dailyRevenueOf(m);
+    const mods = m?.mods && typeof m.mods === 'object' ? m.mods : {};
+    const revenue = round2(dailyRevenueOf(m) * mult(mods.revenueMult));
     const salary = dailySalaryCostOf(m);
-    const maintenance = dailyMaintenanceCostOf(m);
-    return { revenue, salary, maintenance, net: round2(revenue - salary - maintenance) };
+    const maintenance = round2(dailyMaintenanceCostOf(m) * mult(mods.maintenanceMult));
+    return { revenue, salary, maintenance, net: round2(revenue - salary - maintenance), mods: { ...mods } };
 }
 
 /** 按当前合同流量、设备与环境推导应设扇区/席位（§47-§51 同口径） */
@@ -258,6 +264,10 @@ export function canRequestTrial(m) {
  * @param {{score?:number|null,grade?:string|null,restIgnored?:number}} [opts]
  */
 export function computeDaySettlement(m, opts = {}) {
+    // 事件 mods 语义为「对次日经营数值的影响」，故只在 dailyProjectionOf 消费；
+    // 当日结算仅并入事件的一次性 cashDelta / reputationDelta，避免回溯改写当日收入。
+    const event = opts.event || null;
+    const mods = event && event.mods && typeof event.mods === 'object' ? event.mods : {};
     const revenue = dailyRevenueOf(m);
     const salary = dailySalaryCostOf(m);
     const maintenance = dailyMaintenanceCostOf(m);
@@ -268,8 +278,11 @@ export function computeDaySettlement(m, opts = {}) {
         ? null : Number(rawScore);
     const bonus = score === null ? 0 : Math.max(0, Math.round(score * MANAGEMENT.performanceBonusPerScore));
     const grade = opts.grade || null;
-    const reputationDelta = grade && REPUTATION_BY_GRADE[grade] !== undefined ? REPUTATION_BY_GRADE[grade] : 0;
-    const net = round2(revenue + bonus - salary - maintenance - training);
+    const gradeReputationDelta = grade && REPUTATION_BY_GRADE[grade] !== undefined ? REPUTATION_BY_GRADE[grade] : 0;
+    const eventCashDelta = event ? num(event.cashDelta) : 0;
+    const eventReputationDelta = event ? num(event.reputationDelta) : 0;
+    const reputationDelta = gradeReputationDelta + eventReputationDelta;
+    const net = round2(revenue + bonus - salary - maintenance - training + eventCashDelta);
 
     const trialDecision = m?.trial?.status === 'pending'
         ? (num(m.reputation) + reputationDelta >= MANAGEMENT.trialReputationMin ? 'approved' : 'rejected')
@@ -288,6 +301,10 @@ export function computeDaySettlement(m, opts = {}) {
         grade,
         reputationDelta,
         restIgnored: Math.max(0, Math.floor(num(opts.restIgnored))),
+        event: event ? { ...event } : null,
+        eventCashDelta,
+        eventReputationDelta,
+        mods: { ...mods },
         trialDecision
     };
 }
