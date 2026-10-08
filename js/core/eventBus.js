@@ -55,6 +55,8 @@ export const EV = {
     WAYPOINT_ARRIVED: 'waypoint:arrived',
     /** 新增陆空通话 → 通讯面板追加 */
     COMM_ADDED: 'comm:added',
+    /** 管制指令执行结果 → 教学提示与失败反馈 */
+    COMMAND_RESULT: 'command:result',
     /** 管制席位状态变更（移交/许可/落地/席位过滤/自动开关）→ 席位面板 + 进程单刷新 */
     UNIT_CHANGED: 'unit:changed',
     /** 每模拟秒的业务时钟 → 状态同步 / 采样 / 导演 / 评分 */

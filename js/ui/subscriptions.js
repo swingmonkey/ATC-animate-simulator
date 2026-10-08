@@ -21,6 +21,7 @@ import { appendCommMessage } from './commPanel.js';
 import { updateConsole } from './console.js';
 import { updateSeatPanel } from './seatPanel.js';
 import { updateSessionPanel } from './sessionPanel.js';
+import { resetTutorialPanel, updateTutorialPanel, handleTutorialCommandResult } from './tutorialPanel.js';
 import { updateRosterPanel } from './rosterPanel.js';
 import { updateManagementPanel } from './managementPanel.js';
 import { showNextWaypointDialog } from './dialogs.js';
@@ -44,6 +45,7 @@ export function initSubscriptions() {
         updateModeIndicator();
         updateProgressList(true);
         updateConsole(true);
+        updateTutorialPanel();
     });
 
     /* 播放/暂停：按钮文字 + 编辑态禁用 + 指示器；暂停时关闭全部对话框 */
@@ -66,10 +68,16 @@ export function initSubscriptions() {
         updateSeatPanel();
         updateProgressList(true);
         updateConsole(true);
+        updateTutorialPanel();
     });
 
     /* 飞行阶段变化：指令台的合法指令集合随之变化（灰显项刷新） */
-    bus.on(EV.PHASE_CHANGED, () => updateConsole(true));
+    bus.on(EV.PHASE_CHANGED, () => {
+        updateConsole(true);
+        updateTutorialPanel();
+    });
+    bus.on(EV.CLOCK_TICK, updateTutorialPanel);
+    bus.on(EV.COMMAND_RESULT, handleTutorialCommandResult);
 
     /* 到达目标航路点：暂停播放并弹出下一航路点选择框 */
     bus.on(EV.WAYPOINT_ARRIVED, ({ ac, idx }) => showNextWaypointDialog(ac, idx));
@@ -82,6 +90,7 @@ export function initSubscriptions() {
         updateSeatPanel();
         updateRosterPanel();
         updateProgressList(true);
+        resetTutorialPanel();
     });
     bus.on(EV.SESSION_ENDED, () => {
         const speedSelect = document.getElementById('speed-select');
@@ -91,6 +100,7 @@ export function initSubscriptions() {
         updateManagementPanel();
         updateRosterPanel();
         updateProgressList(true);
+        updateTutorialPanel();
     });
     bus.on(EV.SCORE_CHANGED, () => updateSessionPanel());
 

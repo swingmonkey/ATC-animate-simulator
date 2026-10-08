@@ -6,6 +6,7 @@
  */
 
 import { state, addComm } from '../core/store.js';
+import { bus, EV } from '../core/eventBus.js';
 import { escapeHtml, sanitizeClass, $ } from '../core/dom.js';
 import { executeCommand } from '../commands/executor.js';
 import { recordInput } from '../game/session.js';
@@ -48,12 +49,16 @@ export function submitAtcText(text) {
         feedback.textContent = res.message;
         feedback.classList.toggle('comm-feedback-error', !res.ok);
     }
-    if (!res.ok) return res;
+    if (!res.ok) {
+        bus.emit(EV.COMMAND_RESULT, res);
+        return res;
+    }
     recordInput(t, 'console');          // 班次输入录制（复盘/评分数据基础）
     addComm('atc', t);
     addComm('atc', res.message);
     updateAircraftPanelList();
     updateProgressList(true);
+    bus.emit(EV.COMMAND_RESULT, res);
     return res;
 }
 
@@ -77,6 +82,7 @@ export function sendComm() {
                 feedback.textContent = '目标航班已不存在，请重新选择';
                 feedback.classList.add('comm-feedback-error');
             }
+            bus.emit(EV.COMMAND_RESULT, { ok: false, affected: 0, message: '目标航班已不存在，请重新选择' });
             return;
         }
     }

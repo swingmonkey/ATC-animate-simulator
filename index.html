@@ -12,6 +12,14 @@
         <div id="main-content">
             <div id="radar-container">
                 <canvas id="radar-canvas"></canvas>
+                <div id="tutorial-card" class="tutorial-card hidden" aria-live="polite">
+                    <div class="tutorial-card-head"><strong>🎯 L1 第一局</strong><span id="tutorial-progress">落地 0/4</span></div>
+                    <div id="tutorial-title" class="tutorial-card-title"></div>
+                    <div id="tutorial-detail" class="tutorial-card-detail"></div>
+                    <div id="tutorial-readback" class="tutorial-card-readback"></div>
+                    <div id="tutorial-error" class="tutorial-card-error hidden"></div>
+                    <button id="tutorial-ack-btn" class="tutorial-ack-btn hidden" type="button">已核对复诵</button>
+                </div>
                 <div id="distance-labels"></div>
                 <div id="progress-overlay">
                     <div class="panel-section" id="progress-section-overlay">

@@ -1035,6 +1035,91 @@ const SCRIPT_PHASE2_RULES = `(async () => {
     A.game.end({ reason: '教学规则测试' });
     return out;
 })()`;
+const SCRIPT_PHASE2_TUTORIAL = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const clock = await import('./js/core/clock.js');
+    const { select } = await import('./js/core/store.js');
+    const { submitAtcText } = await import('./js/ui/commPanel.js');
+    const { makeReadback } = await import('./js/domain/readback.js');
+    const { parseCommand } = await import('./js/commands/parser.js');
+    A.game.start({ scenarioId: 'l1-approach-basic' });
+    const card = document.getElementById('tutorial-card');
+    const text = () => card?.textContent || '';
+    const out = { phase2GuideWaiting: !!card && !card.classList.contains('hidden')
+        && text().includes('等待首架') && text().includes('0/4') };
+    st.timeSpeed = 60;
+    for (let i = 0; i < 3; i++) clock.tickClock(0.1);
+    const ac = st.aircraft.find(a => a.flow === 'arrival');
+    out.phase2GuideSelection = !!ac && text().includes(ac.flightNo) && text().includes('选中');
+    select({ type: 'aircraft', id: ac.id });
+    out.phase2GuideApproach = text().includes('进近许可');
+    const failed = submitAtcText('ZZZ9999 高度 4000');
+    out.phase2GuideError = failed?.ok === false && text().includes('未找到航班')
+        && text().includes('进近许可') && !ac.approachType;
+    const approachCommand = ac.flightNo + ' ILS 进近 跑道 02L';
+    submitAtcText(approachCommand);
+    out.phase2GuideReadback = text().includes('核对复诵')
+        && !document.getElementById('tutorial-ack-btn')?.disabled;
+    makeReadback(ac, parseCommand(approachCommand, [ac.flightNo]), { errorRate: 1, rng: () => 0 });
+    const ack = document.getElementById('tutorial-ack-btn');
+    ack?.click();
+    out.phase2GuideWrongReadback = !!ack?.disabled && text().includes('漏项')
+        && text().includes('核对复诵');
+    submitAtcText(approachCommand);
+    document.getElementById('tutorial-ack-btn')?.click();
+    out.phase2GuideLanding = text().includes('落地许可');
+    clock.tickClock(0.02);
+    submitAtcText(ac.flightNo + ' 可以落地');
+    out.phase2GuideLandReadback = text().includes('核对落地复诵');
+    document.getElementById('tutorial-ack-btn')?.click();
+    out.phase2GuideTouchdown = text().includes('等待接地');
+    A.game.end({ reason: '教学卡片测试' });
+    out.phase2GuideHidden = !!card && card.classList.contains('hidden');
+    return out;
+})()`;
+const SCRIPT_PHASE2_COMPLETE = `(async () => {
+    const A = window.__ATC__;
+    const st = A.state;
+    const clock = await import('./js/core/clock.js');
+    const { select } = await import('./js/core/store.js');
+    const { submitAtcText } = await import('./js/ui/commPanel.js');
+    const { canIssue } = await import('./js/domain/phases.js');
+    A.game.start({ scenarioId: 'l1-approach-basic' });
+    st.timeSpeed = 60;
+    for (let frame = 0; frame < 260 && A.game.active(); frame++) {
+        clock.tickClock(0.1);
+        for (const ac of st.aircraft.filter(a => a.flow === 'arrival' && !a.landed)) {
+            select({ type: 'aircraft', id: ac.id });
+            if (!ac.approachType && canIssue(ac, 'APPROACH')) {
+                submitAtcText(ac.flightNo + ' ILS 进近 跑道 02L');
+                document.getElementById('tutorial-ack-btn')?.click();
+            }
+            if (ac.approachType && ac.clearance !== 'land' && canIssue(ac, 'LAND')) {
+                submitAtcText(ac.flightNo + ' 可以落地');
+                document.getElementById('tutorial-ack-btn')?.click();
+            }
+        }
+    }
+    const result = A.game.result();
+    const out = { phase2ManualCompletion: !!result && result.outcome === 'completed'
+        && result.landed === 4 && result.inputs >= 8
+        && A.game.director().totalSpawned === 4 && st.autoClearance === true };
+    if (A.game.active()) A.game.end({ reason: '可完成性测试结束' });
+    return out;
+})()`;
+const SCRIPT_PHASE2_SCREEN = `(async () => {
+    const A = window.__ATC__;
+    const clock = await import('./js/core/clock.js');
+    const { select } = await import('./js/core/store.js');
+    A.game.start({ scenarioId: 'l1-approach-basic' });
+    A.state.timeSpeed = 60;
+    for (let i = 0; i < 3; i++) clock.tickClock(0.1);
+    const ac = A.state.aircraft.find(a => a.flow === 'arrival');
+    if (ac) select({ type: 'aircraft', id: ac.id });
+    A.state.timeSpeed = 5;
+    return !!ac;
+})()`;
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -1086,6 +1171,19 @@ async function runSmoke() {
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE1_RESULTS));
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE1_CLOCK));
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE2_RULES));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE2_TUTORIAL));
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_PHASE2_COMPLETE));
+        report.tutorialScreenReady = await win.webContents.executeJavaScript(SCRIPT_PHASE2_SCREEN);
+        await wait(120);
+        try {
+            const image = await win.webContents.capturePage();
+            const shotPath = path.join(app.getPath('userData'), 'tutorial-shot.png');
+            writeFileSync(shotPath, image.toPNG());
+            report.tutorialScreenshot = shotPath;
+        } catch (e) {
+            consoleErrors.push('教学截图失败: ' + String(e && e.message || e));
+        }
+        await win.webContents.executeJavaScript("window.__ATC__.game.end({ reason: '教学截图结束' })");
     } catch (e) {
         pageFailures.push(String((e && e.message) || e));
     }
@@ -1135,6 +1233,15 @@ async function runSmoke() {
         ['第二阶段：L1 手动许可且只生成教学航班', report.phase2L1Controlled === true],
         ['第二阶段：结束 L1 后恢复自动许可与倍率', report.phase2PreferencesRestored === true],
         ['第二阶段：L2 保留现有自动许可规则', report.phase2OtherLevelsUntouched === true],
+        ['第二阶段：首架到达前显示教学目标', report.phase2GuideWaiting === true],
+        ['第二阶段：提示选中目标航班并下达进近许可', report.phase2GuideSelection === true && report.phase2GuideApproach === true],
+        ['第二阶段：错误指令显示原因且步骤不前进', report.phase2GuideError === true],
+        ['第二阶段：进近复诵核对后提示落地许可', report.phase2GuideReadback === true && report.phase2GuideLanding === true],
+        ['第二阶段：错诵不能核对，重新下发后可推进', report.phase2GuideWrongReadback === true],
+        ['第二阶段：落地复诵核对后等待接地', report.phase2GuideLandReadback === true && report.phase2GuideTouchdown === true],
+        ['第二阶段：班次结束隐藏教学卡片', report.phase2GuideHidden === true],
+        ['第二阶段：手动许可四架进港并自动完成 L1', report.phase2ManualCompletion === true],
+        ['第二阶段：教学画面可截图核验', report.tutorialScreenReady === true && !!report.tutorialScreenshot],
         ['随机场景生成航班', (report.aircraft ?? 0) >= 7],
         ['随机场景生成航线', (report.routes ?? 0) >= 7],
         ['航路点面板已重建', (report.pointItems ?? 0) > 0],

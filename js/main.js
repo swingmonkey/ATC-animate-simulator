@@ -51,6 +51,7 @@ import { initSubscriptions, refreshAll } from './ui/subscriptions.js';
 import { initFormBindings } from './ui/formBindings.js';
 import { initSessionPanel, initRosterPanel, initManagementPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
 import { hudModel } from './render/hud.js';
+import { initTutorialPanel } from './ui/tutorialPanel.js';
 import { tickKeyboard } from './interaction/index.js';
 
 let _lastTime = performance.now();
@@ -89,6 +90,7 @@ bus.on(EV.PLAYBACK_CHANGED, resetClockAccumulator);   // 暂停/恢复不补帧
 initSubscriptions();
 initFormBindings();
 initSessionPanel();                // 班次面板按钮绑定（开始班次 / 结束并结算）
+initTutorialPanel();               // L1 教学卡片的复诵核对按钮
 initConsolePanel();                // 指令台模板按钮 / 要求复诵（事件委托，只需绑一次）
 initRosterPanel();                 // 值班面板：申请不参加本次执勤（§128 权利，绑定一次）
 initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 合同 / 局方审批（事件委托，绑定一次）

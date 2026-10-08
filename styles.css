@@ -44,6 +44,38 @@ body {
     cursor: default;
 }
 
+.tutorial-card {
+    position: absolute;
+    z-index: 12;
+    top: 34px;
+    left: 12px;
+    width: min(330px, calc(100% - 24px));
+    padding: 10px 12px;
+    color: #e2e8f0;
+    background: rgba(15, 23, 42, 0.93);
+    border: 1px solid rgba(125, 211, 252, 0.55);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.tutorial-card-head { display: flex; justify-content: space-between; gap: 8px; color: #7dd3fc; }
+.tutorial-card-title { margin-top: 5px; font-weight: 700; font-size: 14px; }
+.tutorial-card-detail { margin-top: 3px; color: #cbd5e1; }
+.tutorial-card-readback { margin-top: 5px; color: #86efac; }
+.tutorial-card-readback:empty { display: none; }
+.tutorial-card-error { margin-top: 5px; color: #fca5a5; }
+.tutorial-ack-btn {
+    margin-top: 7px;
+    padding: 5px 9px;
+    border: 1px solid #38bdf8;
+    border-radius: 5px;
+    color: #0f172a;
+    background: #7dd3fc;
+    cursor: pointer;
+}
+.tutorial-ack-btn:disabled { opacity: .5; cursor: not-allowed; }
+
 #distance-labels {
     position: absolute;
     top: 0;
