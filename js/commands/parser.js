@@ -38,12 +38,16 @@ function findCallsign(text, knownCallsigns) {
     const lower = text.toLowerCase();
     // 全体/所有/大家 → 强制广播
     if (/全体|所有|大家|all|everyone/.test(lower)) return null;
-    // 直接包含某航班号（如 CCA1234）
+    // 仅把完整呼号当作目标，避免 CCA123 误匹配 CCA1234。
+    const upper = text.toUpperCase();
     for (const cs of knownCallsigns) {
-        if (text.toUpperCase().includes(cs.toUpperCase())) return cs;
+        const at = upper.indexOf(cs.toUpperCase());
+        if (at < 0) continue;
+        const before = upper[at - 1], after = upper[at + cs.length];
+        if ((!before || !/[A-Z0-9]/.test(before)) && (!after || !/[A-Z0-9]/.test(after))) return cs;
     }
-    // 形如 "CCA1234 上升" 开头
-    const m = text.match(/^([A-Za-z]{3}\d{3,4})/);
+    // 不存在的完整呼号仍需返回给执行层明确拒绝，不能退化成广播。
+    const m = text.match(/(?:^|[^A-Za-z0-9])([A-Za-z]{3}\d{3,4})(?=$|[^A-Za-z0-9])/);
     if (m) return m[1].toUpperCase();
     return null;
 }

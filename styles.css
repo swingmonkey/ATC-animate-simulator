@@ -666,6 +666,18 @@ body {
     margin-right: 4px;
 }
 
+.comm-feedback {
+    min-height: 18px;
+    margin-top: 4px;
+    color: #166534;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.comm-feedback-error {
+    color: #b91c1c;
+}
+
 #compass-container {
     position: fixed;
     top: 60px;

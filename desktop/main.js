@@ -217,6 +217,16 @@ const SCRIPT_INTERACT = `(() => {
     out.altConApplied = st.aircraft.some(ac => ac.altCon === 3000);
     out.commAfterCmd = document.querySelectorAll('#comm-messages .comm-msg').length;
 
+    const beforeUnknown = st.aircraft.map(ac => ac.altCon);
+    const inputsBeforeUnknown = A.session().inputs.length;
+    input.value = 'ZZZ9999 高度 4000';
+    document.getElementById('comm-send-btn').click();
+    const feedback = document.getElementById('comm-feedback');
+    out.phase1UnknownTargetRejected = st.aircraft.every((ac, i) => ac.altCon === beforeUnknown[i])
+        && input.value === 'ZZZ9999 高度 4000'
+        && A.session().inputs.length === inputsBeforeUnknown
+        && !!feedback && feedback.textContent.includes('ZZZ9999');
+
     /* ---- 塔台 / 进近 / 区调：许可、移交、席位过滤 ---- */
     const target = st.aircraft[0];
     input.value = target.flightNo + ' ILS 进近 跑道 02L';
@@ -1001,6 +1011,7 @@ async function runSmoke() {
         ['第一阶段：空机时首次双击航路点有效', report.phase1FirstDblClick === true],
         ['第一阶段：画布外松开结束首次拖拽', report.phase1DragEndsOutside === true],
         ['第一阶段：反复点击后双击只触发一次', report.phase1DblClickOnce === true],
+        ['第一阶段：未知呼号零影响且输入保留并提示', report.phase1UnknownTargetRejected === true],
         ['随机场景生成航班', (report.aircraft ?? 0) >= 7],
         ['随机场景生成航线', (report.routes ?? 0) >= 7],
         ['航路点面板已重建', (report.pointItems ?? 0) > 0],

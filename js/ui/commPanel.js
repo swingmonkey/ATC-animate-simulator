@@ -35,16 +35,23 @@ export function appendCommMessage(msg) {
 
 /**
  * 提交一条管制指令文本（陆空通话输入框与「指令台 2.0」模板按钮共用）：
- * 录制输入（复盘/评分）→ 播报 → 解析执行 → 刷新受影响面板。
+ * 验证并执行 → 成功后录制与播报 → 刷新受影响面板。
  * @param {string} text 指令文本（含呼号时定向，否则广播）
  * @returns {{ok:boolean, affected:number, message:string}|null}
  */
 export function submitAtcText(text) {
     const t = String(text || '').trim();
     if (!t) return null;
+    const res = executeCommand(t);
+    const feedback = $('comm-feedback');
+    if (feedback) {
+        feedback.textContent = res.message;
+        feedback.classList.toggle('comm-feedback-error', !res.ok);
+    }
+    if (!res.ok) return res;
     recordInput(t, 'console');          // 班次输入录制（复盘/评分数据基础）
     addComm('atc', t);
-    const res = executeCommand(t);
+    addComm('atc', res.message);
     updateAircraftPanelList();
     updateProgressList(true);
     return res;
@@ -57,18 +64,23 @@ export function sendComm() {
     if (!text) return;
     const target = $('comm-target')?.value;
 
+    let res;
     if (target === 'atc' || target === undefined) {
-        submitAtcText(text);
+        res = submitAtcText(text);
     } else {
         const ac = state.aircraft.find(a => a.id === parseInt(target));
         if (ac) {
-            addComm(ac.flightNo, `收到指令：${text}`);
-            submitAtcText(`${ac.flightNo} ${text}`);
+            res = submitAtcText(`${ac.flightNo} ${text}`);
         } else {
-            submitAtcText(text);
+            const feedback = $('comm-feedback');
+            if (feedback) {
+                feedback.textContent = '目标航班已不存在，请重新选择';
+                feedback.classList.add('comm-feedback-error');
+            }
+            return;
         }
     }
-    input.value = '';
+    if (res?.ok) input.value = '';
 }
 
 /* 通讯面板自绑定（界面层自管控件；输入层不再处理） */

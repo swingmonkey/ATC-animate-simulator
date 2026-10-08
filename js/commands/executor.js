@@ -49,7 +49,7 @@ export function executeCommand(text) {
     if (parsed.target) {
         const t = state.aircraft.find(a => a.flightNo.toUpperCase() === parsed.target.toUpperCase());
         if (t) { targets = [t]; targetLabel = t.flightNo; }
-        else { targetLabel = parsed.target; }
+        else { return { ok: false, affected: 0, message: `未找到航班 ${parsed.target}` }; }
     }
 
     let affected = 0;
@@ -162,6 +162,5 @@ export function executeCommand(text) {
     }
 
     const desc = parsed.actions.map(a => a.type).join('、');
-    addComm('atc', `→ ${targetLabel}: ${text}（${affected} 架执行 ${desc}）`);
-    return { ok: true, affected, message: `已对 ${affected} 架飞机执行指令` };
+    return { ok: true, affected, message: `→ ${targetLabel}: ${text}（${affected} 架执行 ${desc}）` };
 }
