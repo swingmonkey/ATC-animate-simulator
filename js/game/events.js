@@ -33,6 +33,16 @@ const events = {
     lastResolved: null
 };
 
+function syncActiveIncidents() {
+    state.activeIncidents = [...events.active.entries()].map(([id, ev]) => {
+        const ac = ev.acId ? state.aircraft.find(item => item.id === ev.acId) : null;
+        const def = EMERGENCY_EVENTS.find(item => item.id === ev.type);
+        return { id, type: ev.type, acId: ev.acId, aircraft: ac?.flightNo || null,
+            name: def?.name || ev.type, text: ev.text || def?.brief || '', severity: def?.severity || 'warning',
+            raisedAt: ev.raisedAt };
+    });
+}
+
 function logEntry(scope, type, name, text, extra = {}) {
     const entry = {
         id: `${scope}-${state.time}-${events.log.length}`,
@@ -68,11 +78,13 @@ export function startEvents(opts = {}) {
     events.count = 0;
     events.spawned = [];
     events.active.clear();
+    syncActiveIncidents();
     return eventsSummary();
 }
 
 export function stopEvents() {
     events.active.clear();
+    syncActiveIncidents();
 }
 
 /** 清空日志（重开经营时用） */
@@ -144,6 +156,10 @@ export function triggerEmergency(defOrId, opts = {}) {
 
     events.count += 1;
     events.spawned.push(record.type);
+    for (const ev of events.active.values()) {
+        if (ev.type === record.type && ev.raisedAt === state.time) ev.text = record.text;
+    }
+    syncActiveIncidents();
     addComm('atc', `[特情] ${record.name}：${record.text}`);
     bus.emit(EV.EMERGENCY_RAISED, record);
     bus.emit(EV.PILOT_REQUEST, { kind: record.type, aircraft: record.aircraft, text: record.text });
@@ -286,6 +302,7 @@ export function resolveEvents() {
 
 function closeEmergency(id, ev, ac) {
     events.active.delete(id);
+    syncActiveIncidents();
     if (ac) {
         if (ac.emergency && (ac.emergency.type === ev.type || ev.type === 'runwayClosure')) ac.emergency = null;
         if (ev.type === 'commsFailure') ac.commFailure = false;
@@ -300,6 +317,22 @@ function closeEmergency(id, ev, ac) {
     addComm('atc', `[特情解除] ${text}`);
     requestRedraw();
 }
+
+// 成功下达与特情相符的处置指令后，交还自动值守；未处置的事件继续计时。
+bus.on(EV.COMMAND_RESULT, result => {
+    if (!state.autoOperationsMode || !result?.ok || !result.affectedIds?.length) return;
+    const actions = result.actions || [];
+    for (const [id, ev] of [...events.active.entries()]) {
+        const relevant = ev.acId === null || result.affectedIds.includes(ev.acId);
+        if (!relevant) continue;
+        const suitable = ev.type === 'unstableApproach' || ev.type === 'runwayClosure'
+            ? actions.some(action => ['goaround', 'runway'].includes(action))
+            : actions.some(action => ['alt', 'climb', 'descend', 'hdg', 'turnLeft', 'turnRight',
+                'spd', 'speedUp', 'slowDown', 'direct', 'goaround', 'runway', 'handoff'].includes(action));
+        if (!suitable) continue;
+        closeEmergency(id, ev, ev.acId ? state.aircraft.find(ac => ac.id === ev.acId) : null);
+    }
+});
 
 /* ---------------- 经营事件（日结算） ---------------- */
 

@@ -98,7 +98,9 @@ export function initSubscriptions() {
     bus.on(EV.COMMAND_RESULT, () => updateQuickControl(true));
 
     /* 到达目标航路点：暂停播放并弹出下一航路点选择框 */
-    bus.on(EV.WAYPOINT_ARRIVED, ({ ac, idx }) => showNextWaypointDialog(ac, idx));
+    bus.on(EV.WAYPOINT_ARRIVED, ({ ac, idx }) => {
+        if (!state.autoOperationsMode) showNextWaypointDialog(ac, idx);
+    });
 
     /* 班次玩法：班次开始/结束/分数变化 → 班次面板（HUD 由 render/index.js 每帧绘制） */
     bus.on(EV.SESSION_STARTED, () => {

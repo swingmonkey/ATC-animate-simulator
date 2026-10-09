@@ -1,7 +1,8 @@
 /** 雷达值班的常用指令入口。所有操作仍走文字指令通道，以保留复诵、记录和评分。 */
 import { state, isEditMode } from '../core/store.js';
+import { canManualControl, activeIncidents } from '../core/controlPolicy.js';
 import { requestRedraw } from '../core/eventBus.js';
-import { altOf, hdgOf } from '../core/accessors.js';
+import { altOf, hdgOf, spdOf } from '../core/accessors.js';
 import { canIssue, issueHint, phaseLabel } from '../domain/phases.js';
 import { submitAtcText } from './commPanel.js';
 import { runwayEndsFor, unitOfAircraft } from '../domain/airspace.js';
@@ -25,6 +26,7 @@ function selectedAircraft() {
     const item = state.selectedItem;
     if (item?.type !== 'aircraft') return null;
     return state.aircraft.find(ac => ac.id === item.id && !ac.exited && state.time >= (ac.startTime || 0)
+        && canManualControl(ac)
         && (unitOfAircraft(ac) === state.activeView || unitOfAircraft(ac).startsWith(`${state.activeView}-`))) || null;
 }
 
@@ -98,22 +100,25 @@ export function updateQuickControl(force = false) {
     rebuildWaypoints(ac);
     rebuildRunways();
     const code = state.activeView;
+    const emergencyMode = state.autoOperationsMode;
     const selectedViewChanged = code !== lastView;
     lastView = code;
-    $('quick-alt-field').hidden = code === 'TWR';
-    $('quick-direct-field').hidden = code === 'TWR';
-    $('quick-flight-levels').hidden = code !== 'ACC';
+    $('quick-alt-field').hidden = !emergencyMode && code === 'TWR';
+    $('quick-speed-field').hidden = !emergencyMode;
+    $('quick-heading-field').hidden = !emergencyMode;
+    $('quick-direct-field').hidden = !emergencyMode && code === 'TWR';
+    $('quick-flight-levels').hidden = emergencyMode || code !== 'ACC';
     $('quick-runway-field').hidden = code === 'ACC';
-    $('quick-takeoff').hidden = code !== 'TWR';
-    $('quick-land').hidden = code !== 'TWR';
-    $('quick-approach').hidden = code !== 'APP';
+    $('quick-takeoff').hidden = emergencyMode || code !== 'TWR';
+    $('quick-land').hidden = emergencyMode || code !== 'TWR';
+    $('quick-approach').hidden = emergencyMode || code !== 'APP';
     $('quick-go-around').hidden = code === 'ACC';
-    $('quick-handoff').hidden = false;
-    $('quick-ground').hidden = code !== 'TWR';
-    $('quick-approach-plan').hidden = code !== 'APP';
-    $('quick-area-plan').hidden = code !== 'ACC';
+    $('quick-handoff').hidden = emergencyMode;
+    $('quick-ground').hidden = emergencyMode || code !== 'TWR';
+    $('quick-approach-plan').hidden = emergencyMode || code !== 'APP';
+    $('quick-area-plan').hidden = emergencyMode || code !== 'ACC';
     const kicker = document.querySelector('#quick-control .quick-kicker span:last-child');
-    if (kicker) kicker.textContent = `${code} / 01`;
+    if (kicker) kicker.textContent = emergencyMode ? `特情处置 / ${activeIncidents().length}` : `${code} / 01`;
     const selectedChanged = (ac?.id ?? null) !== lastAircraftId || selectedViewChanged;
     lastAircraftId = ac?.id ?? null;
     if (selectedChanged && ac?.runway && [...($('quick-runway')?.options || [])].some(option => option.value === ac.runway)) {
@@ -153,7 +158,8 @@ export function updateQuickControl(force = false) {
     const readout = $('quick-readout');
     if (readout) readout.textContent = ac
         ? `${ac.flightNo}  ·  ${phaseLabel(ac.phase)}  ·  ${code === 'ACC' ? `FL${Math.round(altOf(ac) / 30.48)}` : `${Math.round(altOf(ac))} m`}  ·  ${String(Math.round(hdgOf(ac)) % 360).padStart(3, '0')}°`
-        : `点选${unit(code).short}在管航班，开始指挥。`;
+        : emergencyMode ? '点选特情相关航班，选择高度、速度或航向处置。'
+            : `点选${unit(code).short}在管航班，开始指挥。`;
     const altitude = $('quick-altitude');
     if (altitude) {
         altitude.disabled = !ac || isEditMode() || !canIssue(ac, 'ALT');
@@ -163,6 +169,19 @@ export function updateQuickControl(force = false) {
             altitude.value = ac ? String(Math.round(ac.altCon ?? altOf(ac))) : '';
         }
     }
+    for (const [id, value, min, max] of [
+        ['quick-speed', ac ? Math.round(ac.spdCon ?? spdOf(ac)) : '', 200, 600],
+        ['quick-heading', ac ? Math.round(ac.hdgCon ?? hdgOf(ac)) % 360 : '', 0, 359]
+    ]) {
+        const input = $(id);
+        if (!input) continue;
+        input.disabled = !ac || isEditMode() || !canIssue(ac, id === 'quick-speed' ? 'SPD' : 'HDG');
+        input.min = String(min);
+        input.max = String(max);
+        if (selectedChanged) input.value = String(value);
+    }
+    control('quick-speed-apply', ac, 'SPD');
+    control('quick-heading-apply', ac, 'HDG');
     control('quick-alt-down', ac, 'ALT');
     control('quick-alt-up', ac, 'ALT');
     control('quick-alt-apply', ac, 'ALT');
@@ -259,6 +278,20 @@ export function initQuickControl() {
             return;
         }
         issue(ac, `高度 ${Math.round(value)}`);
+    });
+    $('quick-speed-apply')?.addEventListener('click', () => {
+        const ac = selectedAircraft();
+        const value = Number($('quick-speed')?.value);
+        if (!ac) return;
+        if (!Number.isFinite(value) || value < 200 || value > 600) return showQuickFeedback('速度须在 200–600 节之间', true);
+        issue(ac, `速度 ${Math.round(value)}`);
+    });
+    $('quick-heading-apply')?.addEventListener('click', () => {
+        const ac = selectedAircraft();
+        const value = Number($('quick-heading')?.value);
+        if (!ac) return;
+        if (!Number.isFinite(value) || value < 0 || value > 359) return showQuickFeedback('航向须在 000–359 度之间', true);
+        issue(ac, `航向 ${Math.round(value)}`);
     });
     $('quick-direct')?.addEventListener('click', () => {
         const ac = selectedAircraft();

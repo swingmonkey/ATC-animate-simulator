@@ -232,6 +232,7 @@ export function initFormBindings() {
     });
 
     $('auto-handoff-toggle')?.addEventListener('change', e => {
+        if (state.autoOperationsMode) return;
         setAutoHandoff(e.target.checked);
         addComm('atc', e.target.checked
             ? '已开启自动移交（跨界自动转频）'
@@ -239,7 +240,7 @@ export function initFormBindings() {
     });
 
     $('auto-clearance-toggle')?.addEventListener('change', e => {
-        if (e.target.disabled) return;
+        if (e.target.disabled || state.autoOperationsMode) return;
         setAutoClearance(e.target.checked);
         addComm('atc', e.target.checked
             ? '已开启自动许可（离港放行 / 进近许可 / 落地许可）'

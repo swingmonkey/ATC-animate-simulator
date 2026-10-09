@@ -54,6 +54,8 @@ export const state = {
     autoClearance: true,    // 自动许可：离港放行 / 进近许可 / 落地许可
     seatFilter: null,       // 进程单席位过滤：null = 显示全部
     gameSessionActive: false, // 运行期编辑锁；不写入场景存档
+    autoOperationsMode: true, // 经营/现场主循环；特情外由系统自动值守
+    activeIncidents: [], // 事件引擎投影，运行期数据
 
     /* 席位视图（v1.7：ACC/APP/TWR 三张独立管制地图，档案见 data/viewProfiles.js） */
     activeView: 'APP',      // 当前地图（比例尺/平移记忆在 core/viewport.js，切换入口 render/views.js）

@@ -51,13 +51,18 @@ export function updateSeatPanel() {
     }
 
     const handoffBox = document.getElementById('auto-handoff-toggle');
-    if (handoffBox) handoffBox.checked = !!state.autoHandoff;
+    if (handoffBox) {
+        handoffBox.checked = !!state.autoHandoff || state.autoOperationsMode;
+        handoffBox.disabled = state.autoOperationsMode;
+        handoffBox.title = state.autoOperationsMode ? '自动运营期间持续自动移交' : '';
+    }
     const clearanceBox = document.getElementById('auto-clearance-toggle');
     if (clearanceBox) {
-        clearanceBox.checked = !!state.autoClearance;
+        clearanceBox.checked = !!state.autoClearance || state.autoOperationsMode;
         const guided = isSessionActive() && currentSession()?.meta.tutorial === 'arrival-basic';
-        clearanceBox.disabled = guided;
-        clearanceBox.title = guided ? 'L1 教学班次由你亲自下达进近与落地许可' : '';
+        clearanceBox.disabled = state.autoOperationsMode || guided;
+        clearanceBox.title = state.autoOperationsMode ? '自动运营期间持续自动许可'
+            : guided ? 'L1 教学班次由你亲自下达进近与落地许可' : '';
     }
 }
 

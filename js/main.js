@@ -7,6 +7,7 @@
  */
 
 import { state } from './core/store.js';
+import { radarAvailable } from './core/controlPolicy.js';
 import { bus, EV, consumeRedraw } from './core/eventBus.js';
 import { resizeCanvas } from './core/viewport.js';
 import { tickClock, resetClockAccumulator, clockStats } from './core/clock.js';
@@ -88,7 +89,7 @@ function animate(currentTime) {
     tickKeyboard(frameDt);
     if (document.body.dataset.platformView === 'scene') tickAvatar(frameDt);
 
-    if (state.isPlaying || consumeRedraw()) drawRadar();
+    if (document.body.dataset.platformView === 'radar' && (state.isPlaying || consumeRedraw())) drawRadar();
     requestAnimationFrame(animate);
 }
 
@@ -111,8 +112,10 @@ initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 
 initWorkplaceScene();
 initPlatformView();                 // 网页经营首页 / 现场俯视 / 雷达值班
 bus.on(EV.AVATAR_SEATED, ({ view }) => {
-    showPlatformView('radar');
-    focusRadarView(view);
+    if (radarAvailable()) {
+        showPlatformView('radar');
+        focusRadarView(view);
+    }
 });
 bus.on(EV.AVATAR_LEFT, () => showPlatformView('scene'));
 bus.on(EV.MANAGEMENT_CHANGED, reconcileAvatar);

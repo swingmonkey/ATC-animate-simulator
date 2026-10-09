@@ -199,6 +199,10 @@ const SCRIPT_SCENE_VIEW = `(async () => {
 const SCRIPT_BOOT = `(async () => {
     const A = window.__ATC__;
     const st = A && A.state;
+    // 既有 197 项回归覆盖手动训练；自动运营在专门脚本中独立验证。
+    st.autoOperationsMode = false;
+    (await import('./js/ui/platformView.js')).updateAutoOperationsUI();
+    document.querySelector('.platform-nav [data-platform-view="radar"]').click();
     const c = document.getElementById('radar-canvas');
     const out = {
         bootOk: !!A,
@@ -1453,6 +1457,53 @@ const SCRIPT_PHASE2_SCREEN = `(async () => {
     A.state.timeSpeed = 5;
     return !!ac;
 })()`;
+const SCRIPT_AUTO_OPERATIONS = `(async () => {
+    const A = window.__ATC__;
+    const { select } = await import('./js/core/store.js');
+    const { tickClock } = await import('./js/core/clock.js');
+    const { submitAtcText } = await import('./js/ui/commPanel.js');
+    const { updateAutoOperationsUI } = await import('./js/ui/platformView.js');
+    A.state.autoOperationsMode = true;
+    updateAutoOperationsUI();
+    document.querySelector('[data-platform-view="operations"]').click();
+    document.getElementById('operations-duty-btn').click();
+    const started = A.game.active() && A.state.isPlaying && document.body.dataset.platformView === 'scene';
+    const before = A.state.time;
+    A.state.timeSpeed = 60;
+    for (let i = 0; i < 20; i++) tickClock(0.1);
+    const sceneClockRuns = A.state.time > before && document.body.dataset.platformView === 'scene';
+    const ac = A.state.aircraft.find(item => !item.landed && !item.exited && A.state.time >= (item.startTime || 0));
+    const radarLocked = document.querySelector('.platform-nav [data-platform-view="radar"]').disabled
+        && document.body.dataset.platformView === 'scene';
+    const normalCommandBlocked = ac && !submitAtcText(ac.flightNo + ' 航向 090').ok;
+    const first = ac && A.events.trigger('medical', { aircraftId: ac.id });
+    const bannerOpens = !!first && !document.getElementById('incident-banner').classList.contains('hidden');
+    document.getElementById('incident-open-radar').click();
+    const radarAvailable = document.body.dataset.platformView === 'radar'
+        && !document.getElementById('quick-altitude').disabled
+        && !document.getElementById('quick-speed').disabled
+        && !document.getElementById('quick-heading').disabled;
+    const alt = ac && Math.round(ac.altCon ?? ac.displayAltitude ?? ac.altitude);
+    const altitudeHandled = !!ac && submitAtcText(ac.flightNo + ' 高度 ' + Math.min(15000, alt + 300)).ok
+        && A.events.summary().active === 0 && document.body.dataset.platformView === 'scene';
+    const second = ac && A.events.trigger('lowFuel', { aircraftId: ac.id });
+    document.getElementById('incident-open-radar').click();
+    const speedHandled = !!second && submitAtcText(ac.flightNo + ' 速度 250').ok
+        && A.events.summary().active === 0 && document.body.dataset.platformView === 'scene';
+    const third = A.events.trigger('windShift');
+    document.getElementById('incident-open-radar').click();
+    select({ type: 'aircraft', id: ac.id });
+    const headingHandled = !!third && submitAtcText(ac.flightNo + ' 航向 100').ok
+        && A.events.summary().active === 0 && document.body.dataset.platformView === 'scene';
+    document.querySelector('[data-platform-view="operations"]').click();
+    document.getElementById('operations-end-btn').click();
+    const endFromOperations = !A.game.active() && !A.state.isPlaying;
+    return { autoOperationsStarted: started, autoSceneClockRuns: sceneClockRuns,
+        autoRadarLocked: radarLocked, autoNormalCommandBlocked: normalCommandBlocked,
+        autoIncidentBanner: bannerOpens, autoIncidentRadar: radarAvailable,
+        autoAltitudeHandled: altitudeHandled, autoSpeedHandled: speedHandled,
+        autoHeadingHandled: headingHandled, autoOperationsEnded: endFromOperations };
+})()`;
 async function runSmoke() {
     const win = createWindow({ show: false, headless: true });
     attachDiagnostics(win);
@@ -1594,6 +1645,7 @@ async function runSmoke() {
             consoleErrors.push('教学截图失败: ' + String(e && e.message || e));
         }
         await win.webContents.executeJavaScript("window.__ATC__.game.end({ reason: '教学截图结束' })");
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_AUTO_OPERATIONS));
     } catch (e) {
         pageFailures.push(String((e && e.message) || e));
     }
@@ -1656,6 +1708,15 @@ async function runSmoke() {
         ['现场：雷达值班离席返回现场', report.sceneLeaveSeat === true],
         ['现场：按钮就座进入雷达', report.sceneButtonSit === true],
         ['现场：Tab 切换已建设现场', report.sceneSwitchOnTab === true],
+        ['自动运营：经营页启动并切入现场', report.autoOperationsStarted === true],
+        ['自动运营：现场走动时航班时钟持续运行', report.autoSceneClockRuns === true],
+        ['自动运营：平时雷达关闭且普通指令受阻', report.autoRadarLocked === true
+            && report.autoNormalCommandBlocked === true],
+        ['自动运营：特情提示开放雷达与三项处置控件', report.autoIncidentBanner === true
+            && report.autoIncidentRadar === true],
+        ['自动运营：高度、速度、航向分别可处置特情并返回现场', report.autoAltitudeHandled === true
+            && report.autoSpeedHandled === true && report.autoHeadingHandled === true],
+        ['自动运营：经营页可结束班次', report.autoOperationsEnded === true],
         ['启动句柄存在', report.bootOk === true],
         ['画布已按容器尺寸初始化', report.canvasSized === true],
         ['启动通话消息已渲染', (report.bootCommMessages ?? 0) >= 4],

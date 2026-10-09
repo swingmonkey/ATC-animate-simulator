@@ -5,6 +5,7 @@
  */
 
 import { state, addComm } from '../core/store.js';
+import { canManualControl } from '../core/controlPolicy.js';
 import {
     setAltitudeConstraint, setSpeedConstraint, setHeadingConstraint
 } from '../simulation/motion.js';
@@ -183,6 +184,12 @@ export function executeCommand(text) {
         if (accepted) { affected++; applied.push(ac); }
     }
 
+    if (state.autoOperationsMode) {
+        targets = targets.filter(canManualControl);
+        if (!targets.length) return { ok: false, affected: 0,
+            message: '当前航班由系统自动值守；仅特情相关航班可人工处置' };
+    }
+
     if (affected === 0) return { ok: false, affected: 0, message: rejected || '当前航班无法执行该指令' };
 
     // 机组复诵：定向指令逐架播报（含按难度概率抽取的漏项错诵，见 domain/readback.js）。
@@ -196,5 +203,7 @@ export function executeCommand(text) {
     }
 
     const desc = parsed.actions.map(a => a.type).join('、');
-    return { ok: true, affected, message: `→ ${targetLabel}: ${text}（${affected} 架执行 ${desc}）` };
+    return { ok: true, affected, affectedIds: applied.map(ac => ac.id),
+        actions: parsed.actions.map(action => action.type),
+        message: `→ ${targetLabel}: ${text}（${affected} 架执行 ${desc}）` };
 }

@@ -1,6 +1,8 @@
 /** 经营快照驱动的 2D 管制室俯视图。画面动作只作状态反馈，不改变班次时钟。 */
 import { bus, EV } from '../core/eventBus.js';
 import { state } from '../core/store.js';
+import { radarAvailable } from '../core/controlPolicy.js';
+import { activeIncidents } from '../core/controlPolicy.js';
 import { escapeHtml } from '../core/dom.js';
 import { WORKSPACES, WORKSPACE_ORDER, seatApproachPoint } from '../data/workspaces.js';
 import { managementSummary } from '../game/management.js';
@@ -218,11 +220,27 @@ export function updateWorkplaceScene() {
         <div><strong>${model.open}</strong><span>开放席位</span></div>
         <div><strong>${model.staffed}</strong><span>人员值守</span></div>
         <div><strong>${Math.max(0, model.open - model.staffed)}</strong><span>待安排</span></div>`;
+    updateSceneTraffic();
     document.getElementById('scene-seat-list').innerHTML = model.seats.map(seat =>
         `<button type="button" data-seat="${escapeHtml(seat.code)}" class="scene-seat-chip ${seat.status}" aria-pressed="${seat.code === selectedSeat}">`
         + `<span class="scene-chip-light" aria-hidden="true"></span>${escapeHtml(seat.code)}</button>`
     ).join('');
     updateSeatDetail();
+}
+
+function updateSceneTraffic() {
+    const box = document.getElementById('scene-traffic');
+    if (!box || document.body.dataset.platformView !== 'scene') return;
+    const traffic = state.aircraft.filter(ac => !ac.landed && !ac.exited && state.time >= (ac.startTime || 0));
+    const arriving = traffic.filter(ac => (ac.flow || 'arrival') === 'arrival').length;
+    const departing = traffic.filter(ac => ac.flow === 'departure').length;
+    const crossing = traffic.filter(ac => ac.flow === 'overflight').length;
+    const incidentCount = activeIncidents().length;
+    box.innerHTML = `<div class="scene-traffic-head"><strong>现场运行板</strong><span>${state.isPlaying ? '● 自动运行' : '○ 待启动'}</span></div>
+        <div class="scene-traffic-counts"><span>进港 ${arriving}</span><span>离港 ${departing}</span><span>飞越 ${crossing}</span><span class="${incidentCount ? 'alert' : ''}">特情 ${incidentCount}</span></div>
+        <div class="scene-traffic-flights">${traffic.slice(0, 3).map(ac =>
+            `<div><strong>${escapeHtml(ac.flightNo)}</strong><span>${escapeHtml(ac.departure || '本场')} → ${escapeHtml(ac.destination || '本场')}</span></div>`
+        ).join('') || '<p>航班即将进入空域，巡视席位并安排值守。</p>'}</div>`;
 }
 
 function updateSeatDetail() {
@@ -250,8 +268,9 @@ function updateSeatDetail() {
     button.disabled = seat.status !== 'staffed' || !playerHere;
     button.textContent = seat.status !== 'staffed' ? '安排值守后可进入席位'
         : !playerHere ? '先进入该现场'
-            : sameSeat ? `进入 ${currentModel.site.short} 雷达视角 →`
-                : near ? '就座并进入雷达 →' : '步行前往席位 →';
+            : sameSeat ? radarAvailable() ? `进入 ${currentModel.site.short} 雷达视角 →` : '已就座 · 自动值守中'
+                : near ? radarAvailable() ? '就座并进入雷达 →' : '就座观察现场 →' : '步行前往席位 →';
+    if (sameSeat && !radarAvailable()) button.disabled = true;
     fastButton.disabled = seat.status !== 'staffed' || !playerHere || sameSeat;
     leaveButton.classList.toggle('hidden', avatar?.mode !== 'SEATED');
 }
@@ -328,8 +347,12 @@ export function initWorkplaceScene() {
     document.getElementById('scene-open-operations')?.addEventListener('click', () => {
         document.querySelector('[data-platform-view="operations"]')?.click();
     });
-    [EV.MANAGEMENT_CHANGED, EV.SESSION_STARTED, EV.SESSION_ENDED, EV.PLAYBACK_CHANGED]
+    [EV.MANAGEMENT_CHANGED, EV.SESSION_STARTED, EV.SESSION_ENDED, EV.PLAYBACK_CHANGED,
+        EV.EMERGENCY_RAISED, EV.EMERGENCY_RESOLVED]
         .forEach(event => bus.on(event, updateWorkplaceScene));
+    bus.on(EV.CLOCK_TICK, () => {
+        if (Math.floor(state.time) % 5 === 0) updateSceneTraffic();
+    });
     bus.on(EV.AVATAR_CHANGED, ({ action } = {}) => {
         if (['visit', 'init', 'left', 'reconcile'].includes(action)) {
             siteId = state.avatar.site;

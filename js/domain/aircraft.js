@@ -140,13 +140,13 @@ export function syncAircraftState(ac) {
         ac.unitTarget = target;
     } else {
         ac.unitTarget = target;
-        if (target !== ac.unit && state.autoHandoff && state.isPlaying) {
+        if (target !== ac.unit && (state.autoHandoff || state.autoOperationsMode) && state.isPlaying) {
             handoffAircraft(ac, target, { auto: true });
         }
     }
 
     /* 2. 自动许可链 */
-    if (state.isPlaying && state.autoClearance) applyAutoClearance(ac);
+    if (state.isPlaying && (state.autoClearance || state.autoOperationsMode)) applyAutoClearance(ac);
 
     /* 3. 接地判定与阶段同步 */
     checkLanding(ac);

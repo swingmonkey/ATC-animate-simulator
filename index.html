@@ -18,14 +18,20 @@
             </nav>
             <span class="platform-save-note">进度保存在当前浏览器</span>
         </header>
+        <div id="incident-banner" class="incident-banner hidden" role="alert">
+            <div><strong id="incident-title">特情待处置</strong><span id="incident-text"></span></div>
+            <button id="incident-open-radar" type="button">接管雷达处置 →</button>
+        </div>
 
         <main id="operations-view" class="operations-view hidden" aria-label="经营指挥台">
             <div class="operations-shell">
                 <div class="operations-intro">
                     <div><span class="operations-eyebrow">ATC · 经营指挥台</span><h1>经营你的空管单位</h1>
                         <p>签下航班合同，配置人员与设施；每个经营日的表现都由你的值班成绩决定。</p>
-                        <p id="operations-paused-note" class="operations-paused-note hidden">雷达已暂停。返回值班后，点击“播放”继续。</p></div>
-                    <button id="operations-duty-btn" type="button" class="operations-duty-btn">进入雷达值班 →</button>
+                        <p id="operations-paused-note" class="operations-paused-note hidden">班次已暂停。返回值班后，点击“播放”继续。</p>
+                        <p id="operations-auto-status" class="operations-auto-status" aria-live="polite">自动运营待启动</p></div>
+                    <div class="operations-run-actions"><button id="operations-duty-btn" type="button" class="operations-duty-btn">开始自动运营 →</button>
+                        <button id="operations-end-btn" type="button" class="operations-end-btn hidden">结束班次并查看成绩</button></div>
                 </div>
                 <div class="operations-next" role="status" aria-live="polite"><strong>下一步</strong><span id="operations-next-text">正在读取经营状态…</span>
                     <button id="operations-next-action" type="button">查看操作 ↓</button></div>
@@ -61,6 +67,7 @@
                         <div class="scene-inspector-head"><span>值班手册</span><strong id="scene-room-state">--</strong></div>
                         <h2 id="scene-room-name">--</h2><p id="scene-room-brief"></p>
                         <div id="scene-metrics" class="scene-metrics"></div>
+                        <div id="scene-traffic" class="scene-traffic" aria-live="polite"></div>
                         <div id="scene-seat-list" class="scene-seat-list" role="group" aria-label="现场席位列表"></div>
                         <div class="scene-inspector-divider"></div>
                         <span class="scene-inspector-caption">当前席位</span>
@@ -72,7 +79,7 @@
                         <button id="scene-open-operations" class="scene-secondary-btn" type="button">前往经营指挥台</button>
                     </aside>
                 </div>
-                <p class="scene-footnote">WASD / 方向键走动，E 就座，Q 离席，F 快速前往，Tab 切换已建设现场。现场走动时班次时钟暂停。</p>
+                <p class="scene-footnote">WASD / 方向键走动，E 就座，Q 离席，F 快速前往，Tab 切换已建设现场。自动运营期间现场与航班同步运行，特情出现时可接管雷达。</p>
             </div>
         </main>
         <div id="main-content">
@@ -123,6 +130,14 @@
                     </div>
                     <div class="quick-flight-levels" id="quick-flight-levels" aria-label="区域高度层快捷指令" hidden>
                         <span>常用高度层</span><div><button type="button" data-fl="180">FL180</button><button type="button" data-fl="240">FL240</button><button type="button" data-fl="300">FL300</button><button type="button" data-fl="360">FL360</button></div>
+                    </div>
+                    <div class="quick-field" id="quick-speed-field" hidden>
+                        <label for="quick-speed">目标速度 · 节</label>
+                        <div class="quick-direct-row"><input type="number" id="quick-speed" min="120" max="600" step="10" aria-label="目标速度，节"><button type="button" id="quick-speed-apply" class="quick-action-btn" disabled>下达速度</button></div>
+                    </div>
+                    <div class="quick-field" id="quick-heading-field" hidden>
+                        <label for="quick-heading">目标航向 · 度</label>
+                        <div class="quick-direct-row"><input type="number" id="quick-heading" min="0" max="359" step="5" aria-label="目标航向，度"><button type="button" id="quick-heading-apply" class="quick-action-btn" disabled>下达航向</button></div>
                     </div>
                     <div class="quick-field" id="quick-direct-field">
                         <label for="quick-waypoint">直飞航路点</label>
