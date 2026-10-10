@@ -109,7 +109,9 @@ function availableEmergencies() {
     const list = [];
     for (const ev of EMERGENCY_EVENTS) {
         if (ev.kind === 'runwayClosure' || ev.kind === 'unstableApproach'
-            || ev.kind === 'goAround' || ev.kind === 'lowFuel' || ev.kind === 'medical') {
+            || ev.kind === 'goAround' || ev.kind === 'lowFuel' || ev.kind === 'medical'
+            || ev.kind === 'crabEscape' || ev.kind === 'pandaUpgrade' || ev.kind === 'ufoSighting'
+            || ev.kind === 'spicySnack' || ev.kind === 'grannyChoir' || ev.kind === 'snakeLoose') {
             if (arrivals.length === 0) continue;
         }
         if (ev.kind === 'commsFailure' && state.aircraft.length === 0) continue;
@@ -229,6 +231,49 @@ function applyEmergency(def, ac) {
     case 'neighborCall': {
         if (!ac) return null;
         return logRecord({ ...base, aircraft: ac.flightNo }, `相邻扇区通报 ${ac.flightNo} 后续流量，注意排序与间隔`, { severity: 'info' });
+    }
+    /* ---- v2.0 荒诞特情（主题医院式整活，处置仍走既有指令链路） ---- */
+    case 'crabEscape': {
+        if (!ac) return null;
+        ac.emergency = { type: 'crabEscape', since: state.time, priority: true };
+        events.active.set(`emg-${state.time}-crab`, { type: def.id, acId: ac.id, raisedAt: state.time, expiresAt: state.time + 150 });
+        return logRecord({ ...base, aircraft: ac.flightNo },
+            `${ac.flightNo} 货舱 200 只螃蟹集体越狱占领驾驶舱门，机长请求保持平稳（严禁急转）`, { severity: 'warning' });
+    }
+    case 'pandaUpgrade': {
+        if (!ac) return null;
+        ac.emergency = { type: 'pandaUpgrade', since: state.time, priority: true };
+        events.active.set(`emg-${state.time}-panda`, { type: def.id, acId: ac.id, raisedAt: state.time, expiresAt: null });
+        return logRecord({ ...base, aircraft: ac.flightNo },
+            `${ac.flightNo} 机上大熊猫对经济舱座位表示强烈不满，开启静坐抗议，请求优先落地`, { severity: 'danger' });
+    }
+    case 'ufoSighting': {
+        if (!ac) return null;
+        ac.emergency = { type: 'ufoSighting', since: state.time, priority: false };
+        events.active.set(`emg-${state.time}-ufo`, { type: def.id, acId: ac.id, raisedAt: state.time, expiresAt: state.time + 120 });
+        return logRecord({ ...base, aircraft: ac.flightNo },
+            `${ac.flightNo} 机组在左前方发现不明飞行物并集体拍照，已偏离计划航向`, { severity: 'warning' });
+    }
+    case 'spicySnack': {
+        if (!ac) return null;
+        ac.emergency = { type: 'spicySnack', since: state.time, priority: false };
+        events.active.set(`emg-${state.time}-snack`, { type: def.id, acId: ac.id, raisedAt: state.time, expiresAt: state.time + 120 });
+        return logRecord({ ...base, aircraft: ac.flightNo },
+            `${ac.flightNo} 客舱发放辣条引发全舱欢呼，发动机噪声被完全覆盖，机长请求复述所有指令`, { severity: 'warning' });
+    }
+    case 'grannyChoir': {
+        if (!ac) return null;
+        ac.emergency = { type: 'grannyChoir', since: state.time, priority: false };
+        events.active.set(`emg-${state.time}-choir`, { type: def.id, acId: ac.id, raisedAt: state.time, expiresAt: state.time + 120 });
+        return logRecord({ ...base, aircraft: ac.flightNo },
+            `${ac.flightNo} 机上合唱团在巡航高度开演《好日子》，机长听得入迷，已偏离航向 15 度`, { severity: 'info' });
+    }
+    case 'snakeLoose': {
+        if (!ac) return null;
+        ac.emergency = { type: 'snakeLoose', since: state.time, priority: true };
+        events.active.set(`emg-${state.time}-snake`, { type: def.id, acId: ac.id, raisedAt: state.time, expiresAt: state.time + 180 });
+        return logRecord({ ...base, aircraft: ac.flightNo },
+            `${ac.flightNo} 货舱一条蟒蛇逃进货舱夹层，地勤抄网待命，请求尽快落地`, { severity: 'danger' });
     }
     default:
         return logRecord(base, def.brief || def.name);
