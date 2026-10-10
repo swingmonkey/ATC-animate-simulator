@@ -10,7 +10,7 @@
 <body>
     <div id="app">
         <header class="platform-header">
-            <div class="platform-brand"><span class="platform-mark">ATC</span><span>空管模拟运营<small>经营决策 × 现场俯视 × 雷达值班</small></span></div>
+            <div class="platform-brand"><span class="platform-mark"><i class="pk-ball" aria-hidden="true"></i>ATC</span><span>空管模拟运营<small>经营决策 × 现场俯视 × 雷达值班</small></span></div>
             <nav class="platform-nav" aria-label="平台视图">
                 <button type="button" data-platform-view="operations" aria-current="false">经营指挥台</button>
                 <button type="button" data-platform-view="scene" aria-current="false">现场俯视</button>
@@ -277,27 +277,27 @@
                 <div class="panel-section" id="comm-section">
                     <h3 class="section-title">📻 陆空通话</h3>
                     <div id="comm-messages" class="comm-messages"></div>
-                    <div style="display:flex;gap:4px;margin-top:6px;">
-                        <select id="comm-target" style="flex:0 0 90px;padding:4px 6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                    <div class="comm-input-row">
+                        <select id="comm-target" aria-label="通话对象">
                             <option value="atc">管制员</option>
                         </select>
                     </div>
-                    <div style="display:flex;gap:4px;margin-top:4px;">
-                        <input type="text" id="comm-input" placeholder="输入指令..." style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;color:#1e293b;">
-                        <button id="comm-send-btn" class="btn-primary" style="padding:5px 10px;font-size:11px;flex:0 0 50px;">发送</button>
+                    <div class="comm-input-row">
+                        <input type="text" id="comm-input" placeholder="输入指令..." aria-label="管制指令输入">
+                        <button id="comm-send-btn" class="btn-primary">发送</button>
                     </div>
                     <div id="comm-feedback" class="comm-feedback" role="status" aria-live="polite"></div>
                 </div>
 
                 <div class="panel-section" id="session-section">
                     <h3 class="section-title">🎯 班次与评分</h3>
-                    <div style="display:flex;gap:4px;margin-bottom:6px;">
-                        <select id="session-scenario" style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                    <div class="panel-select-row">
+                        <select id="session-scenario" aria-label="选择关卡">
                             <option value="">自动（位置文件 / 自由流量）</option>
                         </select>
                     </div>
-                    <div style="display:flex;gap:4px;margin-bottom:6px;">
-                        <select id="session-difficulty" style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                    <div class="panel-select-row">
+                        <select id="session-difficulty" aria-label="选择难度">
                             <option value="arcade">街机（流量最密）</option>
                             <option value="standard" selected>标准</option>
                             <option value="realistic">拟真（流量最疏）</option>
@@ -307,12 +307,13 @@
                     <button id="session-end-btn" class="edit-btn" style="width:100%;margin-top:4px;" disabled>⏹ 结束并结算</button>
                     <div id="session-hud" class="session-hud"></div>
                     <div id="session-result" class="session-result hidden"></div>
+                    <div class="badge-wall" id="badge-wall" aria-label="徽章墙"></div>
                 </div>
 
                 <div class="panel-section" id="scenario-section">
                     <h3 class="section-title">🌩 场景与天气</h3>
-                    <div style="display:flex;gap:4px;margin-bottom:6px;">
-                        <select id="scenario-focus" style="flex:1;padding:5px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#475569;">
+                    <div class="panel-select-row">
+                        <select id="scenario-focus" aria-label="焦点机场">
                             <option value="ZUUU">成都天府 (ZUUU)</option>
                             <option value="ZBAA">北京首都 (ZBAA)</option>
                             <option value="ZGGG">广州白云 (ZGGG)</option>
@@ -358,10 +359,15 @@
                     </select>
                 </div>
             </div>
+            <div id="toolbar-stress">
+                <button id="coffee-btn" type="button" title="喝咖啡：−30 压力（60s 冷却）">☕ 咖啡</button>
+                <span id="stress-readout" class="hidden" aria-live="polite">淡定</span>
+            </div>
             <div id="toolbar-right">
                 <button id="location-sample-btn" class="tool-btn" title="载入内置示例机场（Endless ATC 位置文件格式）">📍 示例机场</button>
                 <button id="location-import-btn" class="tool-btn" title="导入 Endless ATC 位置文件（.txt）">📂 导入机场</button>
                 <input type="file" id="location-file-input" accept=".txt,text/plain" class="hidden">
+                <button id="sfx-toggle" class="tool-btn" title="芯片音效开关">🔊 音效</button>
                 <button id="help-btn" class="tool-btn" title="帮助">❓ 帮助</button>
                 <button id="tool-delete" class="tool-btn danger" title="删除">🗑 删除</button>
             </div>
@@ -444,7 +450,7 @@
                 </div>
                 <div class="form-group">
                     <label>类型:</label>
-                    <select id="point-type" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;">
+                    <select id="point-type">
                         <option value="normal">普通航路点</option>
                         <option value="intersection">交叉点</option>
                         <option value="vor">VOR导航点</option>
@@ -457,7 +463,7 @@
                     <p style="font-size:10px;color:#94a3b8;margin-top:2px;">（拖动航路点可调整位置）</p>
                 </div>
                 <div class="dialog-actions">
-                    <button id="delete-point-btn" class="btn-danger" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:8px 16px;border-radius:6px;cursor:pointer;margin-right:auto;">删除</button>
+                    <button id="delete-point-btn" class="btn-danger" style="margin-right:auto;">删除</button>
                     <button id="save-point" class="btn-primary">保存</button>
                     <button class="btn-secondary dialog-close">取消</button>
                 </div>
@@ -483,7 +489,7 @@
                     <input type="color" id="route-color" value="#2563eb">
                 </div>
                 <div class="dialog-actions">
-                    <button id="delete-route-btn" class="btn-danger" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:8px 16px;border-radius:6px;cursor:pointer;margin-right:auto;">删除</button>
+                    <button id="delete-route-btn" class="btn-danger" style="margin-right:auto;">删除</button>
                     <button id="save-route" class="btn-primary">保存</button>
                     <button class="btn-secondary dialog-close">取消</button>
                 </div>
@@ -630,7 +636,7 @@
                 </div>
                 <div class="form-group">
                     <label>导航模式:</label>
-                    <select id="ac-nav-mode" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;">
+                    <select id="ac-nav-mode">
                         <option value="route">航线导航（沿航路点飞行）</option>
                         <option value="free">自由导航（直飞目标点）</option>
                         <option value="heading">航向飞行（按固定航向飞行）</option>
@@ -643,13 +649,13 @@
                     </div>
                     <div class="form-group">
                         <label>跑道:</label>
-                        <select id="ac-runway" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;"></select>
+                        <select id="ac-runway"></select>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>进近方式:</label>
-                        <select id="ac-approach" style="width:100%;padding:8px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;">
+                        <select id="ac-approach">
                             <option value="">未指派</option>
                             <option value="ILS">ILS 盲降</option>
                             <option value="RNAV">RNAV 进近</option>
@@ -664,20 +670,20 @@
                 </div>
                 <div class="form-group" id="free-nav-group" style="display:none;">
                     <label>目标点设置:</label>
-                    <div style="display:flex;gap:6px;margin-bottom:6px;">
-                        <button id="select-target-btn" type="button" style="flex:1;padding:6px 10px;background:#e0f2fe;border:1px solid #7dd3fc;color:#0369a1;border-radius:5px;cursor:pointer;font-size:11px;">🎯 点击地图选目标</button>
-                        <button id="input-target-coords-btn" type="button" style="flex:1;padding:6px 10px;background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:5px;cursor:pointer;font-size:11px;">📝 输入坐标</button>
+                    <div class="dialog-btn-row">
+                        <button id="select-target-btn" type="button" class="pk-soft-btn pk-soft-blue">🎯 点击地图选目标</button>
+                        <button id="input-target-coords-btn" type="button" class="pk-soft-btn pk-soft-green">📝 输入坐标</button>
                     </div>
                     <div id="target-coords-input" style="display:none;margin-top:6px;">
-                        <div style="display:flex;gap:6px;align-items:center;">
-                            <label style="font-size:11px;white-space:nowrap;">X:</label>
-                            <input type="number" id="target-x" placeholder="0" style="flex:1;padding:4px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;width:70px;">
-                            <label style="font-size:11px;white-space:nowrap;">Y:</label>
-                            <input type="number" id="target-y" placeholder="0" style="flex:1;padding:4px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;width:70px;">
-                            <button id="confirm-target-btn" type="button" style="padding:4px 8px;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">确认</button>
+                        <div class="dialog-btn-row">
+                            <label class="dialog-inline-label">X:</label>
+                            <input type="number" id="target-x" placeholder="0" class="dialog-coord-input">
+                            <label class="dialog-inline-label">Y:</label>
+                            <input type="number" id="target-y" placeholder="0" class="dialog-coord-input">
+                            <button id="confirm-target-btn" type="button" class="btn-primary">确认</button>
                         </div>
                     </div>
-                    <div id="target-info" style="margin-top:6px;font-size:11px;color:#64748b;"></div>
+                    <div id="target-info" class="dialog-hint-text"></div>
                 </div>
                 <div class="form-group">
                     <label>关联航线:</label>
@@ -687,23 +693,23 @@
                 </div>
                 <div class="form-group" id="waypoint-select-group" style="display:none;">
                     <label>航线飞行:</label>
-                    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-                        <label style="font-size:11px;color:#64748b;white-space:nowrap;">下一航路点:</label>
-                        <select id="ac-next-waypoint" style="flex:1;padding:6px 10px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:5px;font-size:12px;">
+                    <div class="dialog-btn-row" style="margin-bottom:6px;">
+                        <label class="dialog-inline-label">下一航路点:</label>
+                        <select id="ac-next-waypoint">
                             <option value="">-- 选择 --</option>
                         </select>
                     </div>
-                    <div style="margin-top:8px;padding:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:5px;">
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#0369a1;">
-                            <input type="checkbox" id="ac-ask-next-waypoint" style="width:14px;height:14px;">
+                    <div class="dialog-note-box">
+                        <label class="dialog-check">
+                            <input type="checkbox" id="ac-ask-next-waypoint">
                             <span>到达目标点后询问下一航路点</span>
                         </label>
                     </div>
-                    <div id="waypoint-info" style="margin-top:4px;"></div>
-                    <div id="route-path-preview" style="margin-top:6px;font-size:11px;color:#64748b;"></div>
+                    <div id="waypoint-info" class="dialog-hint-text"></div>
+                    <div id="route-path-preview" class="dialog-hint-text"></div>
                 </div>
                 <div class="dialog-actions">
-                    <button id="delete-aircraft-btn" class="btn-danger" style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:8px 16px;border-radius:6px;cursor:pointer;margin-right:auto;">删除</button>
+                    <button id="delete-aircraft-btn" class="btn-danger" style="margin-right:auto;">删除</button>
                     <button id="save-aircraft" class="btn-primary">保存</button>
                     <button class="btn-secondary dialog-close">取消</button>
                 </div>
@@ -718,15 +724,15 @@
             <div class="dialog-body">
                 <div class="form-group">
                     <label>当前到达:</label>
-                    <div id="current-waypoint-name" style="font-size:16px;font-weight:bold;color:#2563eb;margin-top:4px;"></div>
+                    <div id="current-waypoint-name" class="dialog-waypoint-name"></div>
                 </div>
                 <div class="form-group">
                     <label>选择下一航路点:</label>
-                    <select id="next-waypoint-select" style="width:100%;padding:10px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:6px;font-size:13px;margin-top:6px;">
+                    <select id="next-waypoint-select">
                         <option value="">-- 请选择 --</option>
                     </select>
                 </div>
-                <div id="next-waypoint-preview" style="margin-top:10px;font-size:12px;color:#64748b;"></div>
+                <div id="next-waypoint-preview" class="dialog-hint-text"></div>
                 <div class="dialog-actions" style="margin-top:16px;">
                     <button id="confirm-next-waypoint" class="btn-primary">确认</button>
                     <button class="btn-secondary dialog-close">取消</button>
@@ -740,7 +746,7 @@
                 <button class="close-btn dialog-close">&times;</button>
             </div>
             <div class="dialog-body">
-                <h4 style="margin-bottom:8px;color:#2563eb;">飞机默认值</h4>
+                <h4 class="dialog-subtitle">飞机默认值</h4>
                 <div class="form-row">
                     <div class="form-group">
                         <label>默认高度 (m):</label>
@@ -800,7 +806,7 @@
                         <input type="text" id="def-squawk" value="2000">
                     </div>
                 </div>
-                <h4 style="margin:12px 0 8px;color:#2563eb;">显示设置</h4>
+                <h4 class="dialog-subtitle">显示设置</h4>
                 <div class="form-row">
                     <div class="form-group">
                         <label>网格间距 (km):</label>

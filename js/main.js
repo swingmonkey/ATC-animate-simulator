@@ -48,9 +48,10 @@ import { locationToScene, importLocationText } from './domain/locations.js';
 import { sampleLocationText } from './data/locationSamples.js';
 import { getAirport } from './data/airports.js';
 import { drawRadar } from './render/index.js';
+import { tickEffects } from './render/effects.js';
 import { initSubscriptions, refreshAll } from './ui/subscriptions.js';
 import { initFormBindings } from './ui/formBindings.js';
-import { initSessionPanel, initRosterPanel, initManagementPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, addComm } from './ui/index.js';
+import { initSessionPanel, initRosterPanel, initManagementPanel, initConsolePanel, updateConsole, updateTimeDisplay, updateProgressList, updateSessionPanel, addComm } from './ui/index.js';
 import { hudModel } from './render/hud.js';
 import { initTutorialPanel } from './ui/tutorialPanel.js';
 import { initQuickControl, updateQuickControl } from './ui/quickControl.js';
@@ -59,6 +60,11 @@ import { initPlatformView, showPlatformView } from './ui/platformView.js';
 import { initWorkplaceScene } from './ui/workplaceScene.js';
 import { focusRadarView } from './render/views.js';
 import { tickKeyboard } from './interaction/index.js';
+import { sfx } from './core/sfx.js';
+import { tryAward, evaluateSessionBadges, badgeSummary } from './game/badges.js';
+import { drinkCoffee, stressSummary } from './game/stress.js';
+import { landedCargoList, cargoOf } from './game/cargo.js';
+import { zanyTitle, complaintLetter, dailyHeadline } from './game/zany.js';
 import {
     initAvatar, reconcileAvatar, tickAvatar, visitWorkspace, cycleWorkspace, walkToSeat,
     fastTravelToSeat, sitAvatar, leaveAvatarSeat
@@ -88,6 +94,7 @@ function animate(currentTime) {
 
     tickKeyboard(frameDt);
     if (document.body.dataset.platformView === 'scene') tickAvatar(frameDt);
+    tickEffects(frameDt);            // v1.9：飘分/粒子/toast 动画（暂停时也播完）
 
     if (document.body.dataset.platformView === 'radar' && (state.isPlaying || consumeRedraw())) drawRadar();
     requestAnimationFrame(animate);
@@ -111,6 +118,101 @@ initRosterPanel();                 // 值班面板：申请不参加本次执勤
 initManagementPanel();             // 经营面板：招聘 / 建设 / 升级 / 合同 / 局方审批（事件委托，绑定一次）
 initWorkplaceScene();
 initPlatformView();                 // 网页经营首页 / 现场俯视 / 雷达值班
+initSfxWiring();                    // v1.9：芯片音效与事件声、徽章结算
+
+/* ---------------- v1.9：音效 / 徽章接线 ---------------- */
+
+/** 把业务事件映射到芯片音效，并挂音效开关按钮（装配点统一接线，业务层不碰音频） */
+function initSfxWiring() {
+    /* 指令结果：成功「哔哔」上行，失败低音下滑 */
+    bus.on(EV.COMMAND_RESULT, res => sfx.play(res && res.ok ? 'issue' : 'error'));
+    /* 机组复诵播报：收到清亮的双音 */
+    bus.on(EV.COMM_ADDED, msg => { if (msg && msg.sender === 'pilot') sfx.play('readback'); });
+    /* 评分事件：落地琶音 / 连击 / 告警低鸣 */
+    bus.on(EV.SCORE_CHANGED, ({ event } = {}) => {
+        if (!event) return;
+        if (event.kind === 'LANDED') sfx.play('land');
+        else if (event.kind === 'EARLY_BONUS') sfx.play('bonus');
+        else if (event.kind === 'SEPARATION_BREACH' || event.kind === 'MVA_BREACH'
+            || event.kind === 'READBACK_MISSED') sfx.play('alert');
+    });
+    /* 徽章与结算评级：小号角 */
+    bus.on(EV.BADGE_EARNED, () => sfx.play('badge'));
+    /* 压力跨越到「手抖」：低鸣一提示 */
+    bus.on(EV.STRESS_CHANGED, ({ levelChange } = {}) => {
+        if (levelChange === 'fried') sfx.play('alert');
+    });
+    bus.on(EV.SESSION_ENDED, result => {
+        tryAwardAllForSession(result);       // 结算补评徽章（持久化 + toast）
+        if (result && (result.grade === 'S' || result.grade === 'A')) sfx.play('grade');
+        updateSessionPanel();                // 徽章授予后重渲染，结算面板展示「本班新获徽章」
+    });
+
+    /* 工具栏音效开关 */
+    const btn = document.getElementById('sfx-toggle');
+    if (btn) {
+        const sync = () => { btn.textContent = sfx.enabled ? '🔊 音效' : '🔇 静音'; };
+        btn.addEventListener('click', () => { sfx.toggle(); sync(); });
+        sync();
+    }
+
+    initStressWidget();
+
+    /* 面板按钮轻点反馈（仅在启用时） */
+    document.addEventListener('click', event => {
+        if (event.target.closest('button')) sfx.play('click');
+    });
+}
+
+/** v2.0 压力小组件：☕ 咖啡按钮（冷却中置灰倒计时）+ 压力读数胶囊 */
+function initStressWidget() {
+    const btn = document.getElementById('coffee-btn');
+    const chip = document.getElementById('stress-readout');
+    if (!btn || !chip) return;
+
+    const render = () => {
+        const s = stressSummary();
+        const active = isSessionActive();
+        chip.classList.toggle('hidden', !active);
+        if (active) {
+            chip.className = s.level === 'fried' ? 'fried' : s.level === 'tense' ? 'tense' : '';
+            chip.innerHTML = `<span>${s.levelLabel}</span><span class="stress-bar"><i style="width:${Math.min(100, s.stress)}%"></i></span>`;
+        }
+        btn.disabled = !s.coffeeReady;
+        btn.textContent = s.coffeeReady ? '☕ 咖啡' : `☕ ${s.coffeeCooldownLeft}s`;
+        btn.title = s.coffeeReady
+            ? '喝咖啡：−30 压力（60s 冷却）'
+            : `咖啡见底了，${s.coffeeCooldownLeft}s 后才能续杯`;
+    };
+
+    btn.addEventListener('click', () => {
+        const result = drinkCoffee();
+        if (result.ok) {
+            sfx.play('coffee');
+            btn.classList.remove('brewing');
+            void btn.offsetWidth;        // 重启动画
+            btn.classList.add('brewing');
+        }
+        render();
+    });
+
+    let lastRender = 0;
+    const throttledRender = now => {
+        if (now - lastRender < 240) return;
+        lastRender = now;
+        render();
+    };
+    bus.on(EV.CLOCK_TICK, () => throttledRender(performance.now()));
+    bus.on(EV.STRESS_CHANGED, render);
+    bus.on(EV.SESSION_STARTED, render);
+    bus.on(EV.SESSION_ENDED, render);
+    render();
+}
+
+/** 结算补评：把班次结果映射到徽章（幂等，已获得不再发事件） */
+function tryAwardAllForSession(result) {
+    evaluateSessionBadges(result).forEach(id => tryAward(id));
+}
 bus.on(EV.AVATAR_SEATED, ({ view }) => {
     if (radarAvailable()) {
         showPlatformView('radar');
@@ -134,6 +236,8 @@ addComm('atc', '滚轮缩放地图 | ASWD或方向键移动 | 点击播放开始
 addComm('atc', '场景数据自动保存在浏览器本地（localStorage）');
 addComm('atc', '右侧「🎯 班次与评分」→ 开始班次：导演注入无限流量并按目标结算评级（班次内不可回溯时间轴）');
 addComm('atc', '顶部「经营指挥台」→ 招聘/建设/升级/签合同，点「结束今日并结算」推进日次（资金 / 声望 / 实验运行）');
+addComm('atc', 'v1.9 掌机画风：像素小飞机 + 对话框标牌；落地/间隔/复诵都有飘分与星光，达成目标可收集徽章（工具栏 🔊 音效开关）');
+addComm('atc', 'v2.0 空管嘉年华：航班开始运送奇葩货物（螃蟹/国宝/合唱团…），出错会涨压力，手抖时记得喝咖啡，结算有荒诞职称和投诉信');
 
 /** 自动化冒烟测试与调试用只读句柄（装配点导出，业务层不得依赖） */
 window.__ATC__ = {
@@ -164,8 +268,10 @@ window.__ATC__ = {
         weights: SCORE_WEIGHTS,
         hud: hudModel,
         result: sessionResult,
-        scenario: { summary: scenarioSummary, fromLocation: scenarioFromLocation, create: defaultScenario, buildTimeline }
+        scenario: { summary: scenarioSummary, fromLocation: scenarioFromLocation, create: defaultScenario, buildTimeline },
+        badges: { summary: badgeSummary, award: tryAward, evaluate: evaluateSessionBadges }
     },
+    sfx,
     scenarios: { list: scenarioList, get: getBuiltinScenario },
     phrases: { forUnit: phrasesForUnit, fill: fillPhrase },
     readback: {
@@ -224,6 +330,10 @@ window.__ATC__ = {
     multiAirport: () => (managementSummary() || {}).multiAirport || null,
     difficulty: { curve: difficultyCurveFor, DIFFICULTY },
     airports: { get: getAirport },
+    /* v2.0 空管嘉年华：压力 / 奇葩货物 / 荒诞结算内容 */
+    stress: { summary: stressSummary, drink: drinkCoffee },
+    cargo: { list: landedCargoList, of: cargoOf },
+    zany: { title: zanyTitle, letter: complaintLetter, headline: dailyHeadline },
     session: currentSession,
     recordInput,
     clock: clockStats

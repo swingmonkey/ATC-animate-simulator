@@ -21,8 +21,11 @@ export const EVENT_TUNING = Object.freeze({
 });
 
 /**
- * 随机特情（docs/PLAN-v2.md §7.3 的 7 类落点 + 移交/相邻扇区事件）。
+ * 随机特情（docs/PLAN-v2.md §7.3 的 7 类落点 + 移交/相邻扇区事件 + v2.0 荒诞事件）。
  * weight 为相对权重；severity 用于 UI 提示等级；kind 决定 game/events.js 的执行分支。
+ *
+ * v2.0「空管嘉年华」：后 6 条为搞怪事件（参考主题医院式荒诞）——
+ * 它们复用既有指令链路（改航向 / 调速 / 优先落地），不新造平行系统。
  */
 export const EMERGENCY_EVENTS = Object.freeze([
     { id: 'windShift', kind: 'windShift', name: '风变 / 跑道反向', severity: 'warning', weight: 12, brief: '风向突变，需评估跑道反向运行' },
@@ -34,7 +37,14 @@ export const EMERGENCY_EVENTS = Object.freeze([
     { id: 'lowFuel', kind: 'lowFuel', name: '低油量请求直飞', severity: 'danger', weight: 7, brief: '航空器低油量，请求直飞优先落地' },
     { id: 'goAround', kind: 'goAround', name: '进近复飞', severity: 'warning', weight: 12, brief: '机组自行复飞，需重新排序进近' },
     { id: 'handoffTimeout', kind: 'handoffTimeout', name: '移交超时', severity: 'warning', weight: 10, brief: '邻区未接收移交，需协调或保持监视' },
-    { id: 'neighborCall', kind: 'neighborCall', name: '相邻扇区来话', severity: 'info', weight: 11, brief: '相邻扇区通报流量，提示后续协调' }
+    { id: 'neighborCall', kind: 'neighborCall', name: '相邻扇区来话', severity: 'info', weight: 11, brief: '相邻扇区通报流量，提示后续协调' },
+    /* ---- v2.0 荒诞特情（主题医院式整活） ---- */
+    { id: 'crabEscape', kind: 'crabEscape', name: '货舱螃蟹越狱', severity: 'warning', weight: 9, brief: '螃蟹占领驾驶舱门，机长请求保持平稳（严禁急转）' },
+    { id: 'pandaUpgrade', kind: 'pandaUpgrade', name: '国宝要求升舱', severity: 'danger', weight: 7, brief: '机上大熊猫静坐抗议，请求优先落地' },
+    { id: 'ufoSighting', kind: 'ufoSighting', name: '机长目击 UFO', severity: 'warning', weight: 8, brief: '机组正在拍照已偏离航向，需引导归航' },
+    { id: 'spicySnack', kind: 'spicySnack', name: '辣条引发狂欢', severity: 'warning', weight: 8, brief: '全舱欢呼盖过发动机噪声，机长要求复述指令' },
+    { id: 'grannyChoir', kind: 'grannyChoir', name: '大妈合唱团巡航演出', severity: 'info', weight: 7, brief: '合唱团开演出机长听得入迷，已偏离航向 15 度' },
+    { id: 'snakeLoose', kind: 'snakeLoose', name: '蟒蛇逃进货舱夹层', severity: 'danger', weight: 6, brief: '蟒蛇出逃，地勤抄网待命，请求尽快落地' }
 ]);
 
 /** 经营事件（日结算时按 seed 抽取；mods 为对次日经营数值的确定性影响） */

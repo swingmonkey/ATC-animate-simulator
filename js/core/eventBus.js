@@ -152,5 +152,15 @@ export const EV = {
     /** 扇区开启（多扇区拆分）→ 席位面板 / 值班面板 */
     SEAT_OPENED: 'seat:opened',
     /** 扇区关闭（扇区合并）→ 席位面板 / 值班面板 */
-    SEAT_CLOSED: 'seat:closed'
+    SEAT_CLOSED: 'seat:closed',
+
+    /* ---- v1.9 宝可梦画风：徽章收集 / 画面反馈 ---- */
+    /** 获得一枚徽章（game/badges.js）→ 渲染 toast + 音效 + 面板徽章墙 */
+    BADGE_EARNED: 'badge:earned',
+
+    /* ---- v2.0 空管嘉年华：搞怪内容 / 压力 ---- */
+    /** 一架航班带着它的奇葩货物落地（game/cargo.js）→ 飘分「货物送达」 */
+    CARGO_LANDED: 'cargo:landed',
+    /** 压力状态变化（涨到阈值 / 喝咖啡降温）→ HUD / 雷达抖动 */
+    STRESS_CHANGED: 'stress:changed'
 };

@@ -1261,8 +1261,124 @@ const SCRIPT_M2 = `(() => {
     return out;
 })()`;
 
-const SCRIPT_PHASE1_RESULTS = `(async () => {
+/** v1.9 宝可梦画风与趣味系统：飘分/粒子、徽章（补评/幂等/墙）、音效开关、HUD 徽章读数 */
+const SCRIPT_V19 = `(async () => {
     const A = window.__ATC__;
+    const out = {};
+    const effects = await import('./js/render/effects.js');
+
+    /* ① 评分事件 → 飘分 + 落地星光粒子（合成一架机后发 LANDED 事件） */
+    const synth = {
+        id: '__v19fx__', flightNo: 'V19SMK', flow: 'arrival', landed: false, unit: 'APP',
+        altitude: 3000, speed: 250, heading: 90, x: 0, y: 0,
+        displayAltitude: 3000, displaySpeed: 250, displayHeading: 90, displayX: 0, displayY: 0, startTime: 0
+    };
+    A.state.aircraft.push(synth);
+    const before = effects.effectsCount();
+    A.bus.emit(A.EV.SCORE_CHANGED, { event: { kind: 'LANDED', detail: { callsign: 'V19SMK' } } });
+    const after = effects.effectsCount();
+    const idx = A.state.aircraft.indexOf(synth);
+    if (idx >= 0) A.state.aircraft.splice(idx, 1);
+    out.v19FxBefore = JSON.stringify(before);
+    out.v19FxAfter = JSON.stringify(after);
+    out.v19FxOk = after.popups > before.popups && after.particles >= 10;
+
+    /* ② 徽章：结算补评（纯函数）+ 幂等授予 + DOM 徽章墙 */
+    const ids = A.game.badges.evaluate({ landed: 10, streak: 5,
+        counts: { separation: 0, mva: 0, readback: 0 }, grade: 'S' });
+    const awarded = A.game.badges.award('first-landing');
+    const again = A.game.badges.award('first-landing');
+    const sum = A.game.badges.summary();
+    out.v19BadgeIds = ids.join(',');
+    out.v19BadgeEarned = sum.earnedCount;
+    out.v19BadgeOk = ids.indexOf('clean-five') >= 0 && ids.indexOf('streak-five') >= 0
+        && ids.indexOf('no-mva') >= 0 && ids.indexOf('readback-perfect') >= 0
+        && ids.indexOf('flow-ten') >= 0 && ids.indexOf('grade-s') >= 0
+        && sum.total === 7 && sum.earnedCount >= 1
+        && (awarded === null || awarded.id === 'first-landing') && again === null
+        && sum.badges.filter(b => b.owned).length === sum.earnedCount;
+    const chips = document.querySelectorAll('#badge-wall .badge-chip');
+    out.v19BadgeChips = chips.length;
+    out.v19BadgeWallOk = chips.length === 7
+        && document.querySelectorAll('#badge-wall .badge-chip.earned').length >= 1;
+
+    /* ③ HUD 徽章读数 */
+    const hud = A.game.hud();
+    out.v19HudBadge = hud.badgeCount + '/' + hud.badgeTotal;
+    out.v19HudBadgeOk = hud.badgeTotal === 7 && hud.badgeCount >= 1;
+
+    /* ④ 音效开关：默认开启 → 切换关闭（localStorage 标记）→ 再切恢复 */
+    const sfxBefore = A.sfx.enabled;
+    A.sfx.toggle();
+    const off = !A.sfx.enabled && localStorage.getItem('atc_simulator_sfx') === '0';
+    A.sfx.toggle();
+    const on = A.sfx.enabled && localStorage.getItem('atc_simulator_sfx') === '1';
+    out.v19SfxOk = sfxBefore === true && off && on;
+
+    return out;
+})()`;
+/** v2.0 空管嘉年华：货物确定性 / 搞怪特情 / 压力与咖啡 / 荒诞结算内容 */
+const SCRIPT_V20 = `(async () => {
+    const A = window.__ATC__;
+    const out = {};
+
+    /* ① 奇葩货物：同航班号确定性分配（不消耗随机源） */
+    const synth = { id: '__v20__', flightNo: 'V20SMK', landed: false, x: 0, y: 0, displayX: 0, displayY: 0, trail: [] };
+    const c1 = A.cargo.of(synth);
+    const c2 = A.cargo.of(synth);
+    out.v20CargoName = c1 ? c1.name : null;
+    out.v20CargoOk = !!c1 && c1 === c2 && !!c1.icon && !!c1.line
+        && A.cargo.of({ flightNo: 'ZZZ999' }).id !== c1.id;
+
+    /* ② 搞怪特情图鉴：6 条荒诞事件全部在册 */
+    const catalog = A.events.catalog();
+    const zanyIds = ['crabEscape', 'pandaUpgrade', 'ufoSighting', 'spicySnack', 'grannyChoir', 'snakeLoose'];
+    out.v20ZanyCatalog = catalog.emergency.length;
+    out.v20ZanyCatalogOk = zanyIds.every(id => catalog.emergency.some(e => e.id === id))
+        && catalog.emergency.length === 16;
+
+    /* ③ 压力与咖啡：间隔不足 +10 → 落地 −6 → 咖啡 −30 → 冷却拦截 */
+    const beforeStress = A.stress.summary().stress;
+    A.bus.emit(A.EV.SCORE_CHANGED, { event: { kind: 'SEPARATION_BREACH', weight: -15, detail: {} } });
+    const afterBreach = A.stress.summary().stress;
+    A.bus.emit(A.EV.SCORE_CHANGED, { event: { kind: 'LANDED', weight: 0, detail: { callsign: 'V20SMK' } } });
+    const afterLand = A.stress.summary().stress;
+    const firstDrink = A.stress.drink();
+    const cdBlocked = A.stress.drink();
+    const afterCoffee = A.stress.summary();
+    out.v20StressFlow = beforeStress + '>' + afterBreach + '>' + afterLand + '>' + afterCoffee.stress;
+    out.v20StressOk = afterBreach === Math.min(100, beforeStress + 10)
+        && afterLand === Math.max(0, afterBreach - 6)
+        && firstDrink.ok === true
+        && firstDrink.cooldownLeft === 60
+        && afterCoffee.stress === Math.max(0, afterLand - 30)
+        && cdBlocked.ok === false && cdBlocked.cooldownLeft > 0
+        && afterCoffee.coffeeReady === false;
+
+    /* ④ 荒诞结算内容：职称 / 投诉信 / 每日头条（按数据分支） */
+    const t = A.zany.title('S', 0);
+    const letter = A.zany.letter({ grade: 'S', landed: 3 });
+    const letterB = A.zany.letter({ grade: 'B', landed: 3, goAround: 1 });
+    const headline = A.zany.headline({ day: 3, landed: 4 });
+    out.v20ZanyTextOk = !!t && !!t.title && !!t.sub
+        && !!letter.title && !!letter.text
+        && letterB.from !== letter.from
+        && typeof headline === 'string' && headline.indexOf('第 3 日') >= 0;
+
+    /* ⑤ 结算面板：封号 + 投诉信 DOM 渲染 */
+    A.game.end({ reason: 'v2.0 冒烟' });
+    out.v20ResultDomOk = !!document.querySelector('#session-result .result-title')
+        && !!document.querySelector('#session-result .result-letter');
+
+    /* ⑥ 咖啡按钮接线：存在且冷却中置灰 */
+    out.v20CoffeeBtnOk = (() => {
+        const btn = document.getElementById('coffee-btn');
+        return !!btn && btn.disabled === true && /☕/.test(btn.textContent);
+    })();
+
+    return out;
+})()`;
+const SCRIPT_PHASE1_RESULTS = `(async () => {    const A = window.__ATC__;
     const st = A.state;
     const out = {};
     A.game.start({ scenarioId: 'l1-approach-basic' });
@@ -1646,6 +1762,10 @@ async function runSmoke() {
         }
         await win.webContents.executeJavaScript("window.__ATC__.game.end({ reason: '教学截图结束' })");
         Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_AUTO_OPERATIONS));
+        // 阶段十五：v1.9 宝可梦画风与趣味系统（飘分/粒子 · 徽章 · 音效 · HUD 徽章读数）
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_V19));
+        // 阶段十六：v2.0 空管嘉年华（货物 / 搞怪特情 / 压力咖啡 / 荒诞结算）
+        Object.assign(report, await win.webContents.executeJavaScript(SCRIPT_V20));
     } catch (e) {
         pageFailures.push(String((e && e.message) || e));
     }
@@ -1958,6 +2078,19 @@ async function runSmoke() {
         ['多机场焦距：焦点机场与显式编码对齐', report.m2MultiAirportOk === true],
         ['难度曲线随经营天数单调加压', report.m2DifficultyOk === true],
         ['多扇区拆分：进近东西扇 + 区域南北扇（小流量不拆）', report.m2SectorSplitOk === true],
+        /* ---- 第五批（v1.9）：宝可梦画风与趣味系统 ---- */
+        ['v1.9 画面反馈：评分事件生成飘分与落地星光粒子', report.v19FxOk === true],
+        ['v1.9 徽章：结算补评命中六项且授予幂等', report.v19BadgeOk === true],
+        ['v1.9 徽章墙：7 枚徽章渲染且已获得项高亮', report.v19BadgeWallOk === true],
+        ['v1.9 HUD 徽章读数（x/7）', report.v19HudBadgeOk === true],
+        ['v1.9 音效开关：默认开启 + 切换写入 localStorage', report.v19SfxOk === true],
+        /* ---- 第六批（v2.0）：空管嘉年华 ---- */
+        ['v2.0 奇葩货物：同航班号确定性分配', report.v20CargoOk === true],
+        ['v2.0 搞怪特情：6 条荒诞事件在册（共 16 条）', report.v20ZanyCatalogOk === true],
+        ['v2.0 压力与咖啡：出错增压 / 落地降压 / 咖啡冷却', report.v20StressOk === true],
+        ['v2.0 荒诞结算内容：职称 / 投诉信 / 头条按数据分支', report.v20ZanyTextOk === true],
+        ['v2.0 结算面板渲染封号与投诉信', report.v20ResultDomOk === true],
+        ['v2.0 咖啡按钮：存在且冷却中置灰', report.v20CoffeeBtnOk === true],
         ['js/** 无网络上报 API（fetch/XHR/SendBeacon/WebSocket/EventSource）', report.jsNetworkFree === true],
         ['无控制台错误', consoleErrors.length === 0],
         ['无页面级失败', pageFailures.length === 0]

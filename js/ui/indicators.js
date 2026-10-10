@@ -15,6 +15,7 @@ import { PROGRESS_REFRESH_MS } from '../core/constants.js';
 import { getWaypointInfoForAircraft } from '../simulation/index.js';
 import { clearanceText } from '../domain/clearances.js';
 import { unit } from '../data/atcUnits.js';
+import { cargoOf } from '../game/cargo.js';
 import { openAircraftDialog } from './dialogs.js';
 import { focusRadarView } from '../render/views.js';
 import { distanceToAirportKm } from '../domain/airspace.js';
@@ -181,6 +182,7 @@ export function updateProgressList(force = false) {
         }
         const seat = unit(ac.unit || 'ACC');
         const seatText = `${seat.short}${ac.runway ? ` R${ac.runway}` : ''}`;
+        const cargo = cargoOf(ac);
         const div = document.createElement('div');
         div.className = 'progress-item' + (ac.unit && !ac.unit.startsWith(state.activeView) ? ' outside-view' : '');
         div.dataset.unit = ac.unit || 'ACC';
@@ -189,6 +191,7 @@ export function updateProgressList(force = false) {
             <div class="flight-no" style="color:${isSelected ? '#006400' : (ac.landed ? '#94a3b8' : '#1e40af')}">${escapeHtml(ac.flightNo)}${isSelected ? ' ✓' : ''}${ac.landed ? ' 🛬' : ''}</div>
             <div class="info">${escapeHtml(ac.departure)} → ${escapeHtml(ac.destination)} | ${ac.displayAltitude ?? ac.altitude}m | ${ac.displaySpeed ?? ac.speed}kt${escapeHtml(modeText)}${escapeHtml(waypointInfo)}</div>
             <div class="seat-line" style="color:${seat.color}">${escapeHtml(seatText)} · ${escapeHtml(clearanceText(ac))}</div>
+            ${cargo ? `<div class="cargo-line">📦 ${escapeHtml(cargo.name)}</div>` : ''}
         `;
         if (isSelected) { div.style.borderLeftColor = '#006400'; div.style.background = '#f0fff0'; }
         div.style.cursor = 'pointer';

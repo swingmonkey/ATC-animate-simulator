@@ -12,6 +12,10 @@
 import { hudModel } from '../render/hud.js';
 import { startGameSession, endGameSession, sessionResult } from '../game/session.js';
 import { scenarioList } from '../data/scenarios.js';
+import { badgeSummary } from '../game/badges.js';
+import { stressSummary } from '../game/stress.js';
+import { landedCargoList } from '../game/cargo.js';
+import { zanyTitle, complaintLetter } from '../game/zany.js';
 import { escapeHtml } from '../core/dom.js';
 
 /** 绑定按钮（main.js 启动时调用一次） */
@@ -96,6 +100,18 @@ function renderHud(m) {
     `;
 }
 
+/** 徽章墙（口袋式收集；只读 game/badges.js 的快照） */
+function renderBadgeWall() {
+    const box = document.getElementById('badge-wall');
+    if (!box) return;
+    const s = badgeSummary();
+    const last = s.lastId ? s.badges.find(b => b.id === s.lastId) : null;
+    box.innerHTML = s.badges.map(b =>
+        `<span class="badge-chip ${b.owned ? 'earned' : ''}" title="${escapeHtml(b.name)}：${escapeHtml(b.desc)}${b.owned ? '（已获得）' : '（未获得）'}">${escapeHtml(b.icon)}</span>`
+    ).join('')
+        + `<span class="badge-wall-caption">徽章 ${s.earnedCount}/${s.total}${last ? ` · 最近获得「${escapeHtml(last.name)}」` : ' · 落地、连击、零告警、S 评级都能解锁徽章'}</span>`;
+}
+
 /** 结算结果区 */
 function renderResult(box, result) {
     const objRows = result.objectives.items.map(it => `
@@ -108,6 +124,27 @@ function renderResult(box, result) {
         ? result.timeline.map(e => `<li><em>${e.t}s</em> ${escapeHtml(e.text)}${
             e.weight ? `<span class="${e.weight > 0 ? 'ev-good' : 'ev-bad'}">${e.weight > 0 ? '+' : ''}${e.weight}</span>` : ''}</li>`).join('')
         : '<li class="session-hint">本班次无评分事件</li>';
+    const recent = badgeSummary().recent;
+    const badgeRow = recent.length
+        ? `<div class="result-line">本班新获徽章：${recent.map(b => `「${escapeHtml(b.icon)} ${escapeHtml(b.name)}」`).join(' ')}</div>`
+        : '';
+
+    /* v2.0 空管嘉年华：荒诞职称 + 投诉信 + 奇葩货物清单 + 压力峰值 */
+    const title = zanyTitle(result.grade, result.inputs);
+    const letter = complaintLetter(result);
+    const cargoList = landedCargoList();
+    const stress = stressSummary();
+    const carnivalRow = `
+        <div class="result-title">本班封号：<strong class="grade-${escapeHtml(result.grade)}">「${escapeHtml(title.title)}」</strong>
+            <span class="result-title-sub">${escapeHtml(title.sub)}</span></div>
+        <div class="result-letter">
+            <div class="result-letter-head">✉ 投诉信箱 · 来自「${escapeHtml(letter.from)}」</div>
+            <strong>${escapeHtml(letter.title)}</strong>
+            <p>${escapeHtml(letter.text)}</p>
+        </div>
+        ${cargoList.length ? `<div class="result-line">本班运送的奇葩货物：${cargoList.slice(0, 4)
+        .map(c => `${escapeHtml(c.cargo.icon)}「${escapeHtml(c.cargo.name)}」`).join(' ')}${cargoList.length > 4 ? ` 等 ${cargoList.length} 件` : ''}</div>` : ''}
+        <div class="result-line">压力峰值 ${stress.peak}（${stress.peak >= 75 ? '手抖到请喝咖啡' : stress.peak >= 40 ? '略显紧张' : '全程淡定'}）</div>`;
 
     box.classList.remove('hidden');
     box.innerHTML = `
@@ -124,6 +161,8 @@ function renderResult(box, result) {
         + `连击 ${result.streak} · 未复诵 ${result.counts.readback}</div>
         <div class="result-line">结束原因：${escapeHtml(result.reason)} · 跑道 落 `
         + `${escapeHtml((result.runway.land || []).join('/') || '--')} / 起 ${escapeHtml((result.runway.start || []).join('/') || '--')}</div>
+        ${badgeRow}
+        ${carnivalRow}
         <h4>目标达成 ${result.objectives.passed}/${result.objectives.total}</h4>
         <ul class="result-objectives">${objRows}</ul>
         <h4>事件时间轴（最近 ${result.timeline.length} 条）</h4>
@@ -164,4 +203,6 @@ export function updateSessionPanel() {
     if (!resultBox) return;
     if (result) renderResult(resultBox, result);
     else hideResult();
+
+    renderBadgeWall();
 }

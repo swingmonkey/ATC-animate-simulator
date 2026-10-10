@@ -14,9 +14,13 @@ import { state } from '../core/store.js';
 import { AIRPORTS, runwayList, runwayEnd, runwayHeading } from '../data/airports.js';
 import { ATC_UNITS, unitFrequency } from '../data/atcUnits.js';
 import { sectorPlanOf, totalAnnualMovements } from '../domain/management.js';
+import { drawPixelTower, drawPixelWindsock, drawPixelTree } from './pixel.js';
 
 /** 世界坐标中 1 km 对应的绘制长度 */
 const PX_PER_KM = () => kmToPxFixed(1);
+
+/**  airports 图层的墨色描边（与像素精灵统一） */
+const PK_INK_AIRPORTS = '#2b2f4a';
 
 const DEG = Math.PI / 180;
 
@@ -157,6 +161,53 @@ function drawFocusAirportDetails(code, ap) {
     ctx.fillText(`进近 ${unitFrequency('APP', code)}`, ap.x, ap.y + 34 / viewScale);
     ctx.textAlign = 'left';
     ctx.restore();
+
+    drawAirportScenery(code, ap);
+}
+
+/** 焦点机场地物（进近/区域图）：像素控制塔 + 航站楼 + 机库 + 风向袋，比例随地图公里尺度 */
+function drawAirportScenery(code, ap) {
+    const s = PX_PER_KM();
+    const pairs = runwayList(code);
+    const heading = pairs.length ? runwayHeading(runwayEnd(pairs[0], 0)) : 90;
+    if (heading === null) return;
+    const rad = (heading - 90) * Math.PI / 180;
+    const dx = Math.cos(rad), dy = Math.sin(rad);
+    // 垂直于跑道的两个方向：一侧放航站区，一侧放风向袋与草地
+    const sideX = -dy, sideY = dx;
+    const terminalX = ap.x + sideX * s * 0.85 + dx * s * 0.4;
+    const terminalY = ap.y + sideY * s * 0.85 + dy * s * 0.4;
+
+    ctx.save();
+    /* 航站楼：指廊式主体 + 登机桥 + 窗带 */
+    ctx.fillStyle = '#e8e2d2';
+    ctx.strokeStyle = PK_INK_AIRPORTS;
+    ctx.lineWidth = 1 / viewScale;
+    const tw = s * 0.55, th = s * 0.22;
+    ctx.fillRect(terminalX - tw / 2, terminalY - th / 2, tw, th);
+    ctx.strokeRect(terminalX - tw / 2, terminalY - th / 2, tw, th);
+    ctx.fillStyle = '#8ed0e8';
+    for (let i = 0; i < 5; i++) {
+        ctx.fillRect(terminalX - tw / 2 + tw * (0.08 + i * 0.18), terminalY - th / 2 + th * 0.25, tw * 0.1, th * 0.42);
+    }
+    /* 机库 */
+    const hx = terminalX - dx * s * 0.85, hy = terminalY - dy * s * 0.85;
+    ctx.fillStyle = '#c8cdd4';
+    ctx.fillRect(hx - s * 0.16, hy - s * 0.12, s * 0.32, s * 0.24);
+    ctx.strokeRect(hx - s * 0.16, hy - s * 0.12, s * 0.32, s * 0.24);
+    ctx.fillStyle = '#8ed0e8';
+    ctx.fillRect(hx - s * 0.11, hy - s * 0.06, s * 0.22, s * 0.1);
+
+    /* 控制塔与风向袋（跑道另一侧） */
+    drawPixelTower(ap.x - sideX * s * 1.15, ap.y - sideY * s * 1.15, s * 0.62);
+    drawPixelWindsock(ap.x - sideX * s * 0.35 + dx * s * 0.9, ap.y - sideY * s * 0.35 + dy * s * 0.9, s * 0.3);
+
+    /* 草地小树点缀 */
+    for (let i = 0; i < 4; i++) {
+        const a = 0.6 + i * 1.25 + (code.length % 3) * 0.4;
+        drawPixelTree(ap.x + Math.cos(a) * s * 1.9, ap.y + Math.sin(a) * s * 1.9, s * 0.34);
+    }
+    ctx.restore();
 }
 
 /**
@@ -208,14 +259,45 @@ export function drawAirports(profile) {
     const focus = state.focusAirport;
     Object.entries(AIRPORTS).forEach(([code, ap]) => {
         const isFocus = code === focus;
-        const r = isFocus ? 4.5 / viewScale : 3 / viewScale;
-        ctx.save();
-        ctx.fillStyle = isFocus ? '#b45309' : '#475569';
-        ctx.beginPath(); ctx.arc(ap.x, ap.y, r, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.2 / viewScale;
-        ctx.stroke();
-        ctx.restore();
+        if (!isFocus) {
+            /* 非焦点机场：像素双跑道「十字」，一眼认出是机场而非村落 */
+            ctx.save();
+            const rw = 5.5 / viewScale;
+            ctx.strokeStyle = '#5a6480';
+            ctx.lineWidth = 1.8 / viewScale;
+            ctx.lineCap = 'round';
+            for (const a of [Math.PI / 4, -Math.PI / 4]) {
+                ctx.beginPath();
+                ctx.moveTo(ap.x - Math.cos(a) * rw, ap.y - Math.sin(a) * rw);
+                ctx.lineTo(ap.x + Math.cos(a) * rw, ap.y + Math.sin(a) * rw);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.arc(ap.x, ap.y, 2.2 / viewScale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+        if (isFocus) {
+            /* 焦点机场中心点（塔台区圆心） */
+            ctx.save();
+            ctx.fillStyle = '#b45309';
+            ctx.beginPath();
+            ctx.arc(ap.x, ap.y, 4 / viewScale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fffdf2';
+            ctx.lineWidth = 1.4 / viewScale;
+            ctx.stroke();
+            ctx.restore();
+        }
         if (isFocus && profile?.layers.runwayDetail && profile.code !== 'TWR') drawFocusAirportDetails(code, ap);
+        if (isFocus && profile.code === 'TWR') {
+            ctx.save();
+            ctx.fillStyle = '#b45309';
+            ctx.beginPath();
+            ctx.arc(ap.x, ap.y, 4.5 / viewScale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
     });
 }

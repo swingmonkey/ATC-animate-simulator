@@ -1,6 +1,6 @@
 {
   "name": "atc-animate-simulator",
-  "version": "1.8.0",
+  "version": "2.0.0",
   "private": true,
   "description": "空管雷达动画模拟器 —— 零构建纯 ES 模块前端 + Electron 桌面打包",
   "author": "swingmonkey",

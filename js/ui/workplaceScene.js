@@ -137,15 +137,37 @@ function roomDecor(site) {
         <rect x="83" y="415" width="126" height="43" rx="3" fill="#fff7e7" stroke="#46556a" stroke-width="3"/>
         <path d="M96 427 H190 M96 435 H172 M96 443 H182" stroke="#8ab7b7" stroke-width="2"/>
         <text x="146" y="479" text-anchor="middle" class="scene-svg-furniture">值班记录</text>
+        <g class="scene-coffee-machine" transform="translate(196 386)">
+            <rect x="-13" y="0" width="26" height="34" rx="4" fill="#5b6b7a" stroke="#3c4a58" stroke-width="3"/>
+            <rect x="-8" y="5" width="16" height="9" rx="2" fill="#8ed0e8"/>
+            <rect x="-6" y="17" width="12" height="6" rx="2" fill="#d8dce2"/>
+            <circle cx="0" cy="28" r="2.6" fill="#f9c46d"/>
+            <path class="scene-coffee-steam" d="M0 -3 q4 -6 0 -11 q-4 -5 0 -10" fill="none" stroke="#fff8e8" stroke-width="2.5" stroke-linecap="round" opacity=".9"/>
+        </g>
         <rect x="${restX}" y="407" width="${restWidth}" height="88" rx="6" class="scene-rest-area"/>
         <rect x="${restX + 17}" y="430" width="${restWidth - 34}" height="47" rx="5" fill="#c8dfd1" stroke="#526178" stroke-width="3"/>
         <path d="M${restX + 19} 449 H${restX + restWidth - 20}" stroke="#86b7a7" stroke-width="3"/>
         <text x="${restX + restWidth / 2}" y="425" text-anchor="middle" class="scene-svg-furniture">交接休息区</text>
         <g transform="translate(91 331)"><rect x="-14" y="0" width="28" height="24" rx="3" fill="#d08464" stroke="#43546b" stroke-width="3"/><path d="M0 2 Q-30 -13 -16 -31 M0 1 Q30 -18 15 -34 M0 -2 V-42" fill="none" stroke="#4d997b" stroke-width="10" stroke-linecap="round"/></g>
         <g transform="translate(909 331)"><rect x="-14" y="0" width="28" height="24" rx="3" fill="#d08464" stroke="#43546b" stroke-width="3"/><path d="M0 2 Q-28 -12 -16 -30 M0 1 Q28 -18 15 -34 M0 -2 V-42" fill="none" stroke="#4d997b" stroke-width="10" stroke-linecap="round"/></g>
-        <circle cx="916" cy="190" r="20" fill="#fff9e8" stroke="#43546b" stroke-width="5"/><path d="M916 178 V190 L925 196" fill="none" stroke="#43546b" stroke-width="3" stroke-linecap="round"/>
+        <g transform="translate(310 480)">
+            <rect x="-9" y="-16" width="18" height="30" rx="3" fill="#7c8b98" stroke="#41525f" stroke-width="3"/>
+            <rect x="-6" y="-12" width="12" height="14" rx="2" fill="#8ed0e8"/>
+            <rect x="-6" y="5" width="12" height="8" rx="2" fill="#46576d"/>
+        </g>
+        <g transform="translate(600 480)">
+            <rect x="-16" y="-14" width="32" height="26" rx="4" fill="#d9a579" stroke="#475a6e" stroke-width="3"/>
+            <path d="M-16 -14 H16 M-8 -14 V12 M0 -14 V12 M8 -14 V12" stroke="#475a6e" stroke-width="2" opacity=".55"/>
+        </g>
+        <rect x="452" y="150" width="96" height="14" rx="3" fill="#f6e7c8" stroke="#43566b" stroke-width="3"/>
+        <text x="500" y="161" text-anchor="middle" font-size="10" font-weight="800" fill="#3c5369">${escapeHtml(site.short || '现场')} · 安全天数 0</text>
+        <circle cx="916" cy="190" r="20" fill="#fff9e8" stroke="#43566b" stroke-width="5"/><path d="M916 178 V190 L925 196" fill="none" stroke="#43556b" stroke-width="3" stroke-linecap="round"/>
         <rect x="${doorX - 44}" y="510" width="88" height="25" rx="2" fill="#d49c7c" stroke="#45566c" stroke-width="4"/>
         <path d="M${doorX - 29} 523 H${doorX + 25} M${doorX + 15} 517 L${doorX + 25} 523 L${doorX + 15} 529" stroke="#fff9e8" stroke-width="3" fill="none"/>
+        <g class="scene-ceiling-lights" pointer-events="none">
+            <rect x="300" y="26" width="180" height="8" rx="4" fill="#fff3cf" opacity=".9"/>
+            <rect x="540" y="26" width="180" height="8" rx="4" fill="#fff3cf" opacity=".9"/>
+        </g>
     </g>`;
 }
 
