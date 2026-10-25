@@ -16,7 +16,7 @@
     "icon": "python tools/make-icon.py"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^42.11.16",
     "electron-builder": "^25.1.8"
   },
   "build": {
